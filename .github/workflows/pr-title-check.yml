@@ -1,0 +1,31 @@
+name: PR Title Check
+
+on:
+  pull_request:
+    types: [opened, edited, reopened]
+
+jobs:
+  check-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            chore
+            ci
+            build
+          requireScope: false
+          subjectPattern: ^[A-Z].*[a-zA-Z0-9]$
+          subjectPatternError: |
+            O título do PR deve começar com letra maiúscula e não terminar com pontuação/espaço.
+            Exemplo válido: "feat: Add login screen"

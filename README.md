@@ -1,48 +1,72 @@
-# API-6SEM-BACKEND
+# Ingestão de documentos do EverySpec
 
-Backend do **AkaVision** — Classificador de Documentos Técnicos, projeto integrado Fatec SJC × AKAER.
+Scripts que montam a base de documentos do RAG a partir do [EverySpec](https://everyspec.com), uma biblioteca pública de normas e especificações governamentais e militares dos EUA.
 
-## Stack
+Os PDFs e textos gerados **não ficam no repositório**. Cada pessoa gera os dados na própria máquina rodando os scripts abaixo.
 
-- **Linguagem:** Python
-- **Modelo de IA/embeddings:** local, sem chamadas a serviços externos (restrição do projeto)
-- _Framework web e banco de dados a confirmar com o time e documentar aqui assim que definidos_
+## Pré-requisitos
 
-## Como rodar localmente
+Python 3.10 ou mais recente. No Windows, marque **"Add python.exe to PATH"** na instalação.
 
-```bash
-# 1. Clone o repositório (ou entre na pasta, se já estiver como submódulo do API-6SEM)
-git clone https://github.com/DenariusData/API-6SEM-BACKEND.git
-cd API-6SEM-BACKEND
+Instale as dependências:
 
-# 2. Crie e ative um ambiente virtual
-python -m venv .venv
-source .venv/bin/activate      # Linux/Mac
-.venv\Scripts\activate         # Windows
+    python -m pip install requests beautifulsoup4 pymupdf
 
-# 3. Instale as dependências
-pip install -r requirements.txt
+## 1. Baixar os PDFs
 
-# 4. Configure as variáveis de ambiente
-cp .env.example .env
-# edite o .env com os valores da sua máquina
+Rode os comandos a partir desta pasta.
 
-# 5. Rode a aplicação
-# (comando a definir assim que o framework for escolhido)
-```
+Teste rápido (3 documentos):
 
-## Fluxo de contribuição
+    python baixar_everyspec.py --categorias FED-STD --max-por-categoria 3
 
-1. Crie uma branch a partir de `develop`: `feature/nome-da-tarefa`
-2. Commits e título do PR seguem [Conventional Commits](https://www.conventionalcommits.org), em inglês: `feat:`, `fix:`, `docs:`, `chore:`, `test:`
-3. Abra o PR contra `develop` — exige 1 aprovação, CI verde e título validado
-4. Merge sempre via **Squash and merge**
+Amostra padrão (FED-STD, MIL-HDBK e NASA, 20 documentos de cada, leva de 5 a 10 minutos):
 
-## CI
+    python baixar_everyspec.py
 
-O workflow `Backend CI` roda em todo PR/push para `main` e `develop`: instala dependências e executa lint (`ruff`).
+### Opções
 
-## Links
+| Opção | Padrão | O que faz |
+|---|---|---|
+| `--categorias` | `FED-STD MIL-HDBK NASA` | Categorias do site, com o nome como aparece na URL (ex.: `MIL-STD`, `FAA`, `DOE`, `FED_SPECS`) |
+| `--max-por-categoria` | `20` | Quantos PDFs novos baixar por categoria |
+| `--pasta` | `pdfs_everyspec` | Pasta onde os PDFs são salvos |
+| `--atraso` | `2.0` | Segundos entre requisições. Não diminua muito, para não sobrecarregar o site |
+| `--tamanho-max-mb` | `30` | Pula arquivos maiores que esse tamanho |
+| `--incluir-adendos` | desligado | Baixa também notices e amendments, que costumam ter só 1 a 3 páginas |
 
-- Repositório agregador: [API-6SEM](https://github.com/DenariusData/API-6SEM)
-- Frontend: [API-6SEM-FRONTEND](https://github.com/DenariusData/API-6SEM-FRONTEND)
+### Arquivos gerados
+
+    pdfs_everyspec/
+    ├── FED-STD/
+    │   └── FED-STD-3.011136.pdf
+    ├── MIL-HDBK/
+    ├── NASA/
+    └── manifesto.jsonl    (título, categoria e link de origem de cada PDF)
+
+Dá para interromper com Ctrl+C e rodar de novo: o script continua de onde parou e pula o que já está no `manifesto.jsonl`. Para baixar tudo do zero, apague a pasta `pdfs_everyspec`.
+
+## 2. Extrair o texto dos PDFs
+
+Depois de baixar os PDFs:
+
+    python extrair_texto.py
+
+O script lê cada PDF página por página, remove a marca d'água "Downloaded from everyspec.com" e verifica se o PDF tem texto ou é uma digitalização (imagem).
+
+### Arquivos gerados
+
+    textos_extraidos/
+    ├── FED-STD/
+    │   └── FED-STD-3.011136.json    (texto de cada página + metadados do manifesto)
+    ├── MIL-HDBK/
+    ├── NASA/
+    └── relatorio_extracao.csv       (resumo de todos os PDFs, abre no Excel)
+
+PDFs em que mais de 30% das páginas não têm texto são marcados como **PRECISA OCR** no relatório. A pasta `textos_extraidos` não vai para o repositório: recrie rodando o script.
+
+## Problemas comuns
+
+- **"Python was not found"**: o Python não está instalado ou não está no PATH. Reinstale marcando "Add python.exe to PATH" e abra um terminal novo.
+- **"can't open file"**: o terminal está em outra pasta. Use `cd` para entrar na pasta do script antes de rodar.
+- **Erros de `Get-Process` no PowerShell**: foi colado o `PS C:\...>` do começo da linha junto com o comando. Copie só o comando.

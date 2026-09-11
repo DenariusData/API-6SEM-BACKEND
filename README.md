@@ -10,7 +10,7 @@ Python 3.10 ou mais recente. No Windows, marque **"Add python.exe to PATH"** na 
 
 Instale as dependências:
 
-    python -m pip install requests beautifulsoup4 pymupdf
+    python -m pip install requests beautifulsoup4 pymupdf wordfreq wordfreq
 
 ## 1. Baixar os PDFs
 
@@ -64,6 +64,31 @@ O script lê cada PDF página por página, remove a marca d'água "Downloaded fr
     └── relatorio_extracao.csv       (resumo de todos os PDFs, abre no Excel)
 
 PDFs em que mais de 30% das páginas não têm texto são marcados como **PRECISA OCR** no relatório. A pasta `textos_extraidos` não vai para o repositório: recrie rodando o script.
+
+
+## 3. Dividir o texto em chunks
+
+Depois de extrair o texto:
+
+    python gerar_chunks.py
+
+O script usa só as páginas com texto, remove pontilhados de sumário e junta palavras quebradas por hífen. Depois agrupa as linhas em pedaços de até 1500 caracteres (cerca de 350 tokens), repetindo 200 caracteres entre um pedaço e o seguinte para não perder frases cortadas na divisão.
+
+Para mudar o tamanho ou a sobreposição:
+
+    python gerar_chunks.py --tamanho 1000 --sobreposicao 150
+
+### Arquivo gerado
+
+    chunks/
+    └── chunks.jsonl    (um chunk por linha: texto, páginas de início e fim, título e link do documento)
+
+A pasta `chunks` não vai para o repositório: recrie rodando o script.
+
+
+Chunks com menos de 80% de palavras reconhecidas em inglês (texto de OCR ruim) são descartados e salvos em `chunks/descartados.jsonl` para conferência. Para excluir documentos pelo nome, use `--excluir`:
+
+    python gerar_chunks.py --excluir MIL_HDBK_103AA CxP_70000.031897 CxP_70007_RevB_Change001
 
 ## Problemas comuns
 

@@ -1,6 +1,7 @@
 # Dados gerados pelos scripts (recrie rodando os scripts)
 pdfs_everyspec/
 textos_extraidos/
+chunks/
 
 # Python
 __pycache__/

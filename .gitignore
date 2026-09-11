@@ -3,6 +3,10 @@ pdfs_everyspec/
 textos_extraidos/
 chunks/
 
+# Arquivos grandes de dados (compartilhe pelo Google Drive)
+*.npz
+*.dump
+
 # Python
 __pycache__/
 .venv/

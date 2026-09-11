@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.6-pg17
+    container_name: rag-postgres
+    shm_size: 1gb
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: rag
+      POSTGRES_DB: rag
+    ports:
+      - "5432:5432"
+    volumes:
+      - rag_pgdata:/var/lib/postgresql/data
+
+volumes:
+  rag_pgdata:

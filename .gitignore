@@ -1,32 +1,10 @@
+# Dados gerados pelos scripts (recrie rodando os scripts)
+pdfs_everyspec/
+textos_extraidos/
+
+# Python
 __pycache__/
-*.py[cod]
-*$py.class
-*.egg-info/
-.eggs/
-dist/
-build/
-
 .venv/
-venv/
-env/
-ENV/
 
+# Chaves de API
 .env
-.env.*
-!.env.example
-
-.pytest_cache/
-.coverage
-htmlcov/
-.mypy_cache/
-.ruff_cache/
-
-*.sqlite3
-*.db
-
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
-
-*.log

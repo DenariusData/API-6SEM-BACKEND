@@ -5,8 +5,9 @@ Backend do **AkaVision** — Classificador de Documentos Técnicos, projeto inte
 ## Stack
 
 - **Linguagem:** Python
-- **Modelo de IA/embeddings:** local, sem chamadas a serviços externos (restrição do projeto)
-- _Framework web e banco de dados a confirmar com o time e documentar aqui assim que definidos_
+- **Modelos de IA:** locais via Ollama (bge-m3 para embeddings, Llama 3.2 para respostas), sem chamadas a serviços externos (restrição do projeto)
+- **Banco de dados:** PostgreSQL com pgvector, via Docker Compose
+- _Framework web a confirmar com o time e documentar aqui assim que definido_
 
 ## Como rodar localmente
 
@@ -27,9 +28,30 @@ pip install -r requirements.txt
 cp .env.example .env
 # edite o .env com os valores da sua máquina
 
-# 5. Rode a aplicação
+# 5. Suba o banco de dados
+docker compose up -d
+
+# 6. Rode a aplicação
 # (comando a definir assim que o framework for escolhido)
 ```
+
+## Pipeline RAG (EverySpec)
+
+Scripts que baixam as especificações do EverySpec, preparam os textos, geram os embeddings e respondem perguntas citando documento e página.
+
+| Etapa | Script |
+|---|---|
+| Download dos PDFs | `baixar_everyspec.py` |
+| Extração do texto por página | `extrair_texto.py` |
+| Divisão em trechos e filtro de qualidade | `gerar_chunks.py` |
+| Geração dos embeddings pelo Ollama local | `gerar_embeddings.py` |
+| Importação dos embeddings gerados no Colab (`.npz`) | `importar_embeddings.py` |
+| Busca vetorial | `buscar.py` |
+| Resposta com citação das fontes | `responder.py` |
+
+O passo a passo completo está em [docs/pipeline-rag.md](docs/pipeline-rag.md).
+
+PDFs, textos extraídos, trechos e o arquivo `.npz` ficam fora do Git. O `.npz` é compartilhado pelo Google Drive.
 
 ## Fluxo de contribuição
 

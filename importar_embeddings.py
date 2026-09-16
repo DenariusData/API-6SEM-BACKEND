@@ -20,8 +20,15 @@ import time
 import numpy as np
 import psycopg
 
-from gerar_embeddings import (ARQUIVO_CHUNKS, DATABASE_URL, SQL_CRIAR_TABELA, SQL_INSERIR,
-                              ErroOllama, gerar_vetores, linha_banco)
+from gerar_embeddings import (
+    ARQUIVO_CHUNKS,
+    DATABASE_URL,
+    SQL_CRIAR_TABELA,
+    SQL_INSERIR,
+    ErroOllama,
+    gerar_vetores,
+    linha_banco,
+)
 
 SIMILARIDADE_MINIMA = 0.98   # vetores do mesmo modelo devem ser praticamente iguais
 AMOSTRAS = 5

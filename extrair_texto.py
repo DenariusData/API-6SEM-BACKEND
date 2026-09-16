@@ -26,7 +26,7 @@ MIN_CARACTERES = 50   # página com menos texto que isso é considerada "sem tex
 LIMITE_OCR = 0.3      # se mais de 30% das páginas estão sem texto, o PDF é marcado para OCR
 
 # Marca d'água que o EverySpec coloca em todas as páginas
-RE_MARCA_DAGUA = re.compile(r"Downloaded\s+from\s+https?://(www\.)?everyspec\.com", re.I)
+RE_MARCA_DAGUA = re.compile(r"Downloaded\s+from\s+https?://(www\.)?everyspec\.com", re.IGNORECASE)
 
 
 def carregar_manifesto():
@@ -84,7 +84,7 @@ def main():
         meta = metadados.get(relativo, {"titulo": caminho.stem})
         try:
             resultado = processar(caminho, relativo, meta)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"  ERRO        {relativo}: {e}")
             relatorio.append({"arquivo": relativo, "status": f"erro: {e}"})
             continue

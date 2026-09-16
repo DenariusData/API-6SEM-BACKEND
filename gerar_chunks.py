@@ -18,7 +18,7 @@ import argparse
 import json
 import re
 import sys
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 
 try:
@@ -34,7 +34,7 @@ MIN_PALAVRAS_AVALIAR = 20    # com menos palavras que isso, o filtro de qualidad
 
 
 # ----------------------------------------------------------------------------- qualidade
-@lru_cache(maxsize=None)
+@cache
 def palavra_valida(palavra):
     if palavra.isupper():                      # siglas: MIL, HDBK, NASA, CEV...
         return True

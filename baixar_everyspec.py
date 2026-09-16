@@ -35,7 +35,7 @@ USER_AGENT = (
 # Página de detalhe termina com _<id>/  (ex.: FED-STD-595B_5532/)
 RE_DETALHE = re.compile(r"_(\d+)/?$")
 # Notices/amendments/changes costumam ter 1-3 páginas: pouco conteúdo para o RAG
-RE_ADENDO = re.compile(r"\(\s*(NOTICE|AMENDMENT|CHANGE|CHG|VALIDATION|CANC)", re.I)
+RE_ADENDO = re.compile(r"\(\s*(NOTICE|AMENDMENT|CHANGE|CHG|VALIDATION|CANC)", re.IGNORECASE)
 
 
 class BaixadorEverySpec:
@@ -184,7 +184,7 @@ class BaixadorEverySpec:
             return False
 
         # A página lista várias versões; prefere a que tem o mesmo ID da página
-        re_id = re.compile(rf"\.0*{doc_id}\.pdf", re.I)
+        re_id = re.compile(rf"\.0*{doc_id}\.pdf", re.IGNORECASE)
         url_pdf = next((l for l in links if re_id.search(l)), links[0])
         if url_pdf in self.pdfs_feitos:
             return False

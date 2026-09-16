@@ -1,189 +1,70 @@
-# RAG com documentos do EverySpec
+# API-6SEM-BACKEND
 
-Pipeline de RAG (Retrieval-Augmented Generation) que responde perguntas em português com base em normas e especificações técnicas públicas do [EverySpec](https://everyspec.com), citando documento e página.
+Backend do **AkaVision** — Classificador de Documentos Técnicos, projeto integrado Fatec SJC × AKAER.
 
-Os dados (PDFs, textos, chunks e embeddings) **não ficam no repositório**. Cada etapa é recriada pelos scripts abaixo, ou a base pronta pode ser importada de um arquivo exportado (veja "Compartilhar a base pronta").
+## Stack
 
-## Visão geral
+- **Linguagem:** Python
+- **Modelos de IA:** locais via Ollama (bge-m3 para embeddings, Llama 3.2 para respostas), sem chamadas a serviços externos (restrição do projeto)
+- **Banco de dados:** PostgreSQL com pgvector, via Docker Compose
+- _Framework web a confirmar com o time e documentar aqui assim que definido_
 
-| Etapa | Script | Resultado |
-|---|---|---|
-| 1. Baixar PDFs | `baixar_everyspec.py` | pasta `pdfs_everyspec/` |
-| 2. Extrair texto | `extrair_texto.py` | pasta `textos_extraidos/` |
-| 3. Dividir em chunks | `gerar_chunks.py` | `chunks/chunks.jsonl` |
-| 4. Gerar embeddings | `gerar_embeddings.py`, ou Colab + `importar_embeddings.py` | tabela `rag_chunks` no PostgreSQL |
-| 5. Buscar trechos | `buscar.py` | trechos mais parecidos com a pergunta |
-| 6. Responder | `responder.py` | resposta em português com as fontes |
+## Como rodar localmente
 
-Stack: Python, PostgreSQL com pgvector (via Docker) e Ollama, com o modelo `bge-m3` para embeddings e o `llama3.2` para as respostas.
+```bash
+# 1. Clone o repositório (ou entre na pasta, se já estiver como submódulo do API-6SEM)
+git clone https://github.com/DenariusData/API-6SEM-BACKEND.git
+cd API-6SEM-BACKEND
 
-## Pré-requisitos
+# 2. Crie e ative um ambiente virtual
+python -m venv .venv
+source .venv/bin/activate      # Linux/Mac
+.venv\Scripts\activate         # Windows
 
-- **Python 3.10 ou mais recente.** No Windows, marque "Add python.exe to PATH" na instalação.
-- **[Docker Desktop](https://www.docker.com/products/docker-desktop/).** Precisa da virtualização ativada na BIOS e do WSL 2.
-- **[Ollama](https://ollama.com/download).**
+# 3. Instale as dependências
+pip install -r requirements.txt
 
-Dependências Python:
+# 4. Configure as variáveis de ambiente
+cp .env.example .env
+# edite o .env com os valores da sua máquina
 
-    python -m pip install requests beautifulsoup4 pymupdf wordfreq "psycopg[binary]" numpy
+# 5. Suba o banco de dados
+docker compose up -d
 
-Modelos do Ollama:
+# 6. Rode a aplicação
+# (comando a definir assim que o framework for escolhido)
+```
 
-    ollama pull bge-m3
-    ollama pull llama3.2
+## Pipeline RAG (EverySpec)
 
-Banco de dados (PostgreSQL com pgvector):
+Scripts que baixam as especificações do EverySpec, preparam os textos, geram os embeddings e respondem perguntas citando documento e página.
 
-    docker compose up -d
+| Etapa | Script |
+|---|---|
+| Download dos PDFs | `baixar_everyspec.py` |
+| Extração do texto por página | `extrair_texto.py` |
+| Divisão em trechos e filtro de qualidade | `gerar_chunks.py` |
+| Geração dos embeddings pelo Ollama local | `gerar_embeddings.py` |
+| Importação dos embeddings gerados no Colab (`.npz`) | `importar_embeddings.py` |
+| Busca vetorial | `buscar.py` |
+| Resposta com citação das fontes | `responder.py` |
 
-Depois de reiniciar o computador, abra o Docker Desktop e rode `docker compose up -d` de novo. Os dados ficam salvos no volume `rag_pgdata`.
+O passo a passo completo está em [docs/pipeline-rag.md](docs/pipeline-rag.md).
 
-## 1. Baixar os PDFs
+PDFs, textos extraídos, trechos e o arquivo `.npz` ficam fora do Git. O `.npz` é compartilhado pelo Google Drive.
 
-Teste rápido (3 documentos):
+## Fluxo de contribuição
 
-    python baixar_everyspec.py --categorias FED-STD --max-por-categoria 3
+1. Crie uma branch a partir de `develop`: `feature/nome-da-tarefa`
+2. Commits e título do PR seguem [Conventional Commits](https://www.conventionalcommits.org), em inglês: `feat:`, `fix:`, `docs:`, `chore:`, `test:`
+3. Abra o PR contra `develop` — exige 1 aprovação, CI verde e título validado
+4. Merge sempre via **Squash and merge**
 
-Amostra padrão (FED-STD, MIL-HDBK e NASA, 20 documentos de cada, de 5 a 10 minutos):
+## CI
 
-    python baixar_everyspec.py
+O workflow `Backend CI` roda em todo PR/push para `main` e `develop`: instala dependências e executa lint (`ruff`).
 
-| Opção | Padrão | O que faz |
-|---|---|---|
-| `--categorias` | `FED-STD MIL-HDBK NASA` | Categorias do site, com o nome como aparece na URL (ex.: `MIL-STD`, `FAA`, `DOE`) |
-| `--max-por-categoria` | `20` | Quantos PDFs novos baixar por categoria |
-| `--pasta` | `pdfs_everyspec` | Pasta onde os PDFs são salvos |
-| `--atraso` | `2.0` | Segundos entre requisições. Não diminua muito, para não sobrecarregar o site |
-| `--tamanho-max-mb` | `30` | Pula arquivos maiores que esse tamanho |
-| `--incluir-adendos` | desligado | Baixa também notices e amendments, que costumam ter só 1 a 3 páginas |
+## Links
 
-Dá para interromper com Ctrl+C e rodar de novo: o script continua de onde parou, usando o `pdfs_everyspec/manifesto.jsonl`.
-
-## 2. Extrair o texto
-
-    python extrair_texto.py
-
-Lê cada PDF página por página, remove a marca d'água "Downloaded from everyspec.com" e gera `textos_extraidos/relatorio_extracao.csv`. PDFs em que mais de 30% das páginas não têm texto são marcados como **PRECISA OCR**.
-
-## 3. Dividir em chunks
-
-    python gerar_chunks.py --excluir MIL_HDBK_103 MIL-HDBK-103 MIL-HDBK-17-1E MIL-HDBK-17-2E MIL-HDBK-17-3E MIL-HDBK-17B CxP_70000.031897 CxP_70007_RevB_Change001
-
-O script:
-
-- usa só as páginas com texto;
-- remove pontilhados de sumário e junta palavras quebradas por hífen;
-- agrupa o texto em pedaços de até 1500 caracteres (cerca de 660 tokens no bge-m3), repetindo 200 caracteres entre um pedaço e o seguinte;
-- descarta chunks com menos de 80% de palavras reconhecidas em inglês (OCR ruim) e salva esses chunks em `chunks/descartados.jsonl`.
-
-Por que excluir esses documentos:
-
-- **MIL-HDBK-103** (todas as revisões) é uma lista de códigos de microcircuitos. Sozinho, ocupava metade da base e poluía a busca.
-- **Revisões antigas** (MIL-HDBK-17 E/B, CxP_70000 original, CxP_70007 Change001) duplicam o conteúdo das revisões mais novas.
-
-## 4. Gerar os embeddings
-
-Cada chunk vira um vetor de 1024 dimensões com o `bge-m3` e é gravado na tabela `rag_chunks`.
-
-### Opção A: na própria máquina (precisa de uma boa placa de vídeo)
-
-    python gerar_embeddings.py --limite 50
-    python gerar_embeddings.py
-
-Dá para interromper e continuar. Chunks que falharem no Ollama ficam em `chunks/falhas_embedding.jsonl`. Numa GTX 1050 com 2 GB, a velocidade é de cerca de 1 chunk por segundo (várias horas); nesse caso use a opção B.
-
-### Opção B: no Google Colab (GPU gratuita)
-
-1. Em https://colab.research.google.com, crie um notebook e escolha **Ambiente de execução > Alterar o tipo de ambiente de execução > GPU T4**.
-2. Rode cada bloco abaixo numa célula separada.
-
-Célula 1, conferir a GPU:
-
-    !nvidia-smi
-
-Célula 2, enviar o `chunks/chunks.jsonl`:
-
-    from google.colab import files
-    enviado = files.upload()
-
-Célula 3, gerar os embeddings:
-
-    !pip install -q -U sentence-transformers
-    import json, time
-    import numpy as np
-    from sentence_transformers import SentenceTransformer
-
-    chunks = [json.loads(linha) for linha in open("chunks.jsonl", encoding="utf-8") if linha.strip()]
-    ids = [c["id"] for c in chunks]
-    textos = [c["texto"] for c in chunks]
-
-    modelo = SentenceTransformer("BAAI/bge-m3", device="cuda")
-    modelo.half()
-    modelo.max_seq_length = 1024
-
-    inicio = time.time()
-    vetores = modelo.encode(textos, batch_size=32, normalize_embeddings=True,
-                            show_progress_bar=True, convert_to_numpy=True)
-    print(f"{vetores.shape[0]} vetores em {(time.time() - inicio) / 60:.1f} min")
-
-Célula 4, salvar e baixar:
-
-    np.savez("embeddings_bge_m3.npz", ids=np.array(ids), vetores=vetores.astype(np.float32))
-    files.download("embeddings_bge_m3.npz")
-
-3. Coloque o `embeddings_bge_m3.npz` na pasta do projeto e importe:
-
-    python importar_embeddings.py embeddings_bge_m3.npz
-
-Antes de gravar, o script compara amostras dos vetores do Colab com os do Ollama local e só importa se a similaridade for de pelo menos 0.98. Isso garante que as perguntas, convertidas pelo Ollama, fiquem no mesmo espaço dos chunks.
-
-## 5. Testar a busca
-
-    python buscar.py "Quanto tempo a Orion deve manter a tripulação viva sem pressurização?"
-
-Mostra os 5 trechos mais parecidos, com documento, páginas e similaridade. Para pergunta em português e documento em inglês, similaridades entre 0.6 e 0.75 são normais.
-
-## 6. Responder perguntas
-
-    python responder.py "Quanto tempo a Orion deve manter a tripulação viva sem pressurização?" --k 3 --mostrar-trechos
-
-Busca os trechos, envia ao `llama3.2` com a instrução de responder em português, usar só os trechos e citar as fontes como [1], [2]. A resposta aparece aos poucos e, no final, a lista de fontes.
-
-| Opção | Padrão | O que faz |
-|---|---|---|
-| `--k` | `5` | Quantos trechos enviar ao LLM. Use `3` em PCs com pouca memória |
-| `--modelo` | `llama3.2` | LLM do Ollama. Em PCs com pouca memória de vídeo, use `llama3.2:1b` |
-| `--mostrar-trechos` | desligado | Mostra os trechos enviados, para conferir a resposta |
-
-Antes de a resposta começar, o modelo precisa ler os trechos. Em máquinas modestas isso pode levar alguns minutos.
-
-## Compartilhar a base pronta
-
-Os embeddings só precisam ser gerados uma vez. Para levar a base a outro computador, exporte a tabela (no PowerShell, na máquina que já tem a base):
-
-    docker exec rag-postgres pg_dump -U rag -d rag -t rag_chunks -Fc -f /tmp/rag_chunks.dump
-    docker cp rag-postgres:/tmp/rag_chunks.dump ./rag_chunks.dump
-
-Compartilhe o `rag_chunks.dump` pelo Google Drive. No outro computador, com o Docker e o Ollama (`bge-m3` e `llama3.2`) prontos:
-
-    docker compose up -d
-    docker exec rag-postgres psql -U rag -d rag -c "CREATE EXTENSION IF NOT EXISTS vector;"
-    docker cp rag_chunks.dump rag-postgres:/tmp/rag_chunks.dump
-    docker exec rag-postgres pg_restore -U rag -d rag --no-owner /tmp/rag_chunks.dump
-    docker exec rag-postgres psql -U rag -d rag -c "SELECT count(*) FROM rag_chunks;"
-
-Nesse caso não é preciso baixar os PDFs nem rodar as etapas 1 a 4.
-
-## Limitações conhecidas
-
-- **Tabelas perdem a estrutura** na extração: os valores viram uma lista solta. Perguntas sobre valores específicos de tabelas podem ter respostas fracas.
-- **PDFs só com imagem** (digitalizados sem texto) ficam de fora, porque ainda não há OCR.
-- **O `llama3.2` é lento** em placas de vídeo com 2 GB. O `llama3.2:1b` é mais rápido, mas escreve respostas mais simples.
-- **As respostas ainda não foram avaliadas** com um conjunto de perguntas de teste.
-
-## Problemas comuns
-
-- **"Python was not found"**: reinstale o Python marcando "Add python.exe to PATH" e abra um terminal novo.
-- **"can't open file"**: o terminal está em outra pasta. Use `cd` para entrar na pasta do projeto.
-- **Comando não reconhecido logo depois de instalar algo** (ollama, docker): feche e abra o terminal (ou o VS Code inteiro).
-- **Erros de
+- Repositório agregador: [API-6SEM](https://github.com/DenariusData/API-6SEM)
+- Frontend: [API-6SEM-FRONTEND](https://github.com/DenariusData/API-6SEM-FRONTEND)

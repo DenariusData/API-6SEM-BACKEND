@@ -1,15 +1,83 @@
-# Dados gerados pelos scripts (recrie rodando os scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+
+.venv/
+venv/
+env/
+ENV/
+
+.env
+.env.*
+!.env.example
+
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+*.sqlite3
+*.db
+
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+*.log
+
+# Dados gerados pelos scripts do pipeline RAG (recrie rodando os scripts)
 pdfs_everyspec/
 textos_extraidos/
 chunks/
 
-# Arquivos grandes de dados (compartilhe pelo Google Drive)
+# Arquivos grandes de dados (compartilhados pelo Google Drive)
 *.npz
 *.dump
-
-# Python
+EOFcat > .gitignore << 'EOF'
 __pycache__/
-.venv/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
 
-# Chaves de API
+.venv/
+venv/
+env/
+ENV/
+
 .env
+.env.*
+!.env.example
+
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+*.sqlite3
+*.db
+
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+*.log
+
+# Dados gerados pelos scripts do pipeline RAG (recrie rodando os scripts)
+pdfs_everyspec/
+textos_extraidos/
+chunks/
+
+# Arquivos grandes de dados (compartilhados pelo Google Drive)
+*.npz
+*.dump

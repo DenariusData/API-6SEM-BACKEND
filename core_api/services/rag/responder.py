@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Responde perguntas com base nos documentos (RAG): busca os trechos mais parecidos no PostgreSQL
 e pede ao LLM do Ollama uma resposta em português, citando de onde veio cada informação.

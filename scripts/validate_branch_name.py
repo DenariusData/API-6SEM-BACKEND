@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Valida o formato do nome da branch atual.
 
@@ -12,6 +11,7 @@ Exemplos válidos:
 Sem o código AKA-XX, o Jira não linka o commit/PR com a tarefa e o
 histórico de desenvolvimento se perde no board.
 """
+
 import re
 import subprocess
 import sys

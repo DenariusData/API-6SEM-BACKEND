@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Testa a busca vetorial: mostra os chunks mais parecidos com uma pergunta (ainda sem LLM).
 

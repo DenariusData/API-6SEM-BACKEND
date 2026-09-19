@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Divide os textos extraídos em pedaços (chunks) para o RAG, descartando texto ilegível.
 

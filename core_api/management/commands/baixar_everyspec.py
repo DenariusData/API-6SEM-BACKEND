@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Baixa uma amostra de PDFs do EverySpec (https://everyspec.com) para testar um RAG.
 

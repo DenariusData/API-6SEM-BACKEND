@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Extrai o texto dos PDFs baixados e identifica quais precisam de OCR.
 

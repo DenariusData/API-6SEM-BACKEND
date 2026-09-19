@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Importa no PostgreSQL os embeddings gerados em outra máquina (por exemplo, no Google Colab).
 

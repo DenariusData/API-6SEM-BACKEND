@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Gera os embeddings dos chunks com o Ollama e grava tudo no PostgreSQL (pgvector).
 

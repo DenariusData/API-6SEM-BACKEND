@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Valida o formato da mensagem de commit.
 
@@ -16,6 +15,7 @@ Exemplos INVÁLIDOS (rejeitados de propósito):
 Sem o AKA-XX, o Jira não linka o commit/PR com a tarefa e o histórico
 de desenvolvimento se perde no board.
 """
+
 import re
 import sys
 

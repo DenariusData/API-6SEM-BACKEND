@@ -53,7 +53,7 @@ def main():
         return 0
 
     if not PADRAO_COM_TASK.match(primeira_linha):
-        print("\n❌ Mensagem de commit fora do padrão.\n")
+        print("\n[ERRO] Mensagem de commit fora do padrão.\n")
         print(f'   Recebido: "{primeira_linha}"\n')
         print("   Formato esperado: <tipo>: AKA-<numero> <descrição>")
         print(f"   Tipos aceitos: {', '.join(TIPOS_VALIDOS)}\n")

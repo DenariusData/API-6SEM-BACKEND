@@ -18,7 +18,6 @@ import time
 
 import numpy as np
 import psycopg
-
 from gerar_embeddings import (
     ARQUIVO_CHUNKS,
     DATABASE_URL,

@@ -182,9 +182,10 @@ def main():
     )
     print(f"  {'aprovados':>9} {'descartados':>11}  documento")
 
-    with caminho_saida.open("w", encoding="utf-8") as saida, caminho_descartados.open(
-        "w", encoding="utf-8"
-    ) as descartados:
+    with (
+        caminho_saida.open("w", encoding="utf-8") as saida,
+        caminho_descartados.open("w", encoding="utf-8") as descartados,
+    ):
         for caminho in arquivos:
             doc = json.loads(caminho.read_text(encoding="utf-8"))
             arquivo = (

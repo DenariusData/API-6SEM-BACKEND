@@ -1,0 +1,25 @@
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+exclude = [
+    ".git",
+    "__pycache__",
+    "migrations",
+    "venv",
+    ".venv",
+]
+
+[tool.ruff.lint]
+# E = pycodestyle, F = pyflakes, I = isort (ordenação de import)
+select = ["E", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+"core_api/models/__init__.py" = ["F401"]
+"core_api/admin.py" = ["F401"]
+# scripts herdados do PR original de RAG, ainda não refatorados em services —
+# TODO: remover esta isenção quando forem reescritos (ver AKA-XX)
+"core_api/management/commands/*.py" = ["E501"]
+"core_api/services/rag/*.py" = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"

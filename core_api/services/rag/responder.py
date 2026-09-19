@@ -38,10 +38,14 @@ def ollama(caminho, dados, **kwargs):
     try:
         r = requests.post(f"{OLLAMA_URL}{caminho}", json=dados, timeout=600, **kwargs)
     except requests.ConnectionError:
-        sys.exit(f"\nNão consegui conectar ao Ollama em {OLLAMA_URL}. Confira se ele está aberto.")
+        sys.exit(
+            f"\nNão consegui conectar ao Ollama em {OLLAMA_URL}. Confira se ele está aberto."
+        )
     if r.status_code != 200:
-        sys.exit(f"\nErro do Ollama ({r.status_code}): {r.text[:300]}\n"
-                 f"Se o modelo não foi encontrado, baixe com: ollama pull {dados.get('model')}")
+        sys.exit(
+            f"\nErro do Ollama ({r.status_code}): {r.text[:300]}\n"
+            f"Se o modelo não foi encontrado, baixe com: ollama pull {dados.get('model')}"
+        )
     return r
 
 
@@ -67,12 +71,20 @@ def formatar_paginas(p1, p2):
 
 def main():
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    ap = argparse.ArgumentParser(description="Responde perguntas com base nos documentos.")
+    ap = argparse.ArgumentParser(
+        description="Responde perguntas com base nos documentos."
+    )
     ap.add_argument("pergunta")
     ap.add_argument("--k", type=int, default=5, help="quantos trechos enviar ao LLM")
-    ap.add_argument("--modelo", default="llama3.2", help="LLM do Ollama que escreve a resposta")
+    ap.add_argument(
+        "--modelo", default="llama3.2", help="LLM do Ollama que escreve a resposta"
+    )
     ap.add_argument("--modelo-embedding", default="bge-m3")
-    ap.add_argument("--mostrar-trechos", action="store_true", help="mostra os trechos enviados ao LLM")
+    ap.add_argument(
+        "--mostrar-trechos",
+        action="store_true",
+        help="mostra os trechos enviados ao LLM",
+    )
     args = ap.parse_args()
 
     trechos = buscar_trechos(args.pergunta, args.k, args.modelo_embedding)
@@ -87,8 +99,14 @@ def main():
     if args.mostrar_trechos:
         print("=== Trechos enviados ao LLM ===")
         for n, (documento, _, _, p1, p2, texto, similaridade) in enumerate(trechos, 1):
-            print(f"\n[{n}] similaridade {similaridade:.3f} | {documento} ({formatar_paginas(p1, p2)})")
-            print(textwrap.indent(textwrap.fill(" ".join(texto.split())[:300], 100), "    "))
+            print(
+                f"\n[{n}] similaridade {similaridade:.3f} | {documento} ({formatar_paginas(p1, p2)})"
+            )
+            print(
+                textwrap.indent(
+                    textwrap.fill(" ".join(texto.split())[:300], 100), "    "
+                )
+            )
         print()
 
     print(f'Pergunta: "{args.pergunta}"\n')
@@ -96,14 +114,21 @@ def main():
 
     mensagens = [
         {"role": "system", "content": PROMPT_SISTEMA},
-        {"role": "user", "content": f"Trechos dos documentos:\n\n{contexto}\n\nPergunta: {args.pergunta}"},
+        {
+            "role": "user",
+            "content": f"Trechos dos documentos:\n\n{contexto}\n\nPergunta: {args.pergunta}",
+        },
     ]
-    resposta = ollama("/api/chat", {
-        "model": args.modelo,
-        "messages": mensagens,
-        "stream": True,
-        "options": {"temperature": 0.1, "num_ctx": 4096},
-    }, stream=True)
+    resposta = ollama(
+        "/api/chat",
+        {
+            "model": args.modelo,
+            "messages": mensagens,
+            "stream": True,
+            "options": {"temperature": 0.1, "num_ctx": 4096},
+        },
+        stream=True,
+    )
 
     # A resposta chega aos poucos, como num chat
     for linha in resposta.iter_lines():

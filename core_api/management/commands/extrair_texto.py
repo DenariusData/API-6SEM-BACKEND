@@ -22,11 +22,15 @@ import pymupdf
 
 PASTA_PDFS = Path("pdfs_everyspec")
 PASTA_SAIDA = Path("textos_extraidos")
-MIN_CARACTERES = 50   # página com menos texto que isso é considerada "sem texto" (imagem)
-LIMITE_OCR = 0.3      # se mais de 30% das páginas estão sem texto, o PDF é marcado para OCR
+MIN_CARACTERES = (
+    50  # página com menos texto que isso é considerada "sem texto" (imagem)
+)
+LIMITE_OCR = 0.3  # se mais de 30% das páginas estão sem texto, o PDF é marcado para OCR
 
 # Marca d'água que o EverySpec coloca em todas as páginas
-RE_MARCA_DAGUA = re.compile(r"Downloaded\s+from\s+https?://(www\.)?everyspec\.com", re.IGNORECASE)
+RE_MARCA_DAGUA = re.compile(
+    r"Downloaded\s+from\s+https?://(www\.)?everyspec\.com", re.IGNORECASE
+)
 
 
 def carregar_manifesto():
@@ -91,24 +95,32 @@ def main():
 
         destino = PASTA_SAIDA / Path(relativo).with_suffix(".json")
         destino.parent.mkdir(parents=True, exist_ok=True)
-        destino.write_text(json.dumps(resultado, ensure_ascii=False, indent=2), encoding="utf-8")
+        destino.write_text(
+            json.dumps(resultado, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
         status = "PRECISA OCR" if resultado["precisa_ocr"] else "ok"
         n_sem = len(resultado["paginas_sem_texto"])
-        print(f"  {status:<11} {resultado['total_paginas']:>4} págs ({n_sem} sem texto)  {relativo}")
-        relatorio.append({
-            "arquivo": relativo,
-            "status": status,
-            "total_paginas": resultado["total_paginas"],
-            "paginas_sem_texto": n_sem,
-            "titulo": resultado.get("titulo", ""),
-        })
+        print(
+            f"  {status:<11} {resultado['total_paginas']:>4} págs ({n_sem} sem texto)  {relativo}"
+        )
+        relatorio.append(
+            {
+                "arquivo": relativo,
+                "status": status,
+                "total_paginas": resultado["total_paginas"],
+                "paginas_sem_texto": n_sem,
+                "titulo": resultado.get("titulo", ""),
+            }
+        )
 
     PASTA_SAIDA.mkdir(exist_ok=True)
     caminho_csv = PASTA_SAIDA / "relatorio_extracao.csv"
     campos = ["arquivo", "status", "total_paginas", "paginas_sem_texto", "titulo"]
     with caminho_csv.open("w", newline="", encoding="utf-8-sig") as f:
-        escritor = csv.DictWriter(f, fieldnames=campos, delimiter=";", extrasaction="ignore")
+        escritor = csv.DictWriter(
+            f, fieldnames=campos, delimiter=";", extrasaction="ignore"
+        )
         escritor.writeheader()
         escritor.writerows(relatorio)
 

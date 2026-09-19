@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Gera os embeddings dos chunks com o Ollama e grava tudo no PostgreSQL (pgvector).
 
@@ -66,14 +65,22 @@ class ErroOllama(Exception):
 
 def gerar_vetores(textos, modelo):
     try:
-        r = requests.post(f"{OLLAMA_URL}/api/embed", json={"model": modelo, "input": textos}, timeout=300)
+        r = requests.post(
+            f"{OLLAMA_URL}/api/embed",
+            json={"model": modelo, "input": textos},
+            timeout=300,
+        )
     except requests.ConnectionError:
-        sys.exit(f"\nNão consegui conectar ao Ollama em {OLLAMA_URL}. Confira se ele está aberto.")
+        sys.exit(
+            f"\nNão consegui conectar ao Ollama em {OLLAMA_URL}. Confira se ele está aberto."
+        )
     if r.status_code != 200:
         raise ErroOllama(f"HTTP {r.status_code}: {r.text[:300]}")
     vetores = r.json().get("embeddings", [])
     if len(vetores) != len(textos):
-        raise ErroOllama("o Ollama devolveu uma quantidade de vetores diferente da enviada")
+        raise ErroOllama(
+            "o Ollama devolveu uma quantidade de vetores diferente da enviada"
+        )
     for v in vetores:
         if not all(math.isfinite(x) for x in v):
             raise ErroOllama("vetor com valores inválidos (NaN)")
@@ -96,48 +103,78 @@ def processar_lote(lote, modelo):
             falhas.append((c, str(e)))
     if not ok:
         # Se nenhum chunk do lote funcionou, o problema não é o texto: é o Ollama
-        sys.exit(f"\nO Ollama falhou em todos os chunks do lote. Último erro:\n{falhas[-1][1]}")
+        sys.exit(
+            f"\nO Ollama falhou em todos os chunks do lote. Último erro:\n{falhas[-1][1]}"
+        )
     return ok, falhas
 
 
 def linha_banco(c, vetor, modelo):
     return (
-        c["id"], c["documento"], c.get("titulo"), c.get("categoria"), c.get("url_pdf"),
-        c.get("pagina_inicio"), c.get("pagina_fim"), c.get("chunk"), c.get("qualidade"),
-        c["texto"], modelo, "[" + ",".join(f"{x:.7g}" for x in vetor) + "]",
+        c["id"],
+        c["documento"],
+        c.get("titulo"),
+        c.get("categoria"),
+        c.get("url_pdf"),
+        c.get("pagina_inicio"),
+        c.get("pagina_fim"),
+        c.get("chunk"),
+        c.get("qualidade"),
+        c["texto"],
+        modelo,
+        "[" + ",".join(f"{x:.7g}" for x in vetor) + "]",
     )
 
 
 def formatar_tempo(segundos):
     minutos = int(segundos // 60)
-    return f"{minutos // 60}h{minutos % 60:02d}min" if minutos >= 60 else f"{minutos}min{int(segundos % 60):02d}s"
+    return (
+        f"{minutos // 60}h{minutos % 60:02d}min"
+        if minutos >= 60
+        else f"{minutos}min{int(segundos % 60):02d}s"
+    )
 
 
 def main():
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    ap = argparse.ArgumentParser(description="Gera embeddings dos chunks e grava no PostgreSQL.")
+    ap = argparse.ArgumentParser(
+        description="Gera embeddings dos chunks e grava no PostgreSQL."
+    )
     ap.add_argument("--modelo", default="bge-m3", help="modelo de embedding do Ollama")
-    ap.add_argument("--lote", type=int, default=16, help="chunks enviados ao Ollama por vez")
-    ap.add_argument("--limite", type=int, default=0, help="processa só N chunks novos (0 = todos)")
-    ap.add_argument("--recriar", action="store_true",
-                    help="APAGA a tabela rag_chunks e começa do zero (use ao trocar de modelo)")
+    ap.add_argument(
+        "--lote", type=int, default=16, help="chunks enviados ao Ollama por vez"
+    )
+    ap.add_argument(
+        "--limite", type=int, default=0, help="processa só N chunks novos (0 = todos)"
+    )
+    ap.add_argument(
+        "--recriar",
+        action="store_true",
+        help="APAGA a tabela rag_chunks e começa do zero (use ao trocar de modelo)",
+    )
     args = ap.parse_args()
 
     if not ARQUIVO_CHUNKS.exists():
-        sys.exit(f"Arquivo {ARQUIVO_CHUNKS} não encontrado. Rode antes o gerar_chunks.py")
+        sys.exit(
+            f"Arquivo {ARQUIVO_CHUNKS} não encontrado. Rode antes o gerar_chunks.py"
+        )
 
     # 1. Ollama
     try:
         dimensao = len(gerar_vetores(["teste"], args.modelo)[0])
     except ErroOllama as e:
-        sys.exit(f"O Ollama respondeu com erro: {e}\nConfira se o modelo está baixado com: ollama list")
+        sys.exit(
+            f"O Ollama respondeu com erro: {e}\nConfira se o modelo está baixado com: ollama list"
+        )
     print(f"Ollama ok: modelo {args.modelo}, vetores de {dimensao} dimensões")
 
     # 2. PostgreSQL
     try:
         conn = psycopg.connect(DATABASE_URL)
     except psycopg.OperationalError as e:
-        sys.exit(f"Não consegui conectar ao PostgreSQL.\nO container está no ar? Rode: docker compose ps\nDetalhe: {e}")
+        sys.exit(
+            f"Não consegui conectar ao PostgreSQL.\nO container está no ar? Rode: docker compose ps\nDetalhe: {e}"
+        )
 
     try:
         if args.recriar:
@@ -146,10 +183,14 @@ def main():
         conn.execute(SQL_CRIAR_TABELA.format(dim=dimensao))
         conn.commit()
 
-        modelos = [linha[0] for linha in conn.execute("SELECT DISTINCT modelo FROM rag_chunks")]
+        modelos = [
+            linha[0] for linha in conn.execute("SELECT DISTINCT modelo FROM rag_chunks")
+        ]
         if modelos and modelos != [args.modelo]:
-            sys.exit(f"A tabela já tem embeddings do modelo {modelos}. Para trocar para {args.modelo}, "
-                     f"rode com --recriar (isso apaga os embeddings atuais).")
+            sys.exit(
+                f"A tabela já tem embeddings do modelo {modelos}. Para trocar para {args.modelo}, "
+                f"rode com --recriar (isso apaga os embeddings atuais)."
+            )
         ja_gravados = {linha[0] for linha in conn.execute("SELECT id FROM rag_chunks")}
         print(f"PostgreSQL ok: {len(ja_gravados)} chunks já estavam no banco")
 
@@ -158,7 +199,7 @@ def main():
             todos = [json.loads(linha) for linha in f if linha.strip()]
         pendentes = [c for c in todos if c["id"] not in ja_gravados]
         if args.limite:
-            pendentes = pendentes[:args.limite]
+            pendentes = pendentes[: args.limite]
         total = len(pendentes)
         print(f"Chunks para processar agora: {total}\n")
 
@@ -166,16 +207,20 @@ def main():
         falhas_registradas = set()
         if ARQUIVO_FALHAS.exists():
             with ARQUIVO_FALHAS.open(encoding="utf-8") as f:
-                falhas_registradas = {json.loads(linha)["id"] for linha in f if linha.strip()}
+                falhas_registradas = {
+                    json.loads(linha)["id"] for linha in f if linha.strip()
+                }
         gravados = falhas_total = 0
         inicio = time.time()
         for i in range(0, total, args.lote):
-            lote = pendentes[i:i + args.lote]
+            lote = pendentes[i : i + args.lote]
             ok, falhas = processar_lote(lote, args.modelo)
 
             if ok:
                 with conn.cursor() as cur:
-                    cur.executemany(SQL_INSERIR, [linha_banco(c, v, args.modelo) for c, v in ok])
+                    cur.executemany(
+                        SQL_INSERIR, [linha_banco(c, v, args.modelo) for c, v in ok]
+                    )
                 conn.commit()
                 gravados += len(ok)
 
@@ -185,7 +230,12 @@ def main():
                     for c, erro in falhas:
                         print(f"  ! chunk ignorado: {c['id']} ({erro[:80]})")
                         if c["id"] not in falhas_registradas:
-                            f.write(json.dumps({"id": c["id"], "erro": erro}, ensure_ascii=False) + "\n")
+                            f.write(
+                                json.dumps(
+                                    {"id": c["id"], "erro": erro}, ensure_ascii=False
+                                )
+                                + "\n"
+                            )
                             falhas_registradas.add(c["id"])
 
             feitos = gravados + falhas_total
@@ -193,32 +243,45 @@ def main():
                 decorrido = time.time() - inicio
                 taxa = feitos / decorrido if decorrido else 0
                 restante = (total - feitos) / taxa if taxa else 0
-                print(f"  {feitos}/{total} ({feitos / total:.0%}) | {taxa:.1f} chunks/s | "
-                      f"decorrido {formatar_tempo(decorrido)} | faltam ~{formatar_tempo(restante)}")
+                print(
+                    f"  {feitos}/{total} ({feitos / total:.0%}) | {taxa:.1f} chunks/s | "
+                    f"decorrido {formatar_tempo(decorrido)} | faltam ~{formatar_tempo(restante)}"
+                )
 
         # 5. Índice de busca (só quando todos os chunks do arquivo estiverem no banco)
         no_banco = conn.execute("SELECT count(*) FROM rag_chunks").fetchone()[0]
         faltando = len(todos) - no_banco - falhas_total
         indice_existe = conn.execute(
-            "SELECT 1 FROM pg_indexes WHERE indexname = 'rag_chunks_embedding_idx'").fetchone()
+            "SELECT 1 FROM pg_indexes WHERE indexname = 'rag_chunks_embedding_idx'"
+        ).fetchone()
         if faltando <= 0 and not indice_existe:
-            print("\nCriando índice HNSW para a busca vetorial (pode levar alguns minutos)...")
+            print(
+                "\nCriando índice HNSW para a busca vetorial (pode levar alguns minutos)..."
+            )
             conn.execute("SET maintenance_work_mem = '512MB'")
-            conn.execute("CREATE INDEX IF NOT EXISTS rag_chunks_embedding_idx "
-                         "ON rag_chunks USING hnsw (embedding vector_cosine_ops)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS rag_chunks_embedding_idx "
+                "ON rag_chunks USING hnsw (embedding vector_cosine_ops)"
+            )
             conn.commit()
             print("Índice pronto.")
         elif faltando <= 0:
             print("\nÍndice de busca já existe.")
         else:
-            print(f"\nAinda faltam {faltando} chunks. O índice será criado quando todos estiverem no banco.")
+            print(
+                f"\nAinda faltam {faltando} chunks. O índice será criado quando todos estiverem no banco."
+            )
 
-        print(f"\nResumo: {gravados} gravados agora | {falhas_total} com falha | {no_banco} no banco no total")
+        print(
+            f"\nResumo: {gravados} gravados agora | {falhas_total} com falha | {no_banco} no banco no total"
+        )
         if falhas_total:
             print(f"Falhas registradas em: {ARQUIVO_FALHAS.resolve()}")
 
     except KeyboardInterrupt:
-        print("\nInterrompido. O que já foi gravado está salvo; rode de novo para continuar.")
+        print(
+            "\nInterrompido. O que já foi gravado está salvo; rode de novo para continuar."
+        )
     finally:
         conn.close()
 

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Baixa uma amostra de PDFs do EverySpec (https://everyspec.com) para testar um RAG.
 
@@ -35,7 +34,9 @@ USER_AGENT = (
 # Página de detalhe termina com _<id>/  (ex.: FED-STD-595B_5532/)
 RE_DETALHE = re.compile(r"_(\d+)/?$")
 # Notices/amendments/changes costumam ter 1-3 páginas: pouco conteúdo para o RAG
-RE_ADENDO = re.compile(r"\(\s*(NOTICE|AMENDMENT|CHANGE|CHG|VALIDATION|CANC)", re.IGNORECASE)
+RE_ADENDO = re.compile(
+    r"\(\s*(NOTICE|AMENDMENT|CHANGE|CHG|VALIDATION|CANC)", re.IGNORECASE
+)
 
 
 class BaixadorEverySpec:
@@ -90,7 +91,9 @@ class BaixadorEverySpec:
             try:
                 r = self.sessao.get(url, timeout=90, **kwargs)
             except requests.RequestException as e:
-                print(f"    ! erro de rede ({e.__class__.__name__}), tentativa {i}/{tentativas}")
+                print(
+                    f"    ! erro de rede ({e.__class__.__name__}), tentativa {i}/{tentativas}"
+                )
                 time.sleep(5 * i)
                 continue
             if r.status_code == 200:
@@ -185,7 +188,7 @@ class BaixadorEverySpec:
 
         # A página lista várias versões; prefere a que tem o mesmo ID da página
         re_id = re.compile(rf"\.0*{doc_id}\.pdf", re.IGNORECASE)
-        url_pdf = next((l for l in links if re_id.search(l)), links[0])
+        url_pdf = next((link for link in links if re_id.search(link)), links[0])
         if url_pdf in self.pdfs_feitos:
             return False
 
@@ -224,7 +227,9 @@ class BaixadorEverySpec:
         with r:
             tamanho = int(r.headers.get("Content-Length") or 0)
             if tamanho > self.tamanho_max:
-                print(f"    - pulado: {tamanho / 1e6:.1f} MB (acima de --tamanho-max-mb)")
+                print(
+                    f"    - pulado: {tamanho / 1e6:.1f} MB (acima de --tamanho-max-mb)"
+                )
                 return False
 
             blocos = r.iter_content(chunk_size=64 * 1024)
@@ -239,8 +244,12 @@ class BaixadorEverySpec:
                         href = tag.get("href") or tag.get("src") or ""
                         if ".pdf" in href.lower():
                             alvo = urljoin(url, href)
-                            return self._baixar_arquivo(alvo, destino, referer=url, profundidade=1)
-                print(f"    ! resposta não é PDF ({r.headers.get('Content-Type')}): {url}")
+                            return self._baixar_arquivo(
+                                alvo, destino, referer=url, profundidade=1
+                            )
+                print(
+                    f"    ! resposta não é PDF ({r.headers.get('Content-Type')}): {url}"
+                )
                 return False
 
             destino.parent.mkdir(parents=True, exist_ok=True)
@@ -262,19 +271,32 @@ class BaixadorEverySpec:
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Baixa uma amostra de PDFs do EverySpec para testes de RAG.")
-    ap.add_argument("--categorias", nargs="+", default=["FED-STD", "MIL-HDBK", "NASA"],
-                    help="nome como aparece na URL: FED-STD, MIL-HDBK, MIL-STD, NASA, FAA, DOE, "
-                         "FED_SPECS, DATA-ITEM-DESC-DIDs, MS-Specs...")
+    ap = argparse.ArgumentParser(
+        description="Baixa uma amostra de PDFs do EverySpec para testes de RAG."
+    )
+    ap.add_argument(
+        "--categorias",
+        nargs="+",
+        default=["FED-STD", "MIL-HDBK", "NASA"],
+        help="nome como aparece na URL: FED-STD, MIL-HDBK, MIL-STD, NASA, FAA, DOE, "
+        "FED_SPECS, DATA-ITEM-DESC-DIDs, MS-Specs...",
+    )
     ap.add_argument("--max-por-categoria", type=int, default=20)
     ap.add_argument("--pasta", default="pdfs_everyspec")
-    ap.add_argument("--atraso", type=float, default=2.0, help="segundos (aprox.) entre requisições")
+    ap.add_argument(
+        "--atraso", type=float, default=2.0, help="segundos (aprox.) entre requisições"
+    )
     ap.add_argument("--tamanho-max-mb", type=float, default=30)
-    ap.add_argument("--incluir-adendos", action="store_true",
-                    help="baixa também NOTICE/AMENDMENT/CHANGE (geralmente só 1-3 páginas)")
+    ap.add_argument(
+        "--incluir-adendos",
+        action="store_true",
+        help="baixa também NOTICE/AMENDMENT/CHANGE (geralmente só 1-3 páginas)",
+    )
     args = ap.parse_args()
 
-    baixador = BaixadorEverySpec(args.pasta, args.atraso, args.tamanho_max_mb, args.incluir_adendos)
+    baixador = BaixadorEverySpec(
+        args.pasta, args.atraso, args.tamanho_max_mb, args.incluir_adendos
+    )
     total = 0
     try:
         for categoria in args.categorias:

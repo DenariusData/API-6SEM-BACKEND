@@ -1,0 +1,52 @@
+exclude: |
+  (?x)^(
+    \.github/workflows/.*|
+    original_documents/.*|
+    .*\.csv
+  )$
+
+repos:
+  # ── Hooks gerais ──────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.yml$
+      - id: end-of-file-fixer
+        exclude: \.yml$
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: debug-statements
+      - id: check-added-large-files
+        args: ['--maxkb=5000']
+      - id: no-commit-to-branch
+        args: [--branch, main, --branch, master]
+
+  # ── Lint + formatação Python (substitui Black + Flake8 + isort) ─
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.8
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # ── Validação da mensagem de commit ──────────────────────────
+  - repo: local
+    hooks:
+      - id: validate-commit-msg
+        name: Validate commit message format
+        language: python
+        entry: python scripts/validate_commit_msg.py
+        stages: [commit-msg]
+        always_run: true
+
+  # ── Validação do nome da branch ──────────────────────────────
+  - repo: local
+    hooks:
+      - id: validate-branch-name
+        name: Validate branch name format
+        language: python
+        entry: python scripts/validate_branch_name.py
+        stages: [pre-commit]
+        always_run: true
+        pass_filenames: false

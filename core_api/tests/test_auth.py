@@ -1,5 +1,7 @@
 import json
-from django.test import TestCase, Client
+
+from django.test import Client, TestCase
+
 from core_api.views.auth_views import UNIFIED_AUTH_ERROR_MSG
 
 
@@ -50,7 +52,9 @@ class AuthTestCase(TestCase):
     def test_login_invalid_password(self):
         response = self.client.post(
             "/api/auth/login/",
-            data=json.dumps({"email": "admin@akaer.com.br", "password": "senha_errada"}),
+            data=json.dumps(
+                {"email": "admin@akaer.com.br", "password": "senha_errada"}
+            ),
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 401)
@@ -60,9 +64,7 @@ class AuthTestCase(TestCase):
     def test_login_nonexistent_user(self):
         response = self.client.post(
             "/api/auth/login/",
-            data=json.dumps(
-                {"email": "desconhecido@akaer.com.br", "password": "123"}
-            ),
+            data=json.dumps({"email": "desconhecido@akaer.com.br", "password": "123"}),
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 401)

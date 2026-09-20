@@ -3,7 +3,8 @@ Serviço de Autenticação SSO e Gestão de Usuários (core_api.services.auth.au
 """
 
 from typing import Dict, List, Optional
-from core_api.models.usuario import PerfilUsuario, Usuario
+
+from core_api.models.usuario import PerfilUsuario
 
 # Usuários de Demonstração pré-cadastrados
 DEMO_USERS_DB: List[Dict] = [

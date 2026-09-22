@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -38,6 +39,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "core_api",
+    "credenciais",
 ]
 
 MIDDLEWARE = [
@@ -76,11 +78,24 @@ WSGI_APPLICATION = "api.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
+        "ENGINE": os.getenv("DEFAULT_DB_ENGINE", "django.db.backends.sqlite3"),
+        "NAME": os.getenv("DEFAULT_DB_NAME", str(BASE_DIR / "db.sqlite3")),
+        "USER": os.getenv("DEFAULT_DB_USER", ""),
+        "PASSWORD": os.getenv("DEFAULT_DB_PASSWORD", ""),
+        "HOST": os.getenv("DEFAULT_DB_HOST", ""),
+        "PORT": os.getenv("DEFAULT_DB_PORT", ""),
+    },
+    "credenciais_db": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("CREDENCIAIS_DB_NAME", "credenciais"),
+        "USER": os.getenv("CREDENCIAIS_DB_USER", "credenciais"),
+        "PASSWORD": os.getenv("CREDENCIAIS_DB_PASSWORD", "credenciais"),
+        "HOST": os.getenv("CREDENCIAIS_DB_HOST", "localhost"),
+        "PORT": os.getenv("CREDENCIAIS_DB_PORT", "5433"),
+    },
 }
 
+DATABASE_ROUTERS = ["credenciais.db_router.CredenciaisRouter"]
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

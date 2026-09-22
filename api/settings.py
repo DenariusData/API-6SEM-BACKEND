@@ -95,11 +95,11 @@ WSGI_APPLICATION = "api.wsgi.application"
 #
 #   "default"    -> banco de NEGÓCIO (documentos, projetos, perfil
 #                    operacional: matrícula/cargo/menus). SQLite em dev.
-#   "contas_db"  -> banco de DADOS PESSOAIS/credenciais (app "credenciais":
+#   "credenciais_db"  -> banco de DADOS PESSOAIS/credenciais (app "credenciais":
 #                    usuario, papel). Postgres com credenciais próprias
-#                    (ver docker-compose.yml, serviço "contas-postgres"),
+#                    (ver docker-compose.yml, serviço "credenciais-postgres"),
 #                    para que um vazamento em um banco não exponha
-#                    automaticamente o outro (ver contas/db_router.py).
+#                    automaticamente o outro (ver credenciais/db_router.py).
 
 DATABASES = {
     "default": {

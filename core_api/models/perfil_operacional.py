@@ -2,9 +2,9 @@
 Perfil operacional do usuário (banco de NEGÓCIO).
 
 Guarda apenas dados funcionais/operacionais da aplicação — NUNCA dados
-pessoais sensíveis (esses ficam em `contas.models.Usuario`, em banco
+pessoais sensíveis (esses ficam em `credenciais.models.Usuario`, em banco
 separado). A ligação entre os dois bancos é feita só pelo valor de
-`usuario_id` (o mesmo uuid do `contas.Usuario.id`); não existe FK física
+`usuario_id` (o mesmo uuid do `credenciais.Usuario.id`); não existe FK física
 entre bancos diferentes, então a composição é feita na camada de serviço
 (`core_api.services.auth.autenticacao`).
 """

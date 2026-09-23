@@ -26,8 +26,8 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - contas_pgdata:/var/lib/postgresql/data
+      - credenciais_pgdata:/var/lib/postgresql/data
 
 volumes:
   rag_pgdata:
-  contas_pgdata:
+  credenciais_pgdata:

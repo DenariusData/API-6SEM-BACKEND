@@ -21,7 +21,7 @@ from core_api.models import PerfilOperacional
 from credenciais.models import Papel, Usuario
 
 MAX_TENTATIVAS_LOGIN = 5
-MINUTOS_BLOQUEIO = 10
+MINUTOS_BLOQUEIO = 15
 
 ERRO_CREDENCIAIS_INVALIDAS = "credenciais_invalidas"
 ERRO_USUARIO_INATIVO = "usuario_inativo"
@@ -29,28 +29,28 @@ ERRO_USUARIO_BLOQUEADO = "usuario_bloqueado"
 
 MENUS_PADRAO_POR_PAPEL = {
     Papel.ENGENHARIA: [
-        "Inicio",
-        "Pesquisa Avancada",
+        "Início",
+        "Pesquisa Avançada",
         "Documentos",
         "Projetos",
         "AI Command Assistant",
         "Solicitar OI",
     ],
     Papel.QUALIDADE: [
-        "Inicio",
-        "Pesquisa Avancada",
+        "Início",
+        "Pesquisa Avançada",
         "Documentos",
-        "Relatorios de Qualidade",
+        "Relatórios de Qualidade",
         "Auditoria & Conformidade",
     ],
     Papel.ADMINISTRADOR: [
-        "Inicio",
-        "Pesquisa Avancada",
+        "Início",
+        "Pesquisa Avançada",
         "Documentos",
         "Projetos",
         "Despachos",
         "Malotes Digitais",
-        "Gestao de Usuarios",
+        "Gestão de Usuários",
         "Importar Arquivos",
         "Classificar Categorias",
         "AI Command Assistant",
@@ -151,7 +151,7 @@ class AuthService:
             cargo=user_data.get("cargo", "Colaborador Akaer"),
             avatar=user_data.get("avatar", "/avatars/default.png"),
             allowed_menus=user_data.get(
-                "allowed_menus", MENUS_PADRAO_POR_PAPEL.get(papel_codigo, ["Inicio"])
+                "allowed_menus", MENUS_PADRAO_POR_PAPEL.get(papel_codigo, ["Início"])
             ),
         )
 
@@ -174,11 +174,12 @@ class AuthService:
             "id": str(usuario.id),
             "email": usuario.email,
             "name": usuario.nome,
-            "role": usuario.papel_id,
+            "role": usuario.papel.descricao,
+            "role_code": usuario.papel_id,
             "matricula": perfil.matricula if perfil else None,
             "cargo": perfil.cargo if perfil else "",
             "avatar": perfil.avatar if perfil else "/avatars/default.png",
-            "allowed_menus": perfil.allowed_menus if perfil else ["Inicio"],
+            "allowed_menus": perfil.allowed_menus if perfil else ["Início"],
             "ativo": usuario.ativo,
             "ultimo_login_em": (
                 usuario.ultimo_login_em.isoformat() if usuario.ultimo_login_em else None

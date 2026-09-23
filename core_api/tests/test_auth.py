@@ -65,7 +65,7 @@ class AuthTestCase(TestCase):
         data = response.json()
         self.assertIn("user", data)
         self.assertIn("token", data)
-        self.assertEqual(data["user"]["role"], "ENGENHARIA")
+        self.assertEqual(data["user"]["role"], "Engenharia")
         self.assertIn("AI Command Assistant", data["user"]["allowed_menus"])
         self.assertIn("Solicitar OI", data["user"]["allowed_menus"])
 
@@ -73,8 +73,8 @@ class AuthTestCase(TestCase):
         response = self._login("qualidade@akaer.com.br", "qual123")
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["user"]["role"], "QUALIDADE")
-        self.assertIn("Relatorios de Qualidade", data["user"]["allowed_menus"])
+        self.assertEqual(data["user"]["role"], "Qualidade")
+        self.assertIn("Relatórios de Qualidade", data["user"]["allowed_menus"])
         self.assertIn("Auditoria & Conformidade", data["user"]["allowed_menus"])
 
     def test_login_success_admin(self):
@@ -82,8 +82,8 @@ class AuthTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         user = data["user"]
-        self.assertEqual(user["role"], "ADMINISTRADOR")
-        self.assertIn("Gestao de Usuarios", user["allowed_menus"])
+        self.assertEqual(user["role"], "Administrador")
+        self.assertIn("Gestão de Usuários", user["allowed_menus"])
         self.assertIn("Importar Arquivos", user["allowed_menus"])
         self.assertIn("Classificar Categorias", user["allowed_menus"])
         self.assertIn("AI Command Assistant", user["allowed_menus"])
@@ -118,7 +118,7 @@ class AuthTestCase(TestCase):
             "/api/auth/me/", HTTP_AUTHORIZATION=f"Bearer {token}"
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["user"]["role"], "ADMINISTRADOR")
+        self.assertEqual(response.json()["user"]["role"], "Administrador")
 
     # -- user_management_view: só Administrador autenticado --
 

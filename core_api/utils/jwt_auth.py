@@ -26,7 +26,7 @@ def generate_token(user: dict) -> str:
     payload = {
         "sub": user["id"],
         "email": user["email"],
-        "role": user["role"],
+        "role": user["role_code"],
         "iat": agora,
         "exp": agora + timedelta(minutes=settings.JWT_EXP_MINUTES),
     }

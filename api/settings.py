@@ -13,8 +13,16 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+# Carrega o .env (se existir) para o ambiente do processo, ANTES de
+# qualquer os.getenv() abaixo. Sem isso, um .env na raiz do projeto é
+# só um arquivo de texto — o Python não lê ele automaticamente.
+load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -22,6 +30,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = "django-insecure-(f%8_n)c8yhv_3s0n*ex6+#l1xy@sv3l+f5y%hs^y(g%sa(-!b"
+
+# JWT usado para autenticar as chamadas da API (core_api.utils.jwt_auth).
+# Em produção, JWT_SECRET DEVE vir de variável de ambiente própria,
+# diferente do SECRET_KEY do Django — nunca reutiliza a mesma chave
+# para dois propósitos de assinatura diferentes.
+JWT_SECRET = os.getenv("JWT_SECRET", SECRET_KEY)
+JWT_EXP_MINUTES = int(os.getenv("JWT_EXP_MINUTES", "60"))
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -75,6 +90,16 @@ WSGI_APPLICATION = "api.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+#
+# Dois bancos fisicamente separados, por design de proteção de dados:
+#
+#   "default"    -> banco de NEGÓCIO (documentos, projetos, perfil
+#                    operacional: matrícula/cargo/menus). SQLite em dev.
+#   "credenciais_db"  -> banco de DADOS PESSOAIS/credenciais (app "credenciais":
+#                    usuario, papel). Postgres com credenciais próprias
+#                    (ver docker-compose.yml, serviço "credenciais-postgres"),
+#                    para que um vazamento em um banco não exponha
+#                    automaticamente o outro (ver credenciais/db_router.py).
 
 DATABASES = {
     "default": {

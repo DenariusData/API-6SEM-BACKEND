@@ -29,28 +29,28 @@ ERRO_USUARIO_BLOQUEADO = "usuario_bloqueado"
 
 MENUS_PADRAO_POR_PAPEL = {
     Papel.ENGENHARIA: [
-        "Inicio",
-        "Pesquisa Avancada",
+        "Início",
+        "Pesquisa Avançada",
         "Documentos",
         "Projetos",
         "AI Command Assistant",
         "Solicitar OI",
     ],
     Papel.QUALIDADE: [
-        "Inicio",
-        "Pesquisa Avancada",
+        "Início",
+        "Pesquisa Avançada",
         "Documentos",
-        "Relatorios de Qualidade",
+        "Relatórios de Qualidade",
         "Auditoria & Conformidade",
     ],
     Papel.ADMINISTRADOR: [
-        "Inicio",
-        "Pesquisa Avancada",
+        "Início",
+        "Pesquisa Avançada",
         "Documentos",
         "Projetos",
         "Despachos",
         "Malotes Digitais",
-        "Gestao de Usuarios",
+        "Gestão de Usuários",
         "Importar Arquivos",
         "Classificar Categorias",
         "AI Command Assistant",
@@ -64,7 +64,7 @@ class AuthService:
     # -- Leitura ---------------------------------------------------------
     @classmethod
     def get_all_users(cls) -> List[Dict]:
-        usuarios = Usuario.objects.using("contas_db").select_related("papel").all()
+        usuarios = Usuario.objects.using("credenciais_db").select_related("papel").all()
         return [cls._compor_usuario(u) for u in usuarios]
 
     @classmethod
@@ -74,7 +74,7 @@ class AuthService:
         except (ValueError, AttributeError, TypeError):
             return None
         usuario = (
-            Usuario.objects.using("contas_db")
+            Usuario.objects.using("credenciais_db")
             .select_related("papel")
             .filter(id=usuario_uuid)
             .first()
@@ -85,7 +85,7 @@ class AuthService:
     def find_by_email(cls, email: str) -> Optional[Usuario]:
         clean_email = email.strip().lower()
         return (
-            Usuario.objects.using("contas_db")
+            Usuario.objects.using("credenciais_db")
             .select_related("papel")
             .filter(email__iexact=clean_email)
             .first()
@@ -128,11 +128,11 @@ class AuthService:
     def create_user(cls, user_data: Dict) -> Dict:
         """
         Cadastra um novo usuario. Grava:
-          - credenciais/identidade em `contas_db` (Usuario)
+          - credenciais/identidade em `credenciais_db` (Usuario)
           - dados operacionais em `default` (PerfilOperacional)
         """
         papel_codigo = user_data.get("role", Papel.ENGENHARIA)
-        papel, _ = Papel.objects.using("contas_db").get_or_create(
+        papel, _ = Papel.objects.using("credenciais_db").get_or_create(
             codigo=papel_codigo, defaults={"descricao": papel_codigo.title()}
         )
 
@@ -142,16 +142,16 @@ class AuthService:
             papel=papel,
         )
         usuario.set_senha(user_data.get("password") or "akaer123")
-        usuario.save(using="contas_db")
+        usuario.save(using="credenciais_db")
 
-        total_usuarios = Usuario.objects.using("contas_db").count()
+        total_usuarios = Usuario.objects.using("credenciais_db").count()
         PerfilOperacional.objects.using("default").create(
             usuario_id=usuario.id,
             matricula=user_data.get("matricula", f"AK-{total_usuarios:05d}"),
             cargo=user_data.get("cargo", "Colaborador Akaer"),
             avatar=user_data.get("avatar", "/avatars/default.png"),
             allowed_menus=user_data.get(
-                "allowed_menus", MENUS_PADRAO_POR_PAPEL.get(papel_codigo, ["Inicio"])
+                "allowed_menus", MENUS_PADRAO_POR_PAPEL.get(papel_codigo, ["Início"])
             ),
         )
 
@@ -161,7 +161,7 @@ class AuthService:
     @classmethod
     def _compor_usuario(cls, usuario: Usuario) -> Dict:
         """
-        Junta, em Python, o registro de credenciais (contas_db) com o
+        Junta, em Python, o registro de credenciais (credenciais_db) com o
         perfil operacional (default). Nunca inclui `senha_hash`.
         """
         perfil = (
@@ -174,11 +174,12 @@ class AuthService:
             "id": str(usuario.id),
             "email": usuario.email,
             "name": usuario.nome,
-            "role": usuario.papel_id,
+            "role": usuario.papel.descricao,
+            "role_code": usuario.papel_id,
             "matricula": perfil.matricula if perfil else None,
             "cargo": perfil.cargo if perfil else "",
             "avatar": perfil.avatar if perfil else "/avatars/default.png",
-            "allowed_menus": perfil.allowed_menus if perfil else ["Inicio"],
+            "allowed_menus": perfil.allowed_menus if perfil else ["Início"],
             "ativo": usuario.ativo,
             "ultimo_login_em": (
                 usuario.ultimo_login_em.isoformat() if usuario.ultimo_login_em else None

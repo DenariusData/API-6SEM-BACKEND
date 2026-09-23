@@ -1,14 +1,11 @@
 # AKA-45 — Modelagem de Dados: Banco de Documentos (AKAER)
-
-> Este documento reflete as respostas da AKAER (Rodadas 1 e 2 — ver `perguntas-respostas-akaer.pdf`). Onde uma decisão do cliente ainda está em aberto, isso é registrado explicitamente na Seção 6, em vez de resolvido por hipótese.
-
 ## 1. Modelagem lógica
 
 ### 1.1 Cadastro e taxonomia
 
 | Entidade | Descrição | Cardinalidade |
 |---|---|---|
-| `Usuario` | Cadastro de quem usa o sistema | 1 Usuario → N Documentos (papéis diferentes: upload, responsável, aprovador) |
+| `PerfilOperacional` | Dados operacionais do usuário (matrícula, cargo, avatar, menus) — identidade/credencial (`Usuario`/`Papel`) vive num banco separado (`credenciais_db`, app `credenciais`, AKA-11 — já implementada), ligada só pelo mesmo UUID, sem FK física entre bancos | 1 PerfilOperacional → N Documentos (papéis diferentes: upload, responsável, aprovador) |
 | `Area` | Nível 1 da hierarquia de classificação | 1 Area → N Categorias |
 | `Categoria` | Nível 2, pertence a uma Area | 1 Categoria → N Subcategorias |
 | `Subcategoria` | Nível 3, pertence a uma Categoria | 1 Subcategoria → N Documentos |
@@ -32,7 +29,7 @@ Não são necessariamente 16 colunas: vários viram FK/relacionamento em vez de 
 | Status (vigente/substituído/cancelado/em revisão) | FK `status` → `status_documento` | Sim |
 | Nível de sigilo | FK `nivel_sigilo_id` (4 níveis) | Sim |
 | Origem/fonte | `documento.origem_fonte` | Sim |
-| Responsável pelo documento | FK `responsavel_id` → `usuario` | Sim |
+| Responsável pelo documento | FK `responsavel_id` → `perfil_operacional` | Sim |
 | Idioma | FK `idioma_codigo` (lookup, não enum) | Sim |
 | Norma/documento relacionado | tabela `documento_relacao` (N:N autorreferenciada) | Quando aplicável |
 | Data de validade | `documento.data_validade` | Quando aplicável |
@@ -83,17 +80,24 @@ Tabela `documento_relacao` (N:N autorreferenciada), com tipos `COMPLEMENTA` / `A
 
 `area.eh_governanca_central` marca a área que recebe pedidos sem categoria/responsável identificável. `solicitacao_documento.area_destino_id` é resolvida dinamicamente pela subcategoria pesquisada; cai na área de governança central só como fallback.
 
-### 1.8 Login / autenticação
+### 1.8 Identidade e login — banco separado (AKA-11, já implementada)
 
-O backend já prevê JWT (`JWT_SECRET` no `.env.example`), que é **stateless** por natureza — por isso não existe tabela de sessão. O que o banco guarda é só a credencial e uma proteção básica contra força bruta, em `usuario`:
-- `senha_hash` — hash da senha (bcrypt/argon2 na aplicação; nunca texto puro, nunca gerado via SQL)
-- `ultimo_login_em`, `tentativas_login_falhas`, `bloqueado_ate` — suporte a lockout temporário após N tentativas falhas (a regra de quantas tentativas/por quanto tempo fica na aplicação, não no banco)
+**Atualização:** a AKA-11 foi implementada e mergeada na `develop` (`feat: AKA-11 Implementando base de dados para login (#8)`), com JWT real (não mais demo em memória). Os nomes abaixo são os nomes reais do código, não mais os nomes de trabalho que este documento usava antes ("banco pessoal" virou o app/banco `credenciais_db`).
 
-Não criamos tabela de refresh token/revogação agora — não foi pedido, e adicionar isso por conta própria seria inventar escopo. Se a aplicação precisar de "logout em todos os dispositivos" antes do JWT expirar, essa tabela entra depois, como evolução pontual.
+| Onde | App Django | Tabelas | O que guarda |
+|---|---|---|---|
+| Banco **`default`** (negócio, este schema) | `core_api` | `perfil_operacional` | `matricula`, `cargo`, `avatar`, `allowed_menus` — dado operacional, não identidade |
+| Banco **`credenciais_db`** (Postgres próprio, porta 5433 no `docker-compose.yml`) | `credenciais` | `papel`, `usuario` | `nome`, `email`, `senha_hash`, `ultimo_login_em`, `tentativas_login_falhas`, `bloqueado_ate` — identidade e credencial |
+
+O roteamento entre os dois bancos é feito por `credenciais/db_router.py` (`CredenciaisRouter`) — todo model do app `credenciais` vai pro banco `credenciais_db`; todo o resto (inclusive `django.contrib.*`) fica no `default`. Nenhuma FK física entre os dois.
+
+Os dois lados se ligam só pelo mesmo UUID (`perfil_operacional.usuario_id` = `credenciais.Usuario.id`) — a composição dos dois é feita em Python, em `core_api/services/auth/autenticacao.py` (`AuthService`), nunca via JOIN. `documento.responsavel_id`/`usuario_upload_id`/`aprovador_id` referenciam `perfil_operacional` (mesmo banco, FK real), nunca `credenciais.Usuario` diretamente.
+
+O `Usuario` real já inclui hash de senha (`set_senha`/`verificar_senha`, via `django.contrib.auth.hashers`) e controle de bloqueio por tentativas (`registrar_falha_login`/`esta_bloqueado`) — o JWT (`JWT_SECRET`/`JWT_EXP_MINUTES` no `settings.py`) continua stateless, nenhuma tabela de sessão em nenhum dos dois bancos.
 
 ## 2. Modelagem física (PostgreSQL)
 
-Ver `../postgres/migrations/`. O schema foi dividido em 7 migrations numeradas por domínio (extensões/lookups, usuário/autenticação, taxonomia, documento, documento_area/relações, segurança/IA, solicitação) em vez de um único arquivo — cada uma roda de forma independente, na ordem numérica, e as dependências entre elas seguem essa mesma ordem. Decisões físicas:
+Ver `../postgres/migrations/`. O schema foi dividido em 7 migrations numeradas por domínio (extensões/lookups, perfil operacional, taxonomia, documento, documento_area/relações, segurança/IA, solicitação) em vez de um único arquivo — cada uma roda de forma independente, na ordem numérica, e as dependências entre elas seguem essa mesma ordem. `usuario`/`papel` (identidade/credencial) não fazem parte deste schema — vivem no banco `credenciais_db` (app `credenciais`), separado (ver 1.8). Decisões físicas:
 
 - **UUID como PK** (`gen_random_uuid()`).
 - **`conteudo` é nullable**, não `NOT NULL` — não está na lista de campos obrigatórios do cliente; é o texto extraído via OCR (R1P2), preenchido depois do upload, de forma assíncrona.
@@ -109,11 +113,14 @@ Ver `../postgres/migrations/`. O schema foi dividido em 7 migrations numeradas p
 
 A IA roda **em CPU** (modelo leve), o que reforça um log barato de escrever, sem infraestrutura dedicada.
 
+**Decisão da equipe (resolvendo a duplicidade que existia antes):** `log_acesso` **não fica no Mongo** — é dado comum/estruturado, então fica relacional (Postgres, model Django `LogAcesso`). MongoDB fica reservado pro que é não estruturado ou de formato variável:
+
 | Coleção | Quem gera o evento | Pergunta que responde |
 |---|---|---|
-| `log_acesso` | Humano | Quem visualizou/baixou um documento, e quando? |
 | `log_manipulacao` | Humano | Quem criou/editou/excluiu um documento, e o quê mudou? |
 | `log_execucao_ia` | Sistema/IA | Quem acionou a IA, quando, sobre qual documento, e o que ela sugeriu? |
+
+(`log_acesso` — quem visualizou/baixou um documento, e quando — vive em `backend-django/core_api/models/log_acesso.py`, não aqui.)
 
 `log_execucao_ia` tem um campo `revisao` (status/usuario_revisor_id/subcategoria_final_id) que registra se a sugestão da IA foi aceita ou corrigida por um humano — mas **se essa revisão é obrigatória antes de valer, ainda é uma decisão pendente** (ver Seção 6). A estrutura já suporta os dois cenários sem mudança.
 
@@ -130,7 +137,7 @@ INSERT INTO documento (identificador_codigo, tipo_documento_id, numero_revisao, 
     arquivo_original_url, usuario_upload_id)
 VALUES ('DOC-001', (SELECT id FROM tipo_documento LIMIT 1), 'Rev. A', '2026-01-01',
     (SELECT id FROM subcategoria LIMIT 1), 'VIGENTE', (SELECT id FROM nivel_sigilo LIMIT 1),
-    'fonte', (SELECT id FROM usuario LIMIT 1), 'pt', 'https://...', (SELECT id FROM usuario LIMIT 1));
+    'fonte', (SELECT usuario_id FROM perfil_operacional LIMIT 1), 'pt', 'https://...', (SELECT usuario_id FROM perfil_operacional LIMIT 1));
 -- ERROR: null value in column "titulo" violates not-null constraint
 
 -- Falha: tipo_documento_id inexistente
@@ -199,6 +206,9 @@ Estes pontos aparecem na modelagem de forma que **não impede** o funcionamento 
 | Estratégia de grupos de usuário | Só existe permissão por usuário individual (`usuario_permissao_area`) | Cliente mencionou "usuário **ou grupo**" — modelo de grupo ainda não definido |
 | Reprocessamento de embeddings ao trocar de modelo | `log_execucao_ia.versao_modelo` já dá rastreabilidade | Regra de reindexação completa é decisão técnica do time, não veio da AKAER — não vira requisito formal ainda |
 | `PERMITIDO`/`CONFORME_POLITICA` dispensa registro em `documento_autorizacao_ia`? | Hoje só exigimos registro explícito para `REQUER_AUTORIZACAO`/`BLOQUEADO` | O cliente não esclareceu se documento Público/Interno também precisa de uma decisão registrada, ou se a política padrão já basta sem registro |
+
+> **Resolvido nesta rodada:** `log_acesso` — a equipe decidiu que fica relacional (Postgres), não duplicado no Mongo. Ver Seção 3.
+> **Confirmado nesta rodada:** o nome do model é `PerfilOperacional`/`perfil_operacional` mesmo (não `perfil_usuario`).
 
 ## 7. Mapeamento com os critérios de aceite da AKA-14
 

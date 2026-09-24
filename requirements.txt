@@ -1,6 +1,7 @@
 beautifulsoup4==4.15.0
 Django==5.2.7
 numpy==2.5.3
+pgvector==0.3.6
 psycopg[binary]==3.3.5
 psycopg-binary==3.3.5
 pymupdf==1.28.2

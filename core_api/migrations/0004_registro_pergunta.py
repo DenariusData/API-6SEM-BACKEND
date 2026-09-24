@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("core_api", "0001_initial"),
+        ("core_api", "0003_area_principal_trigger"),
     ]
 
     operations = [

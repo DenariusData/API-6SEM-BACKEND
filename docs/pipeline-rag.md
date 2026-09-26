@@ -157,6 +157,39 @@ Busca os trechos, envia ao `llama3.2` com a instrução de responder em portugu�
 
 Antes de a resposta começar, o modelo precisa ler os trechos. Em máquinas modestas isso pode levar alguns minutos.
 
+## 7. Endpoint da tela de pergunta
+
+A API faz o mesmo que o `responder.py`, com o mesmo prompt e as mesmas citações:
+
+    POST /api/perguntas/
+    Authorization: Bearer <token do /api/auth/login/>
+    {"pergunta": "Quais os requisitos de fatores humanos para a tripulação?"}
+
+Resposta:
+
+    {
+      "pergunta": "Quais os requisitos de fatores humanos para a tripulação?",
+      "resposta": "... [1]",
+      "encontrou": true,
+      "fontes": [
+        {"numero": 1, "documento": "CxP 70024", "revisao": "BASELINE", "pagina": "30",
+         "pagina_inicio": 30, "pagina_fim": 30, "titulo": "CxP 70024 (BASELINE), ...",
+         "url_pdf": "https://...", "similaridade": 0.568, "citada": true}
+      ],
+      "tempos_ms": {"busca": 420, "ia": 9800, "total": 10220}
+    }
+
+- **Sem base no acervo**: se nenhum trecho passar de `RAG_SIMILARIDADE_MINIMA`, a IA nem é chamada, e a resposta vem com `"encontrou": false`, `"fontes": []` e a mensagem "Não encontrei essa informação nos documentos consultados.". O mesmo acontece quando a própria IA diz que os trechos não têm a resposta.
+- **Revisão**: vem do título do EverySpec, por exemplo `(REV. B)`, `(BASELINE)` ou a letra final do código (`FED-STD-123H` fica com revisão `H`). É `null` quando o documento não indica revisão.
+- **Desempenho**: toda pergunta respondida é gravada na tabela `registro_pergunta` com os tempos de busca, da IA e total. Se o Ollama ou o banco não responderem, a API devolve `503` e não grava nada.
+
+| Variável | Padrão | O que faz |
+|---|---|---|
+| `RAG_MODELO_LLM` | `llama3.2` | LLM que escreve a resposta |
+| `RAG_MODELO_EMBEDDING` | `bge-m3` | Modelo que converte a pergunta em vetor |
+| `RAG_TOP_K` | `5` | Quantos trechos buscar |
+| `RAG_SIMILARIDADE_MINIMA` | `0.5` | Trechos abaixo disso são descartados. No acervo atual, perguntas do domínio ficam acima de 0.55 e perguntas sem relação ficam entre 0.33 e 0.46 |
+
 ## Compartilhar a base pronta
 
 Os embeddings só precisam ser gerados uma vez. Para levar a base a outro computador, exporte a tabela (no PowerShell, na máquina que já tem a base):

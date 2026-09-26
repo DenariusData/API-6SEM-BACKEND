@@ -6,11 +6,11 @@ from django.urls import path
 
 from core_api.views import (
     login_view,
+    pergunta_view,
     profile_view,
     user_management_view,
     upload_document_view,
 )
-
 
 urlpatterns = [
     # =====================================================
@@ -33,6 +33,16 @@ urlpatterns = [
         "auth/users/",
         user_management_view,
         name="user_management",
+    ),
+
+    # =====================================================
+    # PERGUNTAS
+    # =====================================================
+
+    path(
+        "perguntas/",
+        pergunta_view,
+        name="pergunta",
     ),
 
     # =====================================================

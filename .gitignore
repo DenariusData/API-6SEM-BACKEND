@@ -40,6 +40,7 @@ chunks/
 # Arquivos grandes de dados (compartilhados pelo Google Drive)
 *.npz
 *.dump
+uploads/
 EOFcat > .gitignore << 'EOF'
 __pycache__/
 *.py[cod]
@@ -82,3 +83,5 @@ chunks/
 # Arquivos grandes de dados (compartilhados pelo Google Drive)
 *.npz
 *.dump
+
+uploads/

@@ -42,6 +42,7 @@ chunks/
 *.dump
 uploads/
 EOFcat > .gitignore << 'EOF'
+
 __pycache__/
 *.py[cod]
 *$py.class

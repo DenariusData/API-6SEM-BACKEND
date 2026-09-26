@@ -9,7 +9,6 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-
 ALLOWED_EXTENSIONS = {
     ".pdf",
     ".doc",
@@ -130,9 +129,7 @@ def upload_document_view(request):
         counter = 1
 
         while file_path.exists():
-            new_name = (
-                f"{file_stem}_{counter}{file_suffix}"
-            )
+            new_name = f"{file_stem}_{counter}{file_suffix}"
 
             file_path = upload_directory / new_name
             counter += 1
@@ -148,12 +145,7 @@ def upload_document_view(request):
 
     except OSError:
         return JsonResponse(
-            {
-                "detail": (
-                    "Não foi possível salvar o arquivo "
-                    "no servidor."
-                )
-            },
+            {"detail": ("Não foi possível salvar o arquivo no servidor.")},
             status=500,
         )
 

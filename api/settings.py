@@ -10,10 +10,19 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+# Carrega o .env (se existir) para o ambiente do processo, ANTES de
+# qualquer os.getenv() abaixo. Sem isso, um .env na raiz do projeto é
+# só um arquivo de texto — o Python não lê ele automaticamente.
+load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -21,6 +30,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = "django-insecure-(f%8_n)c8yhv_3s0n*ex6+#l1xy@sv3l+f5y%hs^y(g%sa(-!b"
+
+# JWT usado para autenticar as chamadas da API (core_api.utils.jwt_auth).
+# Em produção, JWT_SECRET DEVE vir de variável de ambiente própria,
+# diferente do SECRET_KEY do Django — nunca reutiliza a mesma chave
+# para dois propósitos de assinatura diferentes.
+JWT_SECRET = os.getenv("JWT_SECRET", SECRET_KEY)
+JWT_EXP_MINUTES = int(os.getenv("JWT_EXP_MINUTES", "60"))
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -38,6 +54,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "core_api",
+    "credenciais",
 ]
 
 MIDDLEWARE = [
@@ -73,14 +90,37 @@ WSGI_APPLICATION = "api.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+#
+# Dois bancos fisicamente separados, por design de proteção de dados:
+#
+#   "default"    -> banco de NEGÓCIO (documentos, projetos, perfil
+#                    operacional: matrícula/cargo/menus). SQLite em dev.
+#   "credenciais_db"  -> banco de DADOS PESSOAIS/credenciais (app "credenciais":
+#                    usuario, papel). Postgres com credenciais próprias
+#                    (ver docker-compose.yml, serviço "credenciais-postgres"),
+#                    para que um vazamento em um banco não exponha
+#                    automaticamente o outro (ver credenciais/db_router.py).
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
+        "ENGINE": os.getenv("DEFAULT_DB_ENGINE", "django.db.backends.sqlite3"),
+        "NAME": os.getenv("DEFAULT_DB_NAME", str(BASE_DIR / "db.sqlite3")),
+        "USER": os.getenv("DEFAULT_DB_USER", ""),
+        "PASSWORD": os.getenv("DEFAULT_DB_PASSWORD", ""),
+        "HOST": os.getenv("DEFAULT_DB_HOST", ""),
+        "PORT": os.getenv("DEFAULT_DB_PORT", ""),
+    },
+    "credenciais_db": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("CREDENCIAIS_DB_NAME", "credenciais"),
+        "USER": os.getenv("CREDENCIAIS_DB_USER", "credenciais"),
+        "PASSWORD": os.getenv("CREDENCIAIS_DB_PASSWORD", "credenciais"),
+        "HOST": os.getenv("CREDENCIAIS_DB_HOST", "localhost"),
+        "PORT": os.getenv("CREDENCIAIS_DB_PORT", "5433"),
+    },
 }
 
+DATABASE_ROUTERS = ["credenciais.db_router.CredenciaisRouter"]
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

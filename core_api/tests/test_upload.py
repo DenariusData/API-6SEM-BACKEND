@@ -6,7 +6,6 @@ from django.test import Client, TestCase
 
 from core_api.utils.jwt_auth import generate_token
 
-
 USUARIO = {
     "id": str(uuid.uuid4()),
     "email": "engenharia@akaer.com.br",
@@ -91,9 +90,7 @@ class UploadDocumentTestCase(TestCase):
                 )
                 self.assertNotIn("path", data["document"])
 
-                self.assertTrue(
-                    (Path(temp_dir) / "uploads" / "teste.pdf").exists()
-                )
+                self.assertTrue((Path(temp_dir) / "uploads" / "teste.pdf").exists())
 
     def test_upload_sem_token(self):
         arquivo = SimpleUploadedFile(
@@ -166,8 +163,7 @@ class UploadDocumentTestCase(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(
             response.json()["detail"],
-            "Tipo de arquivo não permitido. "
-            "Envie PDF, DOC, DOCX, XLS, XLSX ou TXT.",
+            "Tipo de arquivo não permitido. Envie PDF, DOC, DOCX, XLS, XLSX ou TXT.",
         )
 
     def test_upload_arquivo_maior_que_10_mb(self):
@@ -197,9 +193,7 @@ class UploadDocumentTestCase(TestCase):
                 upload_dir = Path(temp_dir) / "uploads"
                 upload_dir.mkdir(parents=True)
 
-                (upload_dir / "teste.pdf").write_bytes(
-                    b"arquivo existente"
-                )
+                (upload_dir / "teste.pdf").write_bytes(b"arquivo existente")
 
                 arquivo = SimpleUploadedFile(
                     "teste.pdf",
@@ -218,6 +212,4 @@ class UploadDocumentTestCase(TestCase):
                     "teste_1.pdf",
                 )
 
-                self.assertTrue(
-                    (upload_dir / "teste_1.pdf").exists()
-                )
+                self.assertTrue((upload_dir / "teste_1.pdf").exists())

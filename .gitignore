@@ -40,4 +40,4 @@ chunks/
 # Arquivos grandes de dados (compartilhados pelo Google Drive)
 *.npz
 *.dump
-EOFcat > .gitignore << 'EOF'
+uploads/

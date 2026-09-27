@@ -9,6 +9,8 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
+from core_api.utils.jwt_auth import require_auth
+
 ALLOWED_EXTENSIONS = {
     ".pdf",
     ".doc",
@@ -22,6 +24,7 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
 @csrf_exempt
+@require_auth
 @require_http_methods(["POST"])
 def upload_document_view(request):
     """
@@ -164,7 +167,6 @@ def upload_document_view(request):
                 "description": description,
                 "size": uploaded_file.size,
                 "extension": extension,
-                "path": str(file_path),
                 "status": "Pendente",
             },
         },

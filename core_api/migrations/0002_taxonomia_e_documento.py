@@ -8,8 +8,9 @@ from django.db import migrations, models
 
 
 def criar_extensao_vector(apps, schema_editor):
-    if schema_editor.connection.vendor == "postgresql":
-        schema_editor.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+    if schema_editor.connection.alias != "default":
+        return
+    schema_editor.execute("CREATE EXTENSION IF NOT EXISTS vector;")
 
 
 class Migration(migrations.Migration):

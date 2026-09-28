@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.6-pg17
+    container_name: rag-postgres
+    shm_size: 1gb
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: rag
+      POSTGRES_DB: rag
+    ports:
+      - "5432:5432"
+    volumes:
+      - rag_pgdata:/var/lib/postgresql/data
+
+  # Banco isolado para dados pessoais/credenciais (app "credenciais").
+  # Serviço, credenciais e volume próprios e independentes do banco de
+  # negócio/RAG acima — é essa separação de acesso que dá o ganho real de
+  # segurança, não só o fato de serem "dois bancos".
+  credenciais-postgres:
+    image: postgres:17
+    container_name: credenciais-postgres
+    environment:
+      POSTGRES_USER: credenciais
+      POSTGRES_PASSWORD: credenciais
+      POSTGRES_DB: credenciais
+    ports:
+      - "5433:5432"
+    volumes:
+      - credenciais_pgdata:/var/lib/postgresql/data
+
+volumes:
+  rag_pgdata:
+  credenciais_pgdata:

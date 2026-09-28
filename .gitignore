@@ -1,4 +1,5 @@
 __pycache__/
+*.pyc
 *.py[cod]
 *$py.class
 *.egg-info/
@@ -30,3 +31,13 @@ htmlcov/
 Thumbs.db
 
 *.log
+
+# Dados gerados pelos scripts do pipeline RAG (recrie rodando os scripts)
+pdfs_everyspec/
+textos_extraidos/
+chunks/
+
+# Arquivos grandes de dados (compartilhados pelo Google Drive)
+*.npz
+*.dump
+uploads/

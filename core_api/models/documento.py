@@ -11,7 +11,10 @@ credenciais/db_router.py).
 `conteudo` é nullable de propósito: é o texto extraído via OCR (R1P2),
 preenchido pelo pipeline depois do upload, não no momento do INSERT.
 
-ESCOPO DESTA ENTREGA: status_workflow/aprovador (R1P7) e demais campos
+ESCOPO: fluxo de validação (S2-33) — `status_validacao`, nível de sigilo
+sugerido x final, `validado_por`/`validado_em` e estado do processamento
+(OCR/chunks/embeddings). O histórico de cada ação fica em
+`core_api.models.historico_validacao.HistoricoValidacao`. Demais campos
 de governança avançada (autorização de IA, controle de acesso granular,
 relações, solicitação) ficam para um próximo incremento.
 """
@@ -30,6 +33,25 @@ from core_api.models.taxonomia import (
     Subcategoria,
     TipoDocumento,
 )
+
+
+class StatusValidacao(models.TextChoices):
+    AGUARDANDO_VALIDACAO = "AGUARDANDO_VALIDACAO", "Aguardando validação"
+    DEVOLVIDO = "DEVOLVIDO", "Devolvido"
+    DISPONIVEL = "DISPONIVEL", "Disponível"
+
+
+class StatusProcessamento(models.TextChoices):
+    PENDENTE = "PENDENTE", "Pendente"
+    PROCESSANDO = "PROCESSANDO", "Processando"
+    CONCLUIDO = "CONCLUIDO", "Concluído"
+    ERRO = "ERRO", "Erro"
+
+
+class DocumentoQuerySet(models.QuerySet):
+    def disponiveis(self):
+        """Só documentos já validados — é o que a busca (AKA-51) pode enxergar."""
+        return self.filter(status_validacao=StatusValidacao.DISPONIVEL)
 
 
 class Documento(models.Model):
@@ -82,9 +104,41 @@ class Documento(models.Model):
         help_text="Texto extraído via OCR - preenchido pelo pipeline, não no upload.",
     )
 
+    # Fluxo de validação (S2-33). `nivel_sigilo` acima é o nível FINAL (o que
+    # vale para controle de acesso); `nivel_sigilo_sugerido` é o que veio no
+    # upload e fica preservado para comparar com a decisão do validador.
+    status_validacao = models.CharField(
+        max_length=25,
+        choices=StatusValidacao.choices,
+        default=StatusValidacao.AGUARDANDO_VALIDACAO,
+        db_index=True,
+    )
+    nivel_sigilo_sugerido = models.ForeignKey(
+        NivelSigilo, on_delete=models.PROTECT, related_name="documentos_sugeridos"
+    )
+    validado_por = models.ForeignKey(
+        PerfilOperacional,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="documentos_validados",
+    )
+    validado_em = models.DateTimeField(null=True, blank=True)
+    comentario_devolucao = models.TextField(null=True, blank=True)
+
+    # Estado do pipeline (OCR/chunks/embeddings) — usado por AKA-52/62/65.
+    status_processamento = models.CharField(
+        max_length=20,
+        choices=StatusProcessamento.choices,
+        default=StatusProcessamento.PENDENTE,
+    )
+    erro_processamento = models.TextField(null=True, blank=True)
+
     areas = models.ManyToManyField(
         Area, through="DocumentoArea", related_name="documentos"
     )
+
+    objects = DocumentoQuerySet.as_manager()
 
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
@@ -115,6 +169,19 @@ class Documento(models.Model):
             models.CheckConstraint(
                 condition=~models.Q(arquivo_original_url=""),
                 name="ck_documento_arquivo_nao_vazio",
+            ),
+            # validado_por e validado_em andam juntos: quem validou sem
+            # quando (ou o contrário) é registro de auditoria incompleto.
+            # A regra "CONFIDENCIAL só DISPONIVEL com validador" não cabe
+            # num CHECK (precisa consultar nivel_sigilo.nome, outra tabela)
+            # — ela é o trigger trg_documento_confidencial_validado,
+            # criado em 0005_validacao_documento.
+            models.CheckConstraint(
+                condition=(
+                    models.Q(validado_por__isnull=True, validado_em__isnull=True)
+                    | models.Q(validado_por__isnull=False, validado_em__isnull=False)
+                ),
+                name="ck_documento_validacao_completa",
             ),
         ]
 

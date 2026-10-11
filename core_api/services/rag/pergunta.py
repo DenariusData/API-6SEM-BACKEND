@@ -16,7 +16,6 @@ import requests
 
 from core_api.services.rag.responder import (
     FRASES_NAO_ENCONTROU,
-    PROMPT_SISTEMA,
     montar_prompt_sistema,
 )
 
@@ -139,8 +138,7 @@ def perguntar_ia(pergunta, trechos, idioma="pt-BR"):
         )
     else:
         conteudo_usuario = (
-            f"Trechos dos documentos:\n\n{contexto}\n\n"
-            f"Pergunta: {pergunta}"
+            f"Trechos dos documentos:\n\n{contexto}\n\nPergunta: {pergunta}"
         )
 
     dados = _ollama(
@@ -182,9 +180,7 @@ def responder_pergunta(pergunta, idioma="pt-BR"):
     ]
     fim_busca = time.perf_counter()
 
-    mensagem_nao_encontrou = MENSAGENS_NAO_ENCONTROU.get(
-        idioma, MENSAGEM_NAO_ENCONTROU
-    )
+    mensagem_nao_encontrou = MENSAGENS_NAO_ENCONTROU.get(idioma, MENSAGEM_NAO_ENCONTROU)
     resposta = mensagem_nao_encontrou
     if trechos:
         resposta = perguntar_ia(pergunta, trechos, idioma=idioma)

@@ -145,7 +145,9 @@ class PerguntaTestCase(TestCase):
     @patch(PERGUNTAR_IA, return_value="The architecture must ... [1]")
     @patch(BUSCAR, return_value=TRECHOS)
     def test_resposta_em_ingles(self, mock_buscar, mock_ia):
-        response = self._perguntar("What are the architecture requirements?", idioma="en")
+        response = self._perguntar(
+            "What are the architecture requirements?", idioma="en"
+        )
 
         self.assertEqual(response.status_code, 200)
         dados = response.json()
@@ -161,7 +163,9 @@ class PerguntaTestCase(TestCase):
 
     @patch(PERGUNTAR_IA)
     @patch(BUSCAR, return_value=TRECHOS)
-    def test_mesma_pergunta_respondida_em_pt_e_en_com_fontes(self, mock_buscar, mock_ia):
+    def test_mesma_pergunta_respondida_em_pt_e_en_com_fontes(
+        self, mock_buscar, mock_ia
+    ):
         mock_ia.side_effect = [
             "A arquitetura requer ... [1]",
             "The architecture requires ... [1]",
@@ -197,11 +201,15 @@ class PerguntaTestCase(TestCase):
     @patch(PERGUNTAR_IA, return_value="The architecture requires ... [1]")
     @patch(BUSCAR, return_value=TRECHOS)
     def test_trecho_citado_continua_idioma_original(self, mock_buscar, mock_ia):
-        response = self._perguntar("What are the architecture requirements?", idioma="en")
+        response = self._perguntar(
+            "What are the architecture requirements?", idioma="en"
+        )
         self.assertEqual(response.status_code, 200)
         dados = response.json()
         # Trechos e títulos dos documentos originais não são traduzidos
-        self.assertIn("CONSTELLATION ARCHITECTURE REQUIREMENTS", dados["fontes"][0]["titulo"])
+        self.assertIn(
+            "CONSTELLATION ARCHITECTURE REQUIREMENTS", dados["fontes"][0]["titulo"]
+        )
 
     def test_idioma_invalido_devolve_400(self):
         for idioma_invalido in ["es", "fr", "pt", "invalid", ""]:
@@ -280,14 +288,30 @@ class PromptSistemaTestCase(TestCase):
     def test_prompt_pt_br(self):
         prompt = montar_prompt_sistema("pt-BR")
         self.assertIn("Responda sempre em português do Brasil", prompt)
-        self.assertIn("Não encontrei essa informação nos documentos consultados.", prompt)
-        self.assertIn("Indique a fonte de cada informação com o número do trecho entre colchetes", prompt)
-        self.assertIn("Mantenha siglas, códigos e números exatamente como no original", prompt)
-        self.assertIn("Trechos citados devem permanecer no idioma original do documento", prompt)
+        self.assertIn(
+            "Não encontrei essa informação nos documentos consultados.", prompt
+        )
+        self.assertIn(
+            "Indique a fonte de cada informação com o número do trecho entre colchetes",
+            prompt,
+        )
+        self.assertIn(
+            "Mantenha siglas, códigos e números exatamente como no original", prompt
+        )
+        self.assertIn(
+            "Trechos citados devem permanecer no idioma original do documento", prompt
+        )
 
     def test_prompt_en(self):
         prompt = montar_prompt_sistema("en")
         self.assertIn("Answer always in English", prompt)
-        self.assertIn("I did not find this information in the consulted documents.", prompt)
-        self.assertIn("Keep acronyms, codes and numbers exactly as in the original", prompt)
-        self.assertIn("Cited excerpts must remain in the original language of the document", prompt)
+        self.assertIn(
+            "I did not find this information in the consulted documents.", prompt
+        )
+        self.assertIn(
+            "Keep acronyms, codes and numbers exactly as in the original", prompt
+        )
+        self.assertIn(
+            "Cited excerpts must remain in the original language of the document",
+            prompt,
+        )

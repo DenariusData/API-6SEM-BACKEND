@@ -52,12 +52,8 @@ def pergunta_view(request):
     if idioma is None:
         idioma = idioma_padrao
     elif idioma not in idiomas_aceitos:
-        return JsonResponse(
-            {
-                "detail": f"Idioma inválido. Idiomas aceitos: {', '.join(idiomas_aceitos)}."
-            },
-            status=400,
-        )
+        detalhe = f"Idioma inválido. Idiomas aceitos: {', '.join(idiomas_aceitos)}."
+        return JsonResponse({"detail": detalhe}, status=400)
 
     try:
         resultado = responder_pergunta(pergunta, idioma=idioma)

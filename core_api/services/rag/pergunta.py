@@ -14,7 +14,11 @@ import time
 import psycopg
 import requests
 
-from core_api.services.rag.responder import PROMPT_SISTEMA
+from core_api.services.rag.responder import (
+    FRASES_NAO_ENCONTROU,
+    PROMPT_SISTEMA,
+    montar_prompt_sistema,
+)
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://rag:rag@localhost:5432/rag")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
@@ -26,7 +30,8 @@ TOP_K = int(os.getenv("RAG_TOP_K", "5"))
 # do acervo (receita, futebol, câmbio) ficam em 0.33-0.46.
 SIMILARIDADE_MINIMA = float(os.getenv("RAG_SIMILARIDADE_MINIMA", "0.5"))
 
-MENSAGEM_NAO_ENCONTROU = "Não encontrei essa informação nos documentos consultados."
+MENSAGENS_NAO_ENCONTROU = FRASES_NAO_ENCONTROU
+MENSAGEM_NAO_ENCONTROU = FRASES_NAO_ENCONTROU["pt-BR"]
 
 # Parênteses logo após o código que indicam revisão: (REV. B), (BASELINE),
 # (REV. B, CHANGE 003), (VER 1.0), (V1.0)
@@ -119,23 +124,34 @@ def _montar_fonte(numero, trecho, citadas):
     }
 
 
-def perguntar_ia(pergunta, trechos):
+def perguntar_ia(pergunta, trechos, idioma="pt-BR"):
     contexto = "\n\n".join(
         f"[{n}] Documento: {t['titulo'] or t['documento']} | "
         f"p. {formatar_paginas(t['pagina_inicio'], t['pagina_fim'])}\n"
         f"{' '.join(t['texto'].split())}"
         for n, t in enumerate(trechos, 1)
     )
+    if idioma == "en":
+        conteudo_usuario = (
+            f"Document excerpts:\n\n{contexto}\n\n"
+            f"Question: {pergunta}\n"
+            "Answer in English:"
+        )
+    else:
+        conteudo_usuario = (
+            f"Trechos dos documentos:\n\n{contexto}\n\n"
+            f"Pergunta: {pergunta}"
+        )
+
     dados = _ollama(
         "/api/chat",
         {
             "model": MODELO_LLM,
             "messages": [
-                {"role": "system", "content": PROMPT_SISTEMA},
+                {"role": "system", "content": montar_prompt_sistema(idioma)},
                 {
                     "role": "user",
-                    "content": f"Trechos dos documentos:\n\n{contexto}\n\n"
-                    f"Pergunta: {pergunta}",
+                    "content": conteudo_usuario,
                 },
             ],
             "stream": False,
@@ -145,33 +161,45 @@ def perguntar_ia(pergunta, trechos):
     return dados.get("message", {}).get("content", "").strip()
 
 
-def responder_pergunta(pergunta):
+def responder_pergunta(pergunta, idioma="pt-BR"):
     """
     Fluxo completo da tela de pergunta. Devolve:
 
         {
             "resposta": str,
             "encontrou": bool,
+            "idioma": str,
             "fontes": [{numero, documento, revisao, pagina, ...}],
             "tempos_ms": {"busca": int, "ia": int, "total": int},
         }
     """
+    if not idioma:
+        idioma = "pt-BR"
+
     inicio = time.perf_counter()
     trechos = [
         t for t in buscar_trechos(pergunta) if t["similaridade"] >= SIMILARIDADE_MINIMA
     ]
     fim_busca = time.perf_counter()
 
-    resposta = MENSAGEM_NAO_ENCONTROU
+    mensagem_nao_encontrou = MENSAGENS_NAO_ENCONTROU.get(
+        idioma, MENSAGEM_NAO_ENCONTROU
+    )
+    resposta = mensagem_nao_encontrou
     if trechos:
-        resposta = perguntar_ia(pergunta, trechos)
+        resposta = perguntar_ia(pergunta, trechos, idioma=idioma)
     fim_ia = time.perf_counter()
 
     # Sem trecho relevante nem chamamos a IA; se chamamos e ela mesma disse que
     # não achou nos trechos, também tratamos como "não encontrou"
-    encontrou = (
-        bool(trechos) and "não encontrei essa informação" not in resposta.lower()
+    resposta_lower = resposta.lower()
+    nao_achou_ia = (
+        "não encontrei essa informação" in resposta_lower
+        or "did not find this information" in resposta_lower
+        or "could not find this information" in resposta_lower
+        or resposta.strip() == mensagem_nao_encontrou
     )
+    encontrou = bool(trechos) and not nao_achou_ia
     citadas = {int(n) for n in RE_CITACAO.findall(resposta)}
     fontes = (
         [_montar_fonte(n, t, citadas) for n, t in enumerate(trechos, 1)]
@@ -182,6 +210,7 @@ def responder_pergunta(pergunta):
     return {
         "resposta": resposta,
         "encontrou": encontrou,
+        "idioma": idioma,
         "fontes": fontes,
         "tempos_ms": {
             "busca": round((fim_busca - inicio) * 1000),

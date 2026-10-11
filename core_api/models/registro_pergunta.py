@@ -12,6 +12,7 @@ from django.db import models
 class RegistroPergunta(models.Model):
     usuario_id = models.UUIDField(null=True, blank=True)
     pergunta = models.TextField()
+    idioma = models.CharField(max_length=10, default="pt-BR")
     encontrou = models.BooleanField()
     quantidade_fontes = models.PositiveSmallIntegerField(default=0)
     tempo_busca_ms = models.PositiveIntegerField()

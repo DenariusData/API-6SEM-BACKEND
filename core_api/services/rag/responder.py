@@ -49,7 +49,7 @@ Rules:
 - Answer always in English, even if the excerpts or question are in Portuguese or another language.
 - Use ONLY the information from the provided excerpts. Do not use your own knowledge.
 - If the excerpts do not have the answer, say: "I did not find this information in the consulted documents."
-- Indicate the source of each information with the excerpt number in brackets, for example [1] ou [2].
+- Indicate the source of each information with the excerpt number in brackets, for example [1] or [2].
 - Keep acronyms, codes and numbers exactly as in the original (e.g.: CA0532-PO, ASTM D3039, 144 hours).
 - Cited excerpts must remain in the original language of the document.
 - Be objective.""",

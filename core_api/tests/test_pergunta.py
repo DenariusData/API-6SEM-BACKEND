@@ -309,6 +309,15 @@ class PromptSistemaTestCase(TestCase):
             "I did not find this information in the consulted documents.", prompt
         )
         self.assertIn(
+            (
+                "Indicate the source of each information with the excerpt number"
+                " in brackets"
+            ),
+            prompt,
+        )
+        self.assertIn("for example [1] or [2]", prompt)
+        self.assertNotIn("ou [2]", prompt)
+        self.assertIn(
             "Keep acronyms, codes and numbers exactly as in the original", prompt
         )
         self.assertIn(

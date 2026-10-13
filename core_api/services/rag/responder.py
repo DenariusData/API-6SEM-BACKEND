@@ -22,7 +22,18 @@ import requests
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://rag:rag@localhost:5432/rag")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 
-PROMPT_SISTEMA = """Você é um assistente técnico que responde perguntas sobre normas e especificações técnicas.
+REGRAS_IDIOMA = {
+    "pt-BR": "Responda sempre em português do Brasil, mesmo que os trechos estejam em inglês.",
+    "en": "Answer always in English, even if the excerpts or question are in Portuguese or another language.",
+}
+
+FRASES_NAO_ENCONTROU = {
+    "pt-BR": "Não encontrei essa informação nos documentos consultados.",
+    "en": "I did not find this information in the consulted documents.",
+}
+
+PROMPTS_SISTEMA = {
+    "pt-BR": """Você é um assistente técnico que responde perguntas sobre normas e especificações técnicas.
 
 Regras:
 - Responda sempre em português do Brasil, mesmo que os trechos estejam em inglês.
@@ -30,7 +41,27 @@ Regras:
 - Se os trechos não tiverem a resposta, diga: "Não encontrei essa informação nos documentos consultados."
 - Indique a fonte de cada informação com o número do trecho entre colchetes, por exemplo [1] ou [2].
 - Mantenha siglas, códigos e números exatamente como no original (ex.: CA0532-PO, ASTM D3039, 144 horas).
-- Seja objetivo."""
+- Trechos citados devem permanecer no idioma original do documento.
+- Seja objetivo.""",
+    "en": """You are a technical assistant that answers questions about technical standards and specifications.
+
+Rules:
+- Answer always in English, even if the excerpts or question are in Portuguese or another language.
+- Use ONLY the information from the provided excerpts. Do not use your own knowledge.
+- If the excerpts do not have the answer, say: "I did not find this information in the consulted documents."
+- Indicate the source of each information with the excerpt number in brackets, for example [1] or [2].
+- Keep acronyms, codes and numbers exactly as in the original (e.g.: CA0532-PO, ASTM D3039, 144 hours).
+- Cited excerpts must remain in the original language of the document.
+- Be objective.""",
+}
+
+
+def montar_prompt_sistema(idioma="pt-BR"):
+    """Monta o prompt do sistema para o idioma escolhido."""
+    return PROMPTS_SISTEMA.get(idioma, PROMPTS_SISTEMA["pt-BR"])
+
+
+PROMPT_SISTEMA = montar_prompt_sistema("pt-BR")
 
 
 def ollama(caminho, dados, **kwargs):
@@ -84,6 +115,12 @@ def main():
         action="store_true",
         help="mostra os trechos enviados ao LLM",
     )
+    ap.add_argument(
+        "--idioma",
+        default="pt-BR",
+        choices=["pt-BR", "en"],
+        help="idioma da resposta (pt-BR ou en)",
+    )
     args = ap.parse_args()
 
     trechos = buscar_trechos(args.pergunta, args.k, args.modelo_embedding)
@@ -112,7 +149,7 @@ def main():
     print("Resposta: ", end="", flush=True)
 
     mensagens = [
-        {"role": "system", "content": PROMPT_SISTEMA},
+        {"role": "system", "content": montar_prompt_sistema(args.idioma)},
         {
             "role": "user",
             "content": f"Trechos dos documentos:\n\n{contexto}\n\nPergunta: {args.pergunta}",

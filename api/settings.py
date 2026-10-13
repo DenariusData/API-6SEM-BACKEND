@@ -152,6 +152,10 @@ USE_I18N = True
 
 USE_TZ = True
 
+# Idiomas aceitos pela API de perguntas / RAG (D14 / S2-48)
+IDIOMAS_ACEITOS = ["pt-BR", "en"]
+IDIOMA_PADRAO = "pt-BR"
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/

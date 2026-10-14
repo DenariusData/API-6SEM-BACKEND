@@ -19,7 +19,7 @@ import textwrap
 import psycopg
 import requests
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://rag:rag@localhost:5432/rag")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://rag:rag@localhost:5434/rag")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 
 PROMPT_SISTEMA = """Você é um assistente técnico que responde perguntas sobre normas e especificações técnicas.

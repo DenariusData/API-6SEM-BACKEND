@@ -20,6 +20,7 @@ from django.views.decorators.http import require_http_methods
 
 from core_api.models import Documento
 from core_api.services import consulta_documentos as consulta
+from core_api.services.auditoria import registrar_visualizacao
 from core_api.utils.jwt_auth import require_auth, require_role
 from credenciais.models import Papel
 
@@ -80,10 +81,14 @@ def meus_documentos_view(request):
 @require_auth
 def detalhe_documento_view(request, documento_id):
     """GET /api/documents/<id>/"""
+    usuario_id = _usuario_id(request)
     try:
         corpo = consulta.detalhe(
-            documento_id, _usuario_id(request), request.auth_user.get("role")
+            documento_id, usuario_id, request.auth_user.get("role")
         )
     except Documento.DoesNotExist:
         return _erro("Documento não encontrado.", 404)
+    # Visualização vai para LogAcesso; o log de auditoria cobre as demais
+    # ações (AKA-31).
+    registrar_visualizacao(documento_id, usuario_id)
     return JsonResponse(corpo, status=200)

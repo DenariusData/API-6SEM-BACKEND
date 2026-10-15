@@ -125,6 +125,29 @@ AGUARDANDO_VALIDACAO --aprovar---> DISPONIVEL
 
 > **Relação com 1.2/1.3.** `validado_por`/`validado_em` fazem o papel de `aprovador_id`/`data_aprovacao`, e `status_validacao` é a versão simplificada (3 estados) do `status_workflow` descrito em 1.3, que segue como visão lógica de referência e não está implementado no Django. `status_documento` (vigência) continua independente de tudo isso.
 
+### 1.10 Log de auditoria (AKA-31)
+
+`log_auditoria` (banco `default`) registra quem fez o quê, em qual registro e quando. Uma linha por ação:
+
+| Campo | Tipo | Observação |
+|---|---|---|
+| `usuario_id` | uuid, nulo | Só o id do `PerfilOperacional`, sem FK. Nulo em login com e-mail inexistente ou ação fora de requisição |
+| `acao` | lista fixa | `CRIADO`, `ATUALIZADO`, `EXCLUIDO`, `ENVIADO`, `DEVOLVIDO`, `REENVIADO`, `APROVADO`, `LOGIN`, `LOGIN_FALHOU`, `DADOS_PESSOAIS_ALTERADOS` |
+| `entidade` | lista fixa | `DOCUMENTO`, `DOCUMENTO_AREA`, `HISTORICO_VALIDACAO`, `USUARIO` |
+| `registro_id` | texto, nulo | Id do registro afetado (uuid ou inteiro, por isso texto) |
+| `campos_alterados` | lista JSON | Só os **nomes** dos campos que mudaram, nunca os valores |
+| `criado_em` | timestamp | Data e hora da ação |
+
+**Gravação automática.** Signals `post_save`/`post_delete` em `Documento`, `DocumentoArea` e `HistoricoValidacao` (`core_api/signals.py`) gravam a linha em qualquer `save()`/`delete()`, sem chamada nas telas, na mesma transação da ação (rollback desfaz o log junto). O usuário vem do token, guardado pelo `UsuarioAtualMiddleware` (`core_api/utils/usuario_atual.py`). Ações sem model próprio usam `registrar_acao(usuario_id, acao, entidade, registro_id, campos)` (`core_api/services/auditoria.py`): `LOGIN` e `LOGIN_FALHOU` já são gravados no login; `DADOS_PESSOAIS_ALTERADOS` fica pronto para o AKA-57.
+
+**Fluxo de validação.** Cada linha nova em `historico_validacao` gera uma linha no log com a mesma ação e `registro_id` = id da linha do histórico. O comentário do validador fica só no histórico. Assim toda mudança de estado do documento tem uma entrada no log ligada ao histórico.
+
+**LGPD.** Nenhum nome, e-mail ou telefone no log: usuário só pelo uuid, campos só pelo nome, sem texto livre.
+
+**Limite.** `QuerySet.update()`, `bulk_update()` e `delete()` em massa não disparam signals; o código da aplicação muda estado com `save()`.
+
+`log_acesso` continua sendo só o registro de visualização de documento (o detalhe `GET /api/documents/<id>/` grava `VISUALIZACAO`).
+
 ## 2. Modelagem física (PostgreSQL)
 
 Ver `../postgres/migrations/`. O schema foi dividido em 7 migrations numeradas por domínio (extensões/lookups, perfil operacional, taxonomia, documento, documento_area/relações, segurança/IA, solicitação) em vez de um único arquivo — cada uma roda de forma independente, na ordem numérica, e as dependências entre elas seguem essa mesma ordem. `usuario`/`papel` (identidade/credencial) não fazem parte deste schema — vivem no banco `credenciais_db` (app `credenciais`), separado (ver 1.8). Decisões físicas:
@@ -152,10 +175,9 @@ A IA roda **em CPU** (modelo leve), o que reforça um log barato de escrever, se
 
 | Coleção | Quem gera o evento | Pergunta que responde |
 |---|---|---|
-| `log_manipulacao` | Humano | Quem criou/editou/excluiu um documento, e o quê mudou? |
 | `log_execucao_ia` | Sistema/IA | Quem acionou a IA, quando, sobre qual documento, e o que ela sugeriu? |
 
-(`log_acesso` — quem visualizou/baixou um documento, e quando — vive em `backend-django/core_api/models/log_acesso.py`, não aqui.)
+(`log_acesso` — quem visualizou/baixou um documento, e quando — vive em `backend-django/core_api/models/log_acesso.py`, não aqui. Quem criou/editou/excluiu um documento, que antes seria a coleção `log_manipulacao`, também ficou relacional: é o `log_auditoria` da Seção 1.10, que guarda só os nomes dos campos alterados.)
 
 `log_execucao_ia` tem um campo `revisao` (status/usuario_revisor_id/subcategoria_final_id) que registra se a sugestão da IA foi aceita ou corrigida por um humano — mas **se essa revisão é obrigatória antes de valer, ainda é uma decisão pendente** (ver Seção 6). A estrutura já suporta os dois cenários sem mudança.
 

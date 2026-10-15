@@ -25,7 +25,7 @@ from core_api.models import (
     StatusProcessamento,
     StatusValidacao,
 )
-from core_api.tests.test_documento import _documento_valido
+from tests.integration.test_documento import _documento_valido
 
 
 def _nivel(nome, ordinal):

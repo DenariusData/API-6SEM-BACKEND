@@ -24,6 +24,7 @@ Não usa o PostgreSQL e não grava nada no banco.
 
 import argparse
 import json
+import os
 import platform
 import random
 import shutil
@@ -41,7 +42,7 @@ import requests
 from gerar_embeddings import ARQUIVO_CHUNKS, OLLAMA_URL, ErroOllama, gerar_vetores
 
 SIMILARIDADE_MINIMA = 0.98
-HOSTS_LOCAIS = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
+HOSTS_LOCAIS = {"localhost", "127.0.0.1", "::1"}  # só loopback
 
 try:
     import psutil
@@ -141,13 +142,21 @@ class MedidorRam:
 
 
 def conferir_ollama_local():
-    host = (urlparse(OLLAMA_URL).hostname or "").lower()
+    url = urlparse(OLLAMA_URL)
+    host = (url.hostname or "").lower()
     if host not in HOSTS_LOCAIS:
         sys.exit(
             f"OLLAMA_URL aponta para '{host}', que não é a máquina local.\n"
             "A D1 exige que o embedding rode sem chamada externa. "
             "Use OLLAMA_URL=http://localhost:11434"
         )
+    if url.username or url.password:
+        sys.exit("OLLAMA_URL não pode ter usuário ou senha. Use http://localhost:11434")
+    # Garante que nenhum proxy configurado no ambiente intercepte as chamadas locais
+    # (o requests ignora proxies para os hosts listados em NO_PROXY).
+    sem_proxy = {h for h in os.environ.get("NO_PROXY", "").split(",") if h}
+    os.environ["NO_PROXY"] = ",".join(sorted(sem_proxy | HOSTS_LOCAIS))
+    os.environ["no_proxy"] = os.environ["NO_PROXY"]
     return host
 
 
@@ -264,7 +273,12 @@ def montar_markdown(r):
         f"| Amostra | {r['amostra']} trechos ({r['caracteres_medio']} caracteres em média) |",
         f"| Carga do modelo (1ª chamada, a frio) | {r['carga_s']:.1f} s |",
         f"| Tempo por trecho (um por vez) | média {r['media_ms']:.0f} ms, mediana {r['mediana_ms']:.0f} ms, mín. {r['min_ms']:.0f} ms, máx. {r['max_ms']:.0f} ms |",
-        f"| Lote de {r['amostra']} trechos | {r['lote_s']:.2f} s ({r['lote_ms_por_trecho']:.0f} ms por trecho, {r['chunks_por_s']:.1f} trechos/s) |",
+        (
+            f"| Em lotes de {r['lote_tamanho']} (como o gerar_embeddings.py) | {r['lote_s']:.2f} s para {r['amostra']} trechos "
+            f"({r['lote_ms_por_trecho']:.0f} ms por trecho, {r['chunks_por_s']:.1f} trechos/s) |"
+            if r["lote_ok"]
+            else f"| Em lotes de {r['lote_tamanho']} | FALHOU: {r['erro_lote']} |"
+        ),
         f"| CPU ou GPU | {e.get('processador', 'n/d')} |",
         f"| Memória do modelo (Ollama) | {fmt(e.get('memoria_modelo_mb'), ' MB')} (na GPU: {fmt(e.get('memoria_gpu_mb'), ' MB')}) |",
         f"| Pico de RAM dos processos do Ollama | {fmt(r['pico_ram_mb'], ' MB')} |",
@@ -282,9 +296,9 @@ def montar_markdown(r):
             "| Medida | Valor |",
             "|---|---|",
             f"| Dimensão local / Colab | {r['dimensao']} / {c['dimensao']} |",
-            f"| Trechos comparados | {c['comparados']} |",
+            f"| Trechos comparados | {c['comparados']}/{r['amostra']} um por vez, {c['comparados_lote']}/{r['amostra']} em lote |",
             f"| Similaridade de cosseno | mín. {c['min']:.4f}, média {c['media']:.4f} |",
-            f"| Critério | mín. ≥ {SIMILARIDADE_MINIMA} e mesma dimensão |",
+            f"| Critério | amostra inteira processada, mín. ≥ {SIMILARIDADE_MINIMA} e mesma dimensão |",
             f"| Compatível | {'Sim' if c['ok'] else 'Não'} |",
         ]
     linhas += ["", "## Critérios de aceite", ""]
@@ -324,7 +338,17 @@ def main():
         "--responsavel", default="", help="nome de quem rodou (vai para a wiki)"
     )
     ap.add_argument("--saida", type=Path, default=Path("resultado_bge_m3_local.md"))
+    ap.add_argument(
+        "--lote",
+        type=int,
+        default=16,
+        help="trechos por chamada no teste em lote (padrão igual ao gerar_embeddings.py)",
+    )
     args = ap.parse_args()
+    if args.amostra <= 0:
+        ap.error("--amostra precisa ser maior que zero")
+    if args.lote <= 0:
+        ap.error("--lote precisa ser maior que zero")
 
     conferir_ollama_local()
     chunks = carregar_chunks(args.chunks)
@@ -372,38 +396,57 @@ def main():
 
         estado = estado_modelo(args.modelo)
 
-        # 3. Mesma amostra em lote (como o gerar_embeddings.py faz)
+        # 3. Mesma amostra em lotes de --lote trechos (como o gerar_embeddings.py faz)
+        vetores_lote, erro_lote = [], None
         t0 = time.perf_counter()
         try:
-            gerar_vetores(textos, args.modelo)
-            lote_s = time.perf_counter() - t0
-        except ErroOllama:
-            lote_s = float("nan")
+            for n in range(0, len(textos), args.lote):
+                vetores_lote += gerar_vetores(textos[n : n + args.lote], args.modelo)
+        except ErroOllama as e:
+            erro_lote = str(e)[:120]
+        lote_s = time.perf_counter() - t0
+        lote_ok = erro_lote is None and len(vetores_lote) == len(ids)
+        if not lote_ok:
+            erro_lote = erro_lote or "quantidade de vetores diferente da enviada"
+            print(f"  ! Falha no teste em lote: {erro_lote}")
 
     vram_depois = vram_em_uso_mb()
     if not detalhe:
         sys.exit("Nenhum trecho gerou embedding. Veja os erros acima.")
 
     tempos = [d["ms"] for d in detalhe]
-    lote_ms = lote_s * 1000 / len(ids)
-    chunks_por_s = len(ids) / lote_s if lote_s else 0
+    lote_ms = lote_s * 1000 / len(ids) if lote_ok else float("nan")
+    chunks_por_s = len(ids) / lote_s if lote_ok and lote_s else 0
 
-    # 4. Comparação com o Colab
+    # 4. Comparação com o Colab: um por vez E em lote, exigindo a amostra inteira
     resumo_colab = None
     if colab:
         sims = [d["sim"] for d in detalhe]
+        sims_lote = (
+            [cosseno(v, colab[i]) for i, v in zip(ids, vetores_lote)] if lote_ok else []
+        )
         dim_colab = len(next(iter(colab.values())))
+        completo = len(sims) == len(ids) and lote_ok
+        todos = sims + sims_lote
         resumo_colab = {
             "dimensao": dim_colab,
             "comparados": len(sims),
-            "min": min(sims),
-            "media": statistics.mean(sims),
-            "ok": dim_colab == dimensao and min(sims) >= SIMILARIDADE_MINIMA,
+            "comparados_lote": len(sims_lote),
+            "min": min(todos),
+            "media": statistics.mean(todos),
+            "completo": completo,
+            "ok": completo
+            and dim_colab == dimensao
+            and min(todos) >= SIMILARIDADE_MINIMA,
         }
 
-    gerou_local = not falhas and estado is not None
+    gerou_local = not falhas and lote_ok and estado is not None
     criterios = [
-        ("bge-m3 gera embeddings localmente sem chamada externa", gerou_local),
+        (
+            f"bge-m3 gera embeddings localmente sem chamada externa "
+            f"({len(detalhe)}/{len(ids)} um por vez, lote {'ok' if lote_ok else 'FALHOU'})",
+            gerou_local,
+        ),
         ("Tempo e memória anotados", estado is not None),
         (
             "Embeddings locais compatíveis com os do Colab",
@@ -435,6 +478,9 @@ def main():
         "min_ms": min(tempos),
         "max_ms": max(tempos),
         "lote_s": lote_s,
+        "lote_tamanho": args.lote,
+        "lote_ok": lote_ok,
+        "erro_lote": erro_lote,
         "lote_ms_por_trecho": lote_ms,
         "chunks_por_s": chunks_por_s,
         "estimativa_300_min": 300 * lote_ms / 1000 / 60,
@@ -453,6 +499,8 @@ def main():
 
     e = estado or {}
     print(f"\n{veredito}")
+    if not lote_ok:
+        print(f"  Lote:               FALHOU ({erro_lote})")
     print(f"  CPU/GPU:            {e.get('processador', 'n/d')}")
     print(f"  Memória do modelo:  {fmt(e.get('memoria_modelo_mb'), ' MB')}")
     print(
@@ -464,6 +512,8 @@ def main():
             f"similaridade mín. {resumo_colab['min']:.4f}"
         )
     print(f"\nResumo para a wiki salvo em: {args.saida.resolve()}")
+    # Código de saída diferente de zero quando o teste não passou por completo
+    sys.exit(0 if all(ok for _, ok in criterios) else 1)
 
 
 if __name__ == "__main__":

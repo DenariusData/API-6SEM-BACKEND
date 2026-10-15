@@ -291,6 +291,6 @@ Estes pontos aparecem na modelagem de forma que **não impede** o funcionamento 
 | Documento novo começa como Aguardando validação | default de `status_validacao`; `test_documento_novo_comeca_aguardando_validacao` |
 | Documentos antigos ficam Disponíveis depois da migration | backfill da 0005 (exceto `CONFIDENCIAL`, ver Seção 6); `test_documentos_antigos_ficam_disponiveis` |
 | Histórico grava cada ação com quem fez e quando | `historico_validacao` (`usuario_id`, `criado_em`, `acao`); `HistoricoValidacaoTestCase` |
-| Testes do model passam e a modelagem está atualizada | `core_api/tests/test_validacao.py`; Seções 1.9, 2, 4.1 e 6 deste documento |
+| Testes do model passam e a modelagem está atualizada | `tests/integration/test_validacao.py`; Seções 1.9, 2, 4.1 e 6 deste documento |
 | Banco recusa documento Confidencial Disponível sem validador | `trg_documento_confidencial_validado` (trigger, ver Seção 2); `RegraConfidencialNoBancoTestCase`, inclusive por SQL direto |
 | Só usuário ADMINISTRADOR consegue mudar o estado do documento | Não é regra de banco (o papel está em `credenciais_db`). Fica registrada na Seção 1.9 e é aplicada nos endpoints da AKA-53 com `require_role("ADMINISTRADOR")`; os testes dessa regra são da AKA-53 |

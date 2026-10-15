@@ -27,7 +27,7 @@ jobs:
       - name: Run pre-commit (Ruff + hooks)
         run: pre-commit run --all-files
 
-  test:
+  unit-tests:
     runs-on: ubuntu-latest
     needs: lint
     steps:
@@ -35,6 +35,44 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r requirements.txt
-      # - run: python manage.py test
-      #   TODO: descomentar quando os primeiros testes forem escritos (login/RAG)
+      - run: pip install -r requirements-dev.txt
+      - name: Run unit tests
+        run: pytest tests/unit --cov --cov-report=term
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.6-pg17
+        env:
+          POSTGRES_USER: rag
+          POSTGRES_PASSWORD: rag
+          POSTGRES_DB: rag
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+      credenciais-postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: credenciais
+          POSTGRES_PASSWORD: credenciais
+          POSTGRES_DB: credenciais
+        ports:
+          - 5433:5432
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      DEFAULT_DB_ENGINE: django.db.backends.postgresql
+      DEFAULT_DB_NAME: rag
+      DEFAULT_DB_USER: rag
+      DEFAULT_DB_PASSWORD: rag
+      DEFAULT_DB_HOST: localhost
+      DEFAULT_DB_PORT: "5432"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - name: Run integration tests
+        run: pytest tests/integration --cov --cov-report=term

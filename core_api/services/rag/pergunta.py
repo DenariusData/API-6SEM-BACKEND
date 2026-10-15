@@ -19,7 +19,7 @@ from core_api.services.rag.responder import (
     montar_prompt_sistema,
 )
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://rag:rag@localhost:5432/rag")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://rag:rag@localhost:5434/rag")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 MODELO_LLM = os.getenv("RAG_MODELO_LLM", "llama3.2")
 MODELO_EMBEDDING = os.getenv("RAG_MODELO_EMBEDDING", "bge-m3")

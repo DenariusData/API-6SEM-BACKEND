@@ -9,6 +9,10 @@ from core_api.views.document_views import (
 from core_api.views.pergunta_views import (
     pergunta_view,
 )
+from core_api.views.validacao_views import (
+    aprovar_documento_view,
+    devolver_documento_view,
+)
 
 __all__ = [
     "login_view",
@@ -16,4 +20,6 @@ __all__ = [
     "user_management_view",
     "upload_document_view",
     "pergunta_view",
+    "aprovar_documento_view",
+    "devolver_documento_view",
 ]

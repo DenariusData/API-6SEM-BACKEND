@@ -176,6 +176,9 @@ class AuthService:
             "name": usuario.nome,
             "role": usuario.papel.descricao,
             "role_code": usuario.papel_id,
+            # Só ADMINISTRADOR valida documentos (mesma regra de
+            # services/validacao.py). O front usa para mostrar o menu Validação.
+            "pode_validar": usuario.papel_id == Papel.ADMINISTRADOR,
             "matricula": perfil.matricula if perfil else None,
             "cargo": perfil.cargo if perfil else "",
             "avatar": perfil.avatar if perfil else "/avatars/default.png",

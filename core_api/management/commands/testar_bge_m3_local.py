@@ -39,7 +39,16 @@ from urllib.parse import urlparse
 
 import numpy as np
 import requests
-from gerar_embeddings import ARQUIVO_CHUNKS, OLLAMA_URL, ErroOllama, gerar_vetores
+
+try:  # rodando como script, na pasta commands/
+    from gerar_embeddings import ARQUIVO_CHUNKS, OLLAMA_URL, ErroOllama, gerar_vetores
+except ImportError:  # importado como módulo (ex.: descoberta do manage.py test)
+    from core_api.management.commands.gerar_embeddings import (
+        ARQUIVO_CHUNKS,
+        OLLAMA_URL,
+        ErroOllama,
+        gerar_vetores,
+    )
 
 SIMILARIDADE_MINIMA = 0.98
 HOSTS_LOCAIS = {"localhost", "127.0.0.1", "::1"}  # só loopback

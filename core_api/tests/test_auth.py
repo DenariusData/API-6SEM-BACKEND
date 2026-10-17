@@ -120,6 +120,29 @@ class AuthTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["user"]["role"], "Administrador")
 
+    # -- pode_validar (AKA-50): só ADMINISTRADOR vê o menu Validação --
+
+    def _pode_validar(self, email, password):
+        token = self._login(email, password).json()["token"]
+        response = self.client.get(
+            "/api/auth/me/", HTTP_AUTHORIZATION=f"Bearer {token}"
+        )
+        self.assertEqual(response.status_code, 200)
+        return response.json()["user"]["pode_validar"]
+
+    def test_pode_validar_true_para_administrador(self):
+        self.assertIs(self._pode_validar("admin@akaer.com.br", "admin123"), True)
+
+    def test_pode_validar_false_para_engenharia(self):
+        self.assertIs(self._pode_validar("engenharia@akaer.com.br", "eng123"), False)
+
+    def test_pode_validar_false_para_qualidade(self):
+        self.assertIs(self._pode_validar("qualidade@akaer.com.br", "qual123"), False)
+
+    def test_login_tambem_informa_pode_validar(self):
+        response = self._login("admin@akaer.com.br", "admin123")
+        self.assertIs(response.json()["user"]["pode_validar"], True)
+
     # -- user_management_view: só Administrador autenticado --
 
     def test_user_management_list_requires_token(self):

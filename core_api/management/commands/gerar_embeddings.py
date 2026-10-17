@@ -70,10 +70,12 @@ def gerar_vetores(textos, modelo):
             json={"model": modelo, "input": textos},
             timeout=300,
         )
-    except requests.ConnectionError:
-        sys.exit(
-            f"\nNão consegui conectar ao Ollama em {OLLAMA_URL}. Confira se ele está aberto."
-        )
+    except requests.ConnectionError as e:
+        # Exceção, e não sys.exit: o processamento em segundo plano
+        # (services/processamento.py) precisa registrar o erro no documento.
+        raise ErroOllama(
+            f"Não consegui conectar ao Ollama em {OLLAMA_URL}. Confira se ele está aberto."
+        ) from e
     if r.status_code != 200:
         raise ErroOllama(f"HTTP {r.status_code}: {r.text[:300]}")
     vetores = r.json().get("embeddings", [])

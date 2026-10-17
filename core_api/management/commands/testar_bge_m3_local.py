@@ -150,23 +150,34 @@ class MedidorRam:
 # ---------- Ollama ----------
 
 
-def conferir_ollama_local():
-    url = urlparse(OLLAMA_URL)
+def validar_ollama_local(ollama_url=OLLAMA_URL):
+    """Devolve o host se a URL do Ollama for a própria máquina; senão levanta
+    ValueError. Também usada pelo processamento automático (AKA-62)."""
+    url = urlparse(ollama_url)
     host = (url.hostname or "").lower()
     if host not in HOSTS_LOCAIS:
-        sys.exit(
+        raise ValueError(
             f"OLLAMA_URL aponta para '{host}', que não é a máquina local.\n"
             "A D1 exige que o embedding rode sem chamada externa. "
             "Use OLLAMA_URL=http://localhost:11434"
         )
     if url.username or url.password:
-        sys.exit("OLLAMA_URL não pode ter usuário ou senha. Use http://localhost:11434")
+        raise ValueError(
+            "OLLAMA_URL não pode ter usuário ou senha. Use http://localhost:11434"
+        )
     # Garante que nenhum proxy configurado no ambiente intercepte as chamadas locais
     # (o requests ignora proxies para os hosts listados em NO_PROXY).
     sem_proxy = {h for h in os.environ.get("NO_PROXY", "").split(",") if h}
     os.environ["NO_PROXY"] = ",".join(sorted(sem_proxy | HOSTS_LOCAIS))
     os.environ["no_proxy"] = os.environ["NO_PROXY"]
     return host
+
+
+def conferir_ollama_local():
+    try:
+        return validar_ollama_local()
+    except ValueError as e:
+        sys.exit(str(e))
 
 
 def descarregar_modelo(modelo):

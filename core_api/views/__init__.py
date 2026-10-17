@@ -3,6 +3,11 @@ from core_api.views.auth_views import (
     profile_view,
     user_management_view,
 )
+from core_api.views.consulta_views import (
+    detalhe_documento_view,
+    meus_documentos_view,
+    pendentes_view,
+)
 from core_api.views.document_views import (
     upload_document_view,
 )
@@ -22,4 +27,7 @@ __all__ = [
     "pergunta_view",
     "aprovar_documento_view",
     "devolver_documento_view",
+    "pendentes_view",
+    "meus_documentos_view",
+    "detalhe_documento_view",
 ]

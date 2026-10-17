@@ -156,6 +156,14 @@ USE_TZ = True
 IDIOMAS_ACEITOS = ["pt-BR", "en"]
 IDIOMA_PADRAO = "pt-BR"
 
+# Processamento para a IA depois da aprovação (AKA-62): extrai o texto, gera
+# os trechos e os embeddings numa thread, sem segurar a resposta do aprovar.
+# Desligue (false) para aprovar sem processar, por exemplo sem Ollama na
+# máquina; o comando `reprocessar_documento <id>` processa depois.
+PROCESSAMENTO_AUTOMATICO = (
+    os.getenv("PROCESSAMENTO_AUTOMATICO", "true").strip().lower() == "true"
+)
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/

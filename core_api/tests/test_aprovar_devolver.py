@@ -10,7 +10,7 @@ import uuid
 from unittest import mock
 
 from django.db import connection
-from django.test import Client, TransactionTestCase
+from django.test import Client, TransactionTestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 
 from core_api.models import (
@@ -48,6 +48,10 @@ def _usuario(role):
     return perfil, token
 
 
+# Estes testes cobrem só as regras da aprovação. O processamento para a IA
+# que a aprovação dispara (AKA-62) tem os próprios testes, em
+# test_processamento.py.
+@override_settings(PROCESSAMENTO_AUTOMATICO=False)
 class EndpointsValidacaoBase(TransactionTestCase):
     databases = {"default"}
 

@@ -21,6 +21,10 @@ linha em `HistoricoValidacao`.
 
 O papel NÃO é lido do banco aqui: `Usuario`/`Papel` vivem em `credenciais_db`.
 Quem chama passa o `papel_codigo` que já veio validado no JWT.
+
+Depois do commit da aprovação, o documento é processado para a IA em
+segundo plano (services/processamento.py, AKA-62): a aprovação responde na
+hora, sem esperar.
 """
 
 from django.db import transaction
@@ -33,6 +37,7 @@ from core_api.models import (
     NivelSigilo,
     StatusValidacao,
 )
+from core_api.services.processamento import agendar_processamento
 from credenciais.models import Papel
 
 COMENTARIO_MINIMO = 10
@@ -140,6 +145,8 @@ def aprovar(
         usuario=usuario,
         nivel_sigilo=final,
     )
+    # Só começa depois do commit: se a aprovação for desfeita, nada roda.
+    agendar_processamento(doc.pk)
     return doc
 
 

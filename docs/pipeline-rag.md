@@ -190,6 +190,26 @@ Resposta:
 | `RAG_TOP_K` | `5` | Quantos trechos buscar |
 | `RAG_SIMILARIDADE_MINIMA` | `0.5` | Trechos abaixo disso são descartados. No acervo atual, perguntas do domínio ficam acima de 0.55 e perguntas sem relação ficam entre 0.33 e 0.46 |
 
+## 8. Processamento automático do documento aprovado
+
+Documentos enviados pelo sistema não passam pelas etapas 1 a 4 à mão. Quando um documento é aprovado (`POST /api/documents/<id>/aprovar/`), o backend roda as mesmas etapas só para ele, numa thread, depois de responder a aprovação (`core_api/services/processamento.py`):
+
+1. extrai o texto com a página (`extrair_texto.py`), lendo o PDF da pasta privada do upload;
+2. divide em trechos e aplica o filtro de qualidade (`gerar_chunks.py`, mesmos padrões: 1500 caracteres, 200 de sobreposição, qualidade mínima de 80%). O filtro usa o idioma do documento (inglês ou português);
+3. gera os embeddings com o `bge-m3` do Ollama local (`gerar_embeddings.py`) e grava os trechos em `chunk` e os vetores em `embedding_version`, ligados ao documento.
+
+O estado fica no próprio documento, em `status_processamento` (`PENDENTE`, `PROCESSANDO`, `CONCLUIDO`, `ERRO`), com o motivo do erro em `erro_processamento`. Os dois aparecem no detalhe do documento. Para reprocessar (depois de um erro, ou se o servidor parou no meio):
+
+    python manage.py reprocessar_documento <id do documento>
+
+Não há chamada externa: o processamento recusa um `OLLAMA_URL` que não seja a própria máquina (mesma regra do teste do bge-m3, AKA-95) e nunca baixa arquivo de URL. Para aprovar sem processar (por exemplo, numa máquina sem Ollama), use `PROCESSAMENTO_AUTOMATICO=false` e rode o comando depois.
+
+| Variável | Padrão | O que faz |
+|---|---|---|
+| `PROCESSAMENTO_AUTOMATICO` | `true` | Processa o documento aprovado em segundo plano |
+
+> A tela de pergunta (seção 7) ainda busca na tabela `rag_chunks`. Passar a buscar também nos trechos dos documentos aprovados é da busca (AKA-51/AKA-65).
+
 ## Compartilhar a base pronta
 
 Os embeddings só precisam ser gerados uma vez. Para levar a base a outro computador, exporte a tabela (no PowerShell, na máquina que já tem a base):

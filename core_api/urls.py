@@ -6,13 +6,18 @@ from django.urls import path
 
 from core_api.views import (
     aprovar_documento_view,
+    areas_view,
     detalhe_documento_view,
     devolver_documento_view,
+    idiomas_view,
     login_view,
     meus_documentos_view,
+    niveis_sigilo_view,
     pendentes_view,
     pergunta_view,
     profile_view,
+    responsaveis_view,
+    tipos_documento_view,
     upload_document_view,
     user_management_view,
 )
@@ -43,6 +48,34 @@ urlpatterns = [
         "perguntas/",
         pergunta_view,
         name="pergunta",
+    ),
+    # =====================================================
+    # OPÇÕES DO FORMULÁRIO DE UPLOAD
+    # =====================================================
+    path(
+        "tipos-documento/",
+        tipos_documento_view,
+        name="tipos_documento",
+    ),
+    path(
+        "areas/",
+        areas_view,
+        name="areas",
+    ),
+    path(
+        "niveis-sigilo/",
+        niveis_sigilo_view,
+        name="niveis_sigilo",
+    ),
+    path(
+        "idiomas/",
+        idiomas_view,
+        name="idiomas",
+    ),
+    path(
+        "responsaveis/",
+        responsaveis_view,
+        name="responsaveis",
     ),
     # =====================================================
     # DOCUMENTOS

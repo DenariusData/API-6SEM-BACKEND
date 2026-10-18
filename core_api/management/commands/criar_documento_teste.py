@@ -1,7 +1,7 @@
 """
 Cria um Documento de teste AGUARDANDO_VALIDACAO, para exercitar os endpoints
-de aprovar/devolver (S2-34) no Postman sem depender do upload, que ainda não
-grava Documento no banco.
+de aprovar/devolver (S2-34) no Postman sem precisar montar o upload completo
+(POST /api/documents/upload/, S2-32).
 
 Uso:
     python manage.py criar_documento_teste

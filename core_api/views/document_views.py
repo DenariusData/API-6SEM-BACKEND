@@ -1,174 +1,79 @@
 """
 Views relacionadas ao gerenciamento e upload de documentos.
+
+    POST /api/documents/upload/   multipart/form-data com os 16 campos
+
+Esta camada só faz HTTP: autentica, descobre o perfil de quem chamou pelo
+token e traduz as exceções da service em status. A lista de campos e as
+regras ficam em services/upload_documento.py.
+
+Status: 201 criado (devolve o id) · 400 campo inválido ({"detail", "field"}) ·
+401 sem token · 403 sem perfil operacional · 409 identificador + revisão já
+cadastrados · 500 falha ao gravar.
 """
 
-from pathlib import Path
+import logging
+import uuid
 
-from django.conf import settings
+from django.db import DatabaseError
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
+from core_api.models import PerfilOperacional
+from core_api.services import upload_documento
 from core_api.utils.jwt_auth import require_auth
 
-ALLOWED_EXTENSIONS = {
-    ".pdf",
-    ".doc",
-    ".docx",
-    ".xls",
-    ".xlsx",
-    ".txt",
-}
+logger = logging.getLogger(__name__)
 
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+def _erro(detalhe, status, campo=None):
+    corpo = {"detail": detalhe}
+    if campo:
+        corpo["field"] = campo
+    return JsonResponse(corpo, status=status)
+
+
+def _perfil_de(request):
+    """PerfilOperacional de quem chamou (o `sub` do JWT é o `usuario_id`)."""
+    try:
+        return PerfilOperacional.objects.get(
+            pk=uuid.UUID(str(request.auth_user["sub"]))
+        )
+    except (PerfilOperacional.DoesNotExist, ValueError, KeyError):
+        return None
 
 
 @csrf_exempt
 @require_auth
 @require_http_methods(["POST"])
 def upload_document_view(request):
-    """
-    Endpoint para upload de documentos técnicos.
-
-    POST /api/documents/upload/
-
-    Campos esperados:
-        file: arquivo
-        title: título do documento
-        category: categoria
-        description: descrição opcional
-    """
-
-    uploaded_file = request.FILES.get("file")
-
-    title = request.POST.get("title", "").strip()
-    category = request.POST.get("category", "").strip()
-    description = request.POST.get("description", "").strip()
-
-    # =====================================================
-    # VALIDAÇÃO DO ARQUIVO
-    # =====================================================
-
-    if not uploaded_file:
-        return JsonResponse(
-            {
-                "detail": "Nenhum arquivo foi enviado.",
-                "field": "file",
-            },
-            status=400,
-        )
-
-    if not title:
-        return JsonResponse(
-            {
-                "detail": "O título do documento é obrigatório.",
-                "field": "title",
-            },
-            status=400,
-        )
-
-    if not category:
-        return JsonResponse(
-            {
-                "detail": "A categoria do documento é obrigatória.",
-                "field": "category",
-            },
-            status=400,
-        )
-
-    # =====================================================
-    # VALIDAÇÃO DA EXTENSÃO
-    # =====================================================
-
-    extension = Path(uploaded_file.name).suffix.lower()
-
-    if extension not in ALLOWED_EXTENSIONS:
-        return JsonResponse(
-            {
-                "detail": (
-                    "Tipo de arquivo não permitido. "
-                    "Envie PDF, DOC, DOCX, XLS, XLSX ou TXT."
-                ),
-                "field": "file",
-            },
-            status=400,
-        )
-
-    # =====================================================
-    # VALIDAÇÃO DO TAMANHO
-    # =====================================================
-
-    if uploaded_file.size > MAX_FILE_SIZE:
-        return JsonResponse(
-            {
-                "detail": "O arquivo ultrapassa o limite máximo de 10 MB.",
-                "field": "file",
-            },
-            status=400,
-        )
-
-    # =====================================================
-    # DIRETÓRIO DE UPLOAD
-    # =====================================================
-
-    upload_directory = Path(settings.BASE_DIR) / "uploads"
-
-    upload_directory.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    # =====================================================
-    # EVITA CONFLITO DE NOMES
-    # =====================================================
-
-    original_name = Path(uploaded_file.name).name
-    file_path = upload_directory / original_name
-
-    if file_path.exists():
-        file_stem = file_path.stem
-        file_suffix = file_path.suffix
-
-        counter = 1
-
-        while file_path.exists():
-            new_name = f"{file_stem}_{counter}{file_suffix}"
-
-            file_path = upload_directory / new_name
-            counter += 1
-
-    # =====================================================
-    # SALVAMENTO
-    # =====================================================
+    """POST /api/documents/upload/"""
+    # usuario_upload vem do token, nunca do formulário.
+    perfil = _perfil_de(request)
+    if perfil is None:
+        return _erro("Perfil operacional do usuário não encontrado.", 403)
 
     try:
-        with open(file_path, "wb+") as destination:
-            for chunk in uploaded_file.chunks():
-                destination.write(chunk)
-
-    except OSError:
-        return JsonResponse(
-            {"detail": ("Não foi possível salvar o arquivo no servidor.")},
-            status=500,
+        documento = upload_documento.criar(
+            request.POST, request.FILES.get("arquivo"), perfil
         )
-
-    # =====================================================
-    # RESPOSTA
-    # =====================================================
+    except upload_documento.DadosInvalidos as e:
+        return _erro(str(e), 400, e.campo)
+    except upload_documento.DocumentoDuplicado as e:
+        return _erro(str(e), 409, "identificador_codigo")
+    except OSError:
+        logger.exception("Falha ao gravar o arquivo do upload")
+        return _erro("Não foi possível salvar o arquivo no servidor.", 500)
+    except DatabaseError:
+        logger.exception("Falha ao gravar o documento do upload")
+        return _erro("Não foi possível salvar o documento. Tente novamente.", 500)
 
     return JsonResponse(
         {
-            "message": "Arquivo enviado com sucesso!",
-            "document": {
-                "name": original_name,
-                "saved_name": file_path.name,
-                "title": title,
-                "category": category,
-                "description": description,
-                "size": uploaded_file.size,
-                "extension": extension,
-                "status": "Pendente",
-            },
+            "message": "Documento enviado para validação.",
+            "id": str(documento.id),
+            "status_validacao": documento.status_validacao,
         },
         status=201,
     )

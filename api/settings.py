@@ -162,6 +162,13 @@ IDIOMA_PADRAO = "pt-BR"
 
 STATIC_URL = "static/"
 
+# Pasta PRIVADA dos arquivos enviados no upload (S2-32). Fica fora de
+# STATIC/MEDIA e nenhuma rota serve esta pasta: o arquivo não tem URL
+# pública, só o backend lê. O nome de cada arquivo é um uuid gerado.
+DOCUMENTOS_UPLOAD_DIR = Path(
+    os.getenv("DOCUMENTOS_UPLOAD_DIR", BASE_DIR / "uploads" / "documentos")
+)
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 

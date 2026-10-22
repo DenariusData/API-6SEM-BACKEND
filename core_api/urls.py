@@ -13,6 +13,7 @@ from core_api.views import (
     login_view,
     meus_documentos_view,
     niveis_sigilo_view,
+    pagina_documento_view,
     pendentes_view,
     pergunta_view,
     profile_view,
@@ -21,6 +22,7 @@ from core_api.views import (
     tipos_documento_view,
     upload_document_view,
     user_management_view,
+    visualizar_documento_view,
 )
 
 urlpatterns = [
@@ -115,5 +117,15 @@ urlpatterns = [
         "documents/<uuid:documento_id>/reenviar/",
         reenviar_documento_view,
         name="document_reenviar",
+    # Visualização segura (AKA-48): só imagens, nunca o PDF original
+    path(
+        "documents/<uuid:documento_id>/visualizar/",
+        visualizar_documento_view,
+        name="document_visualizar",
+    ),
+    path(
+        "documents/<uuid:documento_id>/paginas/<int:numero>/",
+        pagina_documento_view,
+        name="document_pagina",
     ),
 ]

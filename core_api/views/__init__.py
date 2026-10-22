@@ -8,9 +8,7 @@ from core_api.views.consulta_views import (
     meus_documentos_view,
     pendentes_view,
 )
-from core_api.views.document_views import (
-    upload_document_view,
-)
+from core_api.views.document_views import reenviar_documento_view, upload_document_view
 from core_api.views.opcoes_upload_views import (
     areas_view,
     idiomas_view,
@@ -35,6 +33,7 @@ __all__ = [
     "profile_view",
     "user_management_view",
     "upload_document_view",
+    "reenviar_documento_view",
     "pergunta_view",
     "aprovar_documento_view",
     "devolver_documento_view",

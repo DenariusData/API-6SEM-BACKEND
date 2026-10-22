@@ -17,6 +17,7 @@ from core_api.views import (
     pendentes_view,
     pergunta_view,
     profile_view,
+    reenviar_documento_view,
     responsaveis_view,
     tipos_documento_view,
     upload_document_view,
@@ -112,7 +113,11 @@ urlpatterns = [
         devolver_documento_view,
         name="document_devolver",
     ),
-    # Visualização segura (AKA-48): só imagens, nunca o PDF original
+    path(
+        "documents/<uuid:documento_id>/reenviar/",
+        reenviar_documento_view,
+        name="document_reenviar",
+    ),
     path(
         "documents/<uuid:documento_id>/visualizar/",
         visualizar_documento_view,

@@ -117,7 +117,7 @@ urlpatterns = [
         "documents/<uuid:documento_id>/reenviar/",
         reenviar_documento_view,
         name="document_reenviar",
-    # Visualização segura (AKA-48): só imagens, nunca o PDF original
+    ),
     path(
         "documents/<uuid:documento_id>/visualizar/",
         visualizar_documento_view,

@@ -259,6 +259,29 @@ class MeusDocumentosTestCase(ConsultaBase):
         p2 = self.get(self.URL + "?page=2", self.token_autor).json()
         self.assertEqual(len(p2["results"]), 1)
 
+    def test_contagens_por_status_ignoram_o_filtro(self):
+        self.doc(self.autor, AGUARDANDO)
+        self.doc(self.autor, StatusValidacao.DEVOLVIDO)
+        self.doc(self.autor, StatusValidacao.DEVOLVIDO)
+        self.doc(self.autor, StatusValidacao.DISPONIVEL)
+        esperado = {
+            "AGUARDANDO_VALIDACAO": 1,
+            "DEVOLVIDO": 2,
+            "DISPONIVEL": 1,
+            "TODOS": 4,
+        }
+        for url in (self.URL, self.URL + "?status=DISPONIVEL&page=2"):
+            r = self.get(url, self.token_autor)
+            self.assertEqual(r.json()["contagens"], esperado, url)
+
+    def test_contagens_so_dos_proprios_envios_e_zeradas_sem_envio(self):
+        self.doc(self.outro, StatusValidacao.DEVOLVIDO)
+        r = self.get(self.URL, self.token_autor)
+        self.assertEqual(
+            r.json()["contagens"],
+            {"AGUARDANDO_VALIDACAO": 0, "DEVOLVIDO": 0, "DISPONIVEL": 0, "TODOS": 0},
+        )
+
     def test_nao_vaza_email(self):
         self.doc(self.autor)
         r = self.get(self.URL, self.token_autor)

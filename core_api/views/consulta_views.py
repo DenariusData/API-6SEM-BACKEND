@@ -2,7 +2,8 @@
 Endpoints de consulta do fluxo de validação (S2-35).
 
     GET /api/documents/pendentes/        fila de validação (só ADMINISTRADOR)
-    GET /api/documents/meus/?status=     envios do usuário (qualquer autenticado)
+    GET /api/documents/meus/?status=     envios do usuário (qualquer autenticado),
+                                         com `contagens` por status
     GET /api/documents/<id>/             metadados + histórico
 
 As listas aceitam ?page= (20 por página). Esta camada só faz HTTP; as regras
@@ -73,6 +74,7 @@ def meus_documentos_view(request):
         )
     except consulta.ParametroInvalido as e:
         return _erro(str(e), 400, e.campo)
+    corpo["contagens"] = consulta.contagens_por_status(usuario_id)
     return JsonResponse(corpo, status=200)
 
 

@@ -6,7 +6,9 @@ Regras (todas aqui, no backend):
   - fila: só AGUARDANDO_VALIDACAO, SEM os documentos enviados por quem está
     consultando, do mais antigo para o mais novo;
   - meus: só os envios de quem consulta, com o estado e o último comentário
-    de devolução; filtro opcional por status_validacao;
+    de devolução; filtro opcional por status_validacao. A resposta traz
+    também `contagens` por status (sem o filtro), numa consulta só, para a
+    tela não precisar de uma chamada por filtro (AKA-63);
   - detalhe: documento DISPONIVEL é visto por qualquer usuário autenticado;
     documento em outro estado só pelo autor e pelos validadores
     (ADMINISTRADOR). Para os demais é como se não existisse (404, nunca 403,
@@ -24,7 +26,7 @@ PerfilOperacional: não precisa carregar o perfil para consultar.
 """
 
 from django.core.paginator import EmptyPage, Paginator
-from django.db.models import OuterRef, Subquery, TextField
+from django.db.models import Count, OuterRef, Subquery, TextField
 from django.db.models.functions import Coalesce
 
 from core_api.models import (
@@ -136,6 +138,23 @@ def meus_documentos(usuario_id, status=None):
             )
         qs = qs.filter(status_validacao=valor)
     return qs
+
+
+def contagens_por_status(usuario_id) -> dict:
+    """Quantos envios de `usuario_id` há em cada status_validacao, mais o
+    total ("TODOS"). Ignora o ?status= da lista: é o que o filtro da tela
+    Meus documentos mostra em cada opção. Uma consulta só (GROUP BY)."""
+    contagens = dict.fromkeys(StatusValidacao.values, 0)
+    linhas = (
+        Documento.objects.filter(usuario_upload_id=usuario_id)
+        .values("status_validacao")
+        .annotate(total=Count("id"))
+        .order_by()
+    )
+    for linha in linhas:
+        contagens[linha["status_validacao"]] = linha["total"]
+    contagens["TODOS"] = sum(contagens.values())
+    return contagens
 
 
 def serializar_lista(documentos, com_ultimo_comentario=False):

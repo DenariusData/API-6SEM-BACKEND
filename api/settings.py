@@ -105,16 +105,16 @@ DATABASES = {
     "default": {
         "ENGINE": os.getenv("DEFAULT_DB_ENGINE", "django.db.backends.postgresql"),
         "NAME": os.getenv("DEFAULT_DB_NAME", "rag"),
-        "USER": os.getenv("DEFAULT_DB_USER", "rag"),
-        "PASSWORD": os.getenv("DEFAULT_DB_PASSWORD", "rag"),
+        "USER": os.getenv("DEFAULT_DB_USER", ""),
+        "PASSWORD": os.getenv("DEFAULT_DB_PASSWORD", ""),
         "HOST": os.getenv("DEFAULT_DB_HOST", "localhost"),
         "PORT": os.getenv("DEFAULT_DB_PORT", "5434"),
     },
     "credenciais_db": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.getenv("CREDENCIAIS_DB_NAME", "credenciais"),
-        "USER": os.getenv("CREDENCIAIS_DB_USER", "credenciais"),
-        "PASSWORD": os.getenv("CREDENCIAIS_DB_PASSWORD", "credenciais"),
+        "USER": os.getenv("CREDENCIAIS_DB_USER", ""),
+        "PASSWORD": os.getenv("CREDENCIAIS_DB_PASSWORD", ""),
         "HOST": os.getenv("CREDENCIAIS_DB_HOST", "localhost"),
         "PORT": os.getenv("CREDENCIAIS_DB_PORT", "5433"),
     },
@@ -181,3 +181,39 @@ DOCUMENTOS_UPLOAD_DIR = Path(
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# E-mail (S2-49: confirmação de troca de e-mail). Em desenvolvimento o padrão
+# é o backend de console: o e-mail aparece no terminal do runserver. Em
+# produção, defina EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+# e as variáveis EMAIL_HOST/EMAIL_PORT/EMAIL_HOST_USER/EMAIL_HOST_PASSWORD.
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
+)
+EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "1025"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False").lower() in ("1", "true", "yes")
+DEFAULT_FROM_EMAIL = os.getenv(
+    "DEFAULT_FROM_EMAIL", "AkaVision <nao-responda@akaer.com.br>"
+)
+# Endereço do front, usado para montar o link do e-mail de confirmação.
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+# Log de auditoria de dados pessoais (S2-49). Sem LOGGING, o nível INFO não
+# aparece em lugar nenhum. A linha traz usuário, campos e data, nunca valores.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "simples": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"}
+    },
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "simples"}},
+    "loggers": {
+        "core_api.auditoria": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        }
+    },
+}

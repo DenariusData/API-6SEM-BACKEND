@@ -5,21 +5,24 @@ pede ao LLM do Ollama uma resposta em português citando as fontes.
 É a mesma lógica do `responder.py` (mesmo prompt, mesmo formato de contexto),
 mas sem `sys.exit`/`print`: devolve um dict pronto para a API e levanta
 `ErroIA` quando o Ollama ou o banco não respondem.
+
+Os trechos vêm de `busca_vetorial.buscar_por_vetor` (AKA-51): só documentos
+disponíveis, mais a base pública do EverySpec.
 """
 
 import os
 import re
 import time
 
-import psycopg
 import requests
+from django.db import DatabaseError
 
+from core_api.services.rag.busca_vetorial import buscar_por_vetor
 from core_api.services.rag.responder import (
     FRASES_NAO_ENCONTROU,
     montar_prompt_sistema,
 )
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://rag:rag@localhost:5434/rag")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 MODELO_LLM = os.getenv("RAG_MODELO_LLM", "llama3.2")
 MODELO_EMBEDDING = os.getenv("RAG_MODELO_EMBEDDING", "bge-m3")
@@ -59,27 +62,10 @@ def buscar_trechos(pergunta, k=TOP_K):
     vetor = _ollama("/api/embed", {"model": MODELO_EMBEDDING, "input": [pergunta]})[
         "embeddings"
     ][0]
-    vetor = "[" + ",".join(f"{x:.7g}" for x in vetor) + "]"
     try:
-        with psycopg.connect(DATABASE_URL) as conn:
-            linhas = conn.execute(
-                """
-                SELECT documento, titulo, url_pdf, pagina_inicio, pagina_fim, texto,
-                       1 - (embedding <=> %(vetor)s::vector) AS similaridade
-                FROM rag_chunks
-                ORDER BY embedding <=> %(vetor)s::vector
-                LIMIT %(k)s
-                """,
-                {"vetor": vetor, "k": k},
-            ).fetchall()
-    except psycopg.Error as e:
+        return buscar_por_vetor(vetor, k)
+    except DatabaseError as e:
         raise ErroIA("Não consegui consultar a base de documentos.") from e
-
-    colunas = ("documento", "titulo", "url_pdf", "pagina_inicio", "pagina_fim")
-    return [
-        dict(zip(colunas, linha[:5]), texto=linha[5], similaridade=float(linha[6]))
-        for linha in linhas
-    ]
 
 
 def extrair_codigo_e_revisao(titulo, documento):
@@ -104,13 +90,26 @@ def extrair_codigo_e_revisao(titulo, documento):
 
 
 def formatar_paginas(p1, p2):
-    return str(p1) if p1 == p2 else f"{p1}-{p2}"
+    if p1 is None:
+        return "—"
+    return str(p1) if p1 == p2 or p2 is None else f"{p1}-{p2}"
 
 
 def _montar_fonte(numero, trecho, citadas):
-    codigo, revisao = extrair_codigo_e_revisao(trecho["titulo"], trecho["documento"])
+    documento_id = trecho.get("documento_id")
+    if documento_id:
+        # Documento do sistema: código e revisão vêm dos metadados do upload.
+        codigo, revisao = trecho["documento"], trecho.get("revisao")
+    else:
+        # Base pública: código e revisão saem do título do EverySpec.
+        codigo, revisao = extrair_codigo_e_revisao(
+            trecho["titulo"], trecho["documento"]
+        )
     return {
         "numero": numero,
+        # Abre o documento no visualizador seguro do front (AKA-61);
+        # None na base pública, que não tem Documento.
+        "documento_id": documento_id,
         "documento": codigo,
         "revisao": revisao,
         "pagina": formatar_paginas(trecho["pagina_inicio"], trecho["pagina_fim"]),
@@ -167,7 +166,7 @@ def responder_pergunta(pergunta, idioma="pt-BR"):
             "resposta": str,
             "encontrou": bool,
             "idioma": str,
-            "fontes": [{numero, documento, revisao, pagina, ...}],
+            "fontes": [{numero, documento_id, documento, revisao, pagina, ...}],
             "tempos_ms": {"busca": int, "ia": int, "total": int},
         }
     """

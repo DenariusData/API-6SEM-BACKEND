@@ -7,6 +7,7 @@ from django.urls import path
 from core_api.views import (
     aprovar_documento_view,
     areas_view,
+    confirmar_email_view,
     detalhe_documento_view,
     devolver_documento_view,
     idiomas_view,
@@ -17,6 +18,7 @@ from core_api.views import (
     pendentes_view,
     pergunta_view,
     profile_view,
+    reenviar_confirmacao_view,
     responsaveis_view,
     tipos_documento_view,
     upload_document_view,
@@ -37,6 +39,16 @@ urlpatterns = [
         "auth/me/",
         profile_view,
         name="auth_me",
+    ),
+    path(
+        "auth/confirmar-email/",
+        confirmar_email_view,
+        name="auth_confirmar_email",
+    ),
+    path(
+        "auth/reenviar-confirmacao/",
+        reenviar_confirmacao_view,
+        name="auth_reenviar_confirmacao",
     ),
     path(
         "auth/users/",
@@ -112,7 +124,6 @@ urlpatterns = [
         devolver_documento_view,
         name="document_devolver",
     ),
-    # Visualização segura (AKA-48): só imagens, nunca o PDF original
     path(
         "documents/<uuid:documento_id>/visualizar/",
         visualizar_documento_view,

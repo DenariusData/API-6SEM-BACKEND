@@ -1,6 +1,9 @@
 """
 Testa a busca vetorial: mostra os chunks mais parecidos com uma pergunta (ainda sem LLM).
 
+Usa a mesma busca da API (busca_vetorial.py, AKA-51): só documentos disponíveis,
+mais a base pública do EverySpec.
+
 Uso:
     python buscar.py "qual a umidade para condicionar corpos de prova?"
     python buscar.py "requisitos de abortar a missão da Orion" --k 10
@@ -10,12 +13,24 @@ import argparse
 import os
 import sys
 import textwrap
+from pathlib import Path
 
-import psycopg
 import requests
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://rag:rag@localhost:5434/rag")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+
+
+def buscar_com_django(vetor, k):
+    """Sobe o Django (o script roda fora do manage.py) e usa a busca da API,
+    para o filtro de documentos disponíveis ficar num lugar só."""
+    import django
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "api.settings")
+    django.setup()
+    from core_api.services.rag.busca_vetorial import buscar_por_vetor
+
+    return buscar_por_vetor(vetor, k)
 
 
 def main():
@@ -40,30 +55,27 @@ def main():
         )
     if r.status_code != 200:
         sys.exit(f"Erro do Ollama: {r.text[:300]}")
-    vetor = "[" + ",".join(f"{x:.7g}" for x in r.json()["embeddings"][0]) + "]"
+    trechos = buscar_com_django(r.json()["embeddings"][0], args.k)
 
-    with psycopg.connect(DATABASE_URL) as conn:
-        linhas = conn.execute(
-            """
-            SELECT documento, titulo, pagina_inicio, pagina_fim, texto,
-                   1 - (embedding <=> %(vetor)s::vector) AS similaridade
-            FROM rag_chunks
-            ORDER BY embedding <=> %(vetor)s::vector
-            LIMIT %(k)s
-            """,
-            {"vetor": vetor, "k": args.k},
-        ).fetchall()
-
-    if not linhas:
-        sys.exit("Nenhum chunk no banco. Rode antes o gerar_embeddings.py")
+    if not trechos:
+        sys.exit(
+            "Nenhum trecho encontrado. Aprove um documento ou rode o gerar_embeddings.py"
+        )
 
     print(f'Pergunta: "{args.pergunta}"')
-    for n, (documento, titulo, p1, p2, texto, similaridade) in enumerate(linhas, 1):
+    for n, t in enumerate(trechos, 1):
+        p1, p2 = t["pagina_inicio"], t["pagina_fim"]
         paginas = f"p. {p1}" if p1 == p2 else f"p. {p1}-{p2}"
-        print(f"\n[{n}] similaridade {similaridade:.3f} | {documento} ({paginas})")
-        print(f"    {(titulo or '')[:110]}")
+        origem = "sistema" if t["documento_id"] else "base pública"
         print(
-            textwrap.indent(textwrap.fill(" ".join(texto.split())[:450], 100), "    ")
+            f"\n[{n}] similaridade {t['similaridade']:.3f} | {t['documento']} "
+            f"({paginas}) [{origem}]"
+        )
+        print(f"    {(t['titulo'] or '')[:110]}")
+        print(
+            textwrap.indent(
+                textwrap.fill(" ".join(t["texto"].split())[:450], 100), "    "
+            )
         )
 
 

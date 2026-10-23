@@ -5,6 +5,9 @@ e pede ao LLM do Ollama uma resposta em português, citando de onde veio cada in
 Pré-requisitos:
     ollama pull llama3.2
 
+Os trechos vêm da mesma busca da API (busca_vetorial.py, AKA-51): só documentos
+disponíveis, mais a base pública do EverySpec.
+
 Uso:
     python responder.py "Como é feito o ensaio de tração em materiais compósitos?"
     python responder.py "Quanto tempo a Orion deve manter a tripulação viva sem pressurização?" --mostrar-trechos
@@ -15,11 +18,10 @@ import json
 import os
 import sys
 import textwrap
+from pathlib import Path
 
-import psycopg
 import requests
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://rag:rag@localhost:5434/rag")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 
 REGRAS_IDIOMA = {
@@ -80,19 +82,17 @@ def ollama(caminho, dados, **kwargs):
 
 
 def buscar_trechos(pergunta, k, modelo_embedding):
+    """Sobe o Django (o script roda fora do manage.py) e usa a busca da API.
+    O import fica aqui dentro porque a API importa este módulo (prompts)."""
+    import django
+
     resposta = ollama("/api/embed", {"model": modelo_embedding, "input": [pergunta]})
-    vetor = "[" + ",".join(f"{x:.7g}" for x in resposta.json()["embeddings"][0]) + "]"
-    with psycopg.connect(DATABASE_URL) as conn:
-        return conn.execute(
-            """
-            SELECT documento, titulo, url_pdf, pagina_inicio, pagina_fim, texto,
-                   1 - (embedding <=> %(vetor)s::vector) AS similaridade
-            FROM rag_chunks
-            ORDER BY embedding <=> %(vetor)s::vector
-            LIMIT %(k)s
-            """,
-            {"vetor": vetor, "k": k},
-        ).fetchall()
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "api.settings")
+    django.setup()
+    from core_api.services.rag.busca_vetorial import buscar_por_vetor
+
+    return buscar_por_vetor(resposta.json()["embeddings"][0], k)
 
 
 def formatar_paginas(p1, p2):
@@ -125,22 +125,28 @@ def main():
 
     trechos = buscar_trechos(args.pergunta, args.k, args.modelo_embedding)
     if not trechos:
-        sys.exit("Nenhum chunk no banco. Rode antes o gerar_embeddings.py")
+        sys.exit(
+            "Nenhum trecho encontrado. Aprove um documento ou rode o gerar_embeddings.py"
+        )
 
     contexto = "\n\n".join(
-        f"[{n}] Documento: {titulo or documento} | {formatar_paginas(p1, p2)}\n{' '.join(texto.split())}"
-        for n, (documento, titulo, _, p1, p2, texto, _) in enumerate(trechos, 1)
+        f"[{n}] Documento: {t['titulo'] or t['documento']} | "
+        f"{formatar_paginas(t['pagina_inicio'], t['pagina_fim'])}\n"
+        f"{' '.join(t['texto'].split())}"
+        for n, t in enumerate(trechos, 1)
     )
 
     if args.mostrar_trechos:
         print("=== Trechos enviados ao LLM ===")
-        for n, (documento, _, _, p1, p2, texto, similaridade) in enumerate(trechos, 1):
+        for n, t in enumerate(trechos, 1):
+            paginas = formatar_paginas(t["pagina_inicio"], t["pagina_fim"])
             print(
-                f"\n[{n}] similaridade {similaridade:.3f} | {documento} ({formatar_paginas(p1, p2)})"
+                f"\n[{n}] similaridade {t['similaridade']:.3f} | "
+                f"{t['documento']} ({paginas})"
             )
             print(
                 textwrap.indent(
-                    textwrap.fill(" ".join(texto.split())[:300], 100), "    "
+                    textwrap.fill(" ".join(t["texto"].split())[:300], 100), "    "
                 )
             )
         print()
@@ -178,10 +184,11 @@ def main():
             break
 
     print("\n\nFontes:")
-    for n, (documento, titulo, url_pdf, p1, p2, _, _) in enumerate(trechos, 1):
-        print(f"  [{n}] {(titulo or documento)[:90]} ({formatar_paginas(p1, p2)})")
-        if url_pdf:
-            print(f"      {url_pdf}")
+    for n, t in enumerate(trechos, 1):
+        paginas = formatar_paginas(t["pagina_inicio"], t["pagina_fim"])
+        print(f"  [{n}] {(t['titulo'] or t['documento'])[:90]} ({paginas})")
+        if t["url_pdf"]:
+            print(f"      {t['url_pdf']}")
 
 
 if __name__ == "__main__":

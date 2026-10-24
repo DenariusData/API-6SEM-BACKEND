@@ -31,9 +31,9 @@ Não são necessariamente 16 colunas: vários viram FK/relacionamento em vez de 
 | Origem/fonte | `documento.origem_fonte` | Sim |
 | Responsável pelo documento | FK `responsavel_id` → `perfil_operacional` | Sim |
 | Idioma | FK `idioma_codigo` (lookup, não enum) | Sim |
-| Norma/documento relacionado | tabela `documento_relacao` (N:N autorreferenciada) | Quando aplicável |
+| Norma/documento relacionado | Sprint 2: `documento.referencia_normativa` (texto livre, nulo). Sprint 3: tabela `documento_relacao` (N:N autorreferenciada) | Quando aplicável |
 | Data de validade | `documento.data_validade` | Quando aplicável |
-| Arquivo original | `documento.arquivo_original_url` | Sim |
+| Arquivo original | `documento.arquivo_original_url` (guarda só o nome uuid do PDF na pasta privada, sem URL pública) | Sim |
 
 **Papéis de usuário separados** (R1P7 distingue quem faz upload de quem aprova):
 - `usuario_upload_id` — quem fez o upload (pode sugerir classificação inicial, mas não define acesso elevado sozinho)
@@ -94,6 +94,18 @@ O roteamento entre os dois bancos é feito por `credenciais/db_router.py` (`Cred
 Os dois lados se ligam só pelo mesmo UUID (`perfil_operacional.usuario_id` = `credenciais.Usuario.id`) — a composição dos dois é feita em Python, em `core_api/services/auth/autenticacao.py` (`AuthService`), nunca via JOIN. `documento.responsavel_id`/`usuario_upload_id`/`aprovador_id` referenciam `perfil_operacional` (mesmo banco, FK real), nunca `credenciais.Usuario` diretamente.
 
 O `Usuario` real já inclui hash de senha (`set_senha`/`verificar_senha`, via `django.contrib.auth.hashers`) e controle de bloqueio por tentativas (`registrar_falha_login`/`esta_bloqueado`) — o JWT (`JWT_SECRET`/`JWT_EXP_MINUTES` no `settings.py`) continua stateless, nenhuma tabela de sessão em nenhum dos dois bancos.
+
+### 1.8.1 Upload grava o documento (S2-32)
+
+`POST /api/documents/upload/` recebe os 16 campos acima (regras em `core_api/services/upload_documento.py`):
+
+- só PDF nesta sprint, até 10 MB; o arquivo é gravado com nome uuid em `DOCUMENTOS_UPLOAD_DIR` (pasta privada, sem URL pública);
+- data de vigência e data de validade não podem ser anteriores à data de emissão;
+- `documento`, `documento_area` (uma principal, secundárias opcionais) e a linha `ENVIADO` de `historico_validacao` são gravados na mesma transação; se o banco falhar, o arquivo gravado é apagado;
+- `usuario_upload_id` vem do token, nunca do formulário; o documento nasce `AGUARDANDO_VALIDACAO`, com `nivel_sigilo` igual ao `nivel_sigilo_sugerido`;
+- identificador + revisão repetidos devolvem 409 (checagem prévia + `uq_documento_identificador_revisao`).
+
+Os selects do formulário vêm de `GET /api/tipos-documento/`, `/api/areas/`, `/api/niveis-sigilo/`, `/api/idiomas/` e `/api/responsaveis/?area=` (só id e nome, por LGPD). Ainda não existe ligação entre usuário e área (`usuario_permissao_area`, 1.5), então `?area=` é validado mas não filtra a lista.
 
 ### 1.9 Fluxo de validação do documento (S2-33)
 

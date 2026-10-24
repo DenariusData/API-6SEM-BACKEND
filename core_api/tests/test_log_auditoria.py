@@ -16,7 +16,7 @@ import json
 import uuid
 
 from django.db import transaction
-from django.test import Client, TransactionTestCase
+from django.test import Client, TransactionTestCase, override_settings
 
 from core_api.models import (
     AcaoAcesso,
@@ -49,6 +49,11 @@ HISTORICO = EntidadeAuditoria.HISTORICO_VALIDACAO
 COMENTARIO = "Faltou anexar a revisão anterior do documento."
 
 
+# A aprovação dispara o processamento para a IA (AKA-62), que atualiza
+# status_processamento e gera um ATUALIZADO a mais, sem usuário (ação do
+# sistema). Os testes daqui comparam o log exato, então ficam sem ele; o
+# processamento tem os próprios testes, em test_processamento.py.
+@override_settings(PROCESSAMENTO_AUTOMATICO=False)
 class AuditoriaBase(TransactionTestCase):
     databases = {"default", "credenciais_db"}
 

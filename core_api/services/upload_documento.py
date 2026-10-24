@@ -227,71 +227,171 @@ def _arquivo(arquivo):
     return arquivo
 
 
-def validar(dados, arquivo) -> dict:
-    """Valida os 16 campos na ordem da lista e devolve os valores prontos
-    para gravar. `dados` é o request.POST (QueryDict)."""
-    campos = {
-        "titulo": _texto(dados, "titulo", "o título", 300),
-        "identificador_codigo": _texto(
-            dados, "identificador_codigo", "o identificador ou código", 100
+def _leitores(dados):
+    """Os campos do formulário na ordem da lista do cliente. Cada item é
+    (campos do formulário que ele cobre, função que lê e valida e devolve um
+    dict com os valores prontos). Campos que dependem um do outro (área
+    principal + secundárias, categoria + subcategoria) formam um item só."""
+    return [
+        (("titulo",), lambda: {"titulo": _texto(dados, "titulo", "o título", 300)}),
+        (
+            ("identificador_codigo",),
+            lambda: {
+                "identificador_codigo": _texto(
+                    dados, "identificador_codigo", "o identificador ou código", 100
+                )
+            },
         ),
-        "tipo_documento": _opcao(
-            TipoDocumento.objects.all(),
-            _valor(dados, "tipo_documento"),
-            "tipo_documento",
-            "o tipo de documento",
+        (
+            ("tipo_documento",),
+            lambda: {
+                "tipo_documento": _opcao(
+                    TipoDocumento.objects.all(),
+                    _valor(dados, "tipo_documento"),
+                    "tipo_documento",
+                    "o tipo de documento",
+                )
+            },
         ),
-        "numero_revisao": _texto(dados, "numero_revisao", "o número da revisão", 30),
-        "data_emissao": _data(dados, "data_emissao", "a data de emissão"),
-        "data_vigencia": _data(
-            dados, "data_vigencia", "a data de vigência", obrigatorio=False
+        (
+            ("numero_revisao",),
+            lambda: {
+                "numero_revisao": _texto(
+                    dados, "numero_revisao", "o número da revisão", 30
+                )
+            },
         ),
-    }
-    campos["area_principal"], campos["areas_secundarias"] = _areas(dados)
-    campos["subcategoria"] = _subcategoria(dados)
-    campos["status"] = _status(dados)
-    campos["nivel_sigilo"] = _opcao(
-        NivelSigilo.objects.all(),
-        _valor(dados, "nivel_sigilo"),
-        "nivel_sigilo",
-        "o nível de sigilo",
-    )
-    campos["origem_fonte"] = _texto(dados, "origem_fonte", "a origem ou fonte", 200)
-    campos["responsavel"] = _responsavel(dados)
-    campos["idioma"] = _opcao(
-        Idioma.objects.all(), _valor(dados, "idioma"), "idioma", "o idioma"
-    )
-    campos["referencia_normativa"] = _texto(
-        dados,
-        "referencia_normativa",
-        "a norma ou documento relacionado",
-        TAMANHO_MAXIMO_REFERENCIA,
-        obrigatorio=False,
-    )
-    campos["data_validade"] = _data(
-        dados, "data_validade", "a data de validade", obrigatorio=False
-    )
-    _arquivo(arquivo)
+        (
+            ("data_emissao",),
+            lambda: {"data_emissao": _data(dados, "data_emissao", "a data de emissão")},
+        ),
+        (
+            ("data_vigencia",),
+            lambda: {
+                "data_vigencia": _data(
+                    dados, "data_vigencia", "a data de vigência", obrigatorio=False
+                )
+            },
+        ),
+        (
+            ("area_principal", "areas_secundarias"),
+            lambda: dict(zip(("area_principal", "areas_secundarias"), _areas(dados))),
+        ),
+        (
+            ("categoria", "subcategoria"),
+            lambda: {"subcategoria": _subcategoria(dados)},
+        ),
+        (("status",), lambda: {"status": _status(dados)}),
+        (
+            ("nivel_sigilo",),
+            lambda: {
+                "nivel_sigilo": _opcao(
+                    NivelSigilo.objects.all(),
+                    _valor(dados, "nivel_sigilo"),
+                    "nivel_sigilo",
+                    "o nível de sigilo",
+                )
+            },
+        ),
+        (
+            ("origem_fonte",),
+            lambda: {
+                "origem_fonte": _texto(dados, "origem_fonte", "a origem ou fonte", 200)
+            },
+        ),
+        (("responsavel",), lambda: {"responsavel": _responsavel(dados)}),
+        (
+            ("idioma",),
+            lambda: {
+                "idioma": _opcao(
+                    Idioma.objects.all(), _valor(dados, "idioma"), "idioma", "o idioma"
+                )
+            },
+        ),
+        (
+            ("referencia_normativa",),
+            lambda: {
+                "referencia_normativa": _texto(
+                    dados,
+                    "referencia_normativa",
+                    "a norma ou documento relacionado",
+                    TAMANHO_MAXIMO_REFERENCIA,
+                    obrigatorio=False,
+                )
+            },
+        ),
+        (
+            ("data_validade",),
+            lambda: {
+                "data_validade": _data(
+                    dados, "data_validade", "a data de validade", obrigatorio=False
+                )
+            },
+        ),
+    ]
 
-    emissao = campos["data_emissao"]
-    if campos["data_vigencia"] and campos["data_vigencia"] < emissao:
+
+def _conferir_datas(emissao, vigencia, validade) -> None:
+    if vigencia and vigencia < emissao:
         raise DadosInvalidos(
             "A data de vigência não pode ser anterior à data de emissão.",
             "data_vigencia",
         )
-    if campos["data_validade"] and campos["data_validade"] < emissao:
+    if validade and validade < emissao:
         raise DadosInvalidos(
             "A data de validade não pode ser anterior à data de emissão.",
             "data_validade",
+        )
+
+
+def validar(dados, arquivo, atual=None) -> dict:
+    """Valida os campos na ordem da lista e devolve os valores prontos para
+    gravar. `dados` é um QueryDict (multipart).
+
+    Sem `atual` (upload): os 16 campos são obrigatórios/opcionais como na
+    lista do cliente.
+
+    Com `atual` (reenvio, S2-36): só os campos PRESENTES em `dados` são
+    validados, com exatamente as mesmas regras do upload; o que não veio
+    continua como está. `atual` é um dict com as datas gravadas
+    (data_emissao, data_vigencia, data_validade) para a checagem entre datas.
+    Campo presente e vazio vale como "limpar" nos opcionais e dá 400 nos
+    obrigatórios. O arquivo, se vier, passa pela mesma checagem.
+    """
+    parcial = atual is not None
+    campos = {}
+    for chaves, ler in _leitores(dados):
+        if parcial and not any(chave in dados for chave in chaves):
+            continue
+        campos.update(ler())
+    if arquivo is not None or not parcial:
+        _arquivo(arquivo)
+
+    if parcial:
+        efetivo = {**atual, **campos}
+        if {"data_emissao", "data_vigencia", "data_validade"} & campos.keys():
+            _conferir_datas(
+                efetivo["data_emissao"],
+                efetivo["data_vigencia"],
+                efetivo["data_validade"],
+            )
+    else:
+        _conferir_datas(
+            campos["data_emissao"], campos["data_vigencia"], campos["data_validade"]
         )
     return campos
 
 
 # -- gravação -------------------------------------------------------------
-def _ja_existe(identificador, revisao) -> bool:
-    return Documento.objects.filter(
-        identificador_codigo=identificador, numero_revisao=revisao
-    ).exists()
+def _ja_existe(identificador, revisao, excluir_id=None) -> bool:
+    """`excluir_id`: no reenvio, o próprio documento não conta como duplicado."""
+    return (
+        Documento.objects.filter(
+            identificador_codigo=identificador, numero_revisao=revisao
+        )
+        .exclude(pk=excluir_id)
+        .exists()
+    )
 
 
 def _gravar_arquivo(arquivo) -> Path:

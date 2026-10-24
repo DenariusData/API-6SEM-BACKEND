@@ -8,7 +8,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("core_api", "0006_registropergunta_idioma"),
+        ("core_api", "0007_documento_referencia_normativa"),
     ]
 
     operations = [

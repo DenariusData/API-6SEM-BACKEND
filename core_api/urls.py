@@ -19,6 +19,7 @@ from core_api.views import (
     pergunta_view,
     profile_view,
     reenviar_confirmacao_view,
+    reenviar_documento_view,
     responsaveis_view,
     tipos_documento_view,
     upload_document_view,
@@ -123,6 +124,11 @@ urlpatterns = [
         "documents/<uuid:documento_id>/devolver/",
         devolver_documento_view,
         name="document_devolver",
+    ),
+    path(
+        "documents/<uuid:documento_id>/reenviar/",
+        reenviar_documento_view,
+        name="document_reenviar",
     ),
     path(
         "documents/<uuid:documento_id>/visualizar/",

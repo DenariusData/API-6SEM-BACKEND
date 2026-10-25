@@ -1,6 +1,8 @@
 from core_api.views.auth_views import (
+    confirmar_email_view,
     login_view,
     profile_view,
+    reenviar_confirmacao_view,
     user_management_view,
 )
 from core_api.views.consulta_views import (
@@ -32,6 +34,8 @@ __all__ = [
     "login_view",
     "profile_view",
     "user_management_view",
+    "confirmar_email_view",
+    "reenviar_confirmacao_view",
     "upload_document_view",
     "reenviar_documento_view",
     "pergunta_view",
@@ -45,6 +49,6 @@ __all__ = [
     "niveis_sigilo_view",
     "idiomas_view",
     "responsaveis_view",
-    "visualizar_documento_view",
     "pagina_documento_view",
+    "visualizar_documento_view",
 ]

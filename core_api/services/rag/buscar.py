@@ -20,7 +20,7 @@ import requests
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 
 
-def buscar_com_django(vetor, k):
+def buscar_com_django(vetor, k, modelo):
     """Sobe o Django (o script roda fora do manage.py) e usa a busca da API,
     para o filtro de documentos disponíveis ficar num lugar só."""
     import django
@@ -30,7 +30,7 @@ def buscar_com_django(vetor, k):
     django.setup()
     from core_api.services.rag.busca_vetorial import buscar_por_vetor
 
-    return buscar_por_vetor(vetor, k)
+    return buscar_por_vetor(vetor, k, modelo)
 
 
 def main():
@@ -55,7 +55,7 @@ def main():
         )
     if r.status_code != 200:
         sys.exit(f"Erro do Ollama: {r.text[:300]}")
-    trechos = buscar_com_django(r.json()["embeddings"][0], args.k)
+    trechos = buscar_com_django(r.json()["embeddings"][0], args.k, args.modelo)
 
     if not trechos:
         sys.exit(
@@ -65,7 +65,10 @@ def main():
     print(f'Pergunta: "{args.pergunta}"')
     for n, t in enumerate(trechos, 1):
         p1, p2 = t["pagina_inicio"], t["pagina_fim"]
-        paginas = f"p. {p1}" if p1 == p2 else f"p. {p1}-{p2}"
+        if p1 is None:
+            paginas = "p. —"
+        else:
+            paginas = f"p. {p1}" if p1 == p2 or p2 is None else f"p. {p1}-{p2}"
         origem = "sistema" if t["documento_id"] else "base pública"
         print(
             f"\n[{n}] similaridade {t['similaridade']:.3f} | {t['documento']} "

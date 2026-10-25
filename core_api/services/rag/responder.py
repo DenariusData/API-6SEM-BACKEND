@@ -92,11 +92,13 @@ def buscar_trechos(pergunta, k, modelo_embedding):
     django.setup()
     from core_api.services.rag.busca_vetorial import buscar_por_vetor
 
-    return buscar_por_vetor(resposta.json()["embeddings"][0], k)
+    return buscar_por_vetor(resposta.json()["embeddings"][0], k, modelo_embedding)
 
 
 def formatar_paginas(p1, p2):
-    return f"p. {p1}" if p1 == p2 else f"p. {p1}-{p2}"
+    if p1 is None:
+        return "p. —"
+    return f"p. {p1}" if p1 == p2 or p2 is None else f"p. {p1}-{p2}"
 
 
 def main():

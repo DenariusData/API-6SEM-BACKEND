@@ -13,21 +13,23 @@ deferrable de documento só disparam no COMMIT.
 """
 
 import json
+import random
 import time
 import uuid
 from unittest import mock
 
 from django.db import connection
-from django.test import Client, override_settings
+from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
 from core_api.management.commands import gerar_embeddings
 from core_api.models import Chunk, Documento, EmbeddingVersion, StatusValidacao
 from core_api.services import processamento, validacao
-from core_api.services.rag import busca_vetorial
+from core_api.services.rag import busca_vetorial, pergunta, responder
 from core_api.tests.test_processamento import ProcessamentoBase, _ollama_falso
 
 DIM = EmbeddingVersion.DIMENSAO_ATUAL
+MODELO = "bge-m3"
 PERGUNTAR_IA = "core_api.services.rag.pergunta.perguntar_ia"
 EMBED = "core_api.services.rag.pergunta._ollama"
 
@@ -65,7 +67,7 @@ class CriteriosDeAceiteTests(BuscaBase):
         devolvido = self.documento_com_trecho(StatusValidacao.DEVOLVIDO)
         disponivel = self.documento_com_trecho(StatusValidacao.DISPONIVEL)
 
-        trechos = busca_vetorial.buscar_por_vetor(vetor(), k=10)
+        trechos = busca_vetorial.buscar_por_vetor(vetor(), k=10, modelo=MODELO)
 
         self.assertEqual(self.ids(trechos), {str(disponivel.id)})
         self.assertNotIn(str(aguardando.id), self.ids(trechos))
@@ -73,33 +75,45 @@ class CriteriosDeAceiteTests(BuscaBase):
 
     def test_aguardando_validacao_nao_aparece_em_nenhuma_resposta(self):
         self.documento_com_trecho(StatusValidacao.AGUARDANDO_VALIDACAO)
-        self.assertEqual(busca_vetorial.buscar_por_vetor(vetor(), k=10), [])
+        self.assertEqual(
+            busca_vetorial.buscar_por_vetor(vetor(), k=10, modelo=MODELO), []
+        )
 
     def test_devolvido_nao_aparece_em_nenhuma_resposta(self):
         self.documento_com_trecho(StatusValidacao.DEVOLVIDO)
-        self.assertEqual(busca_vetorial.buscar_por_vetor(vetor(), k=10), [])
+        self.assertEqual(
+            busca_vetorial.buscar_por_vetor(vetor(), k=10, modelo=MODELO), []
+        )
 
     def test_documento_aprovado_aparece_depois_de_processado(self):
         doc = self.documento()  # aguardando, com PDF de verdade
         consulta = [0.01] * DIM  # mesmo vetor que o Ollama falso devolve
 
         # Antes de aprovar: não aparece.
-        self.assertEqual(busca_vetorial.buscar_por_vetor(consulta, k=5), [])
+        self.assertEqual(
+            busca_vetorial.buscar_por_vetor(consulta, k=5, modelo=MODELO), []
+        )
 
         validacao.aprovar(doc.pk, self.admin, "ADMINISTRADOR")
         # Aprovado, mas ainda não processado: ainda não há trecho.
-        self.assertEqual(busca_vetorial.buscar_por_vetor(consulta, k=5), [])
+        self.assertEqual(
+            busca_vetorial.buscar_por_vetor(consulta, k=5, modelo=MODELO), []
+        )
 
         with mock.patch.object(
             gerar_embeddings.requests, "post", side_effect=_ollama_falso
         ):
             processamento.processar_documento(doc.pk)
 
-        trechos = busca_vetorial.buscar_por_vetor(consulta, k=5)
+        trechos = busca_vetorial.buscar_por_vetor(consulta, k=5, modelo=MODELO)
         self.assertTrue(trechos)
         self.assertEqual(self.ids(trechos), {str(doc.id)})
 
     def test_busca_continua_abaixo_de_2_segundos(self):
+        """Verificação rápida, não medição: com 500 trechos a busca fica bem
+        longe dos 2 s. O número que sustenta o critério é a medição manual com
+        20 mil trechos em cada fonte e índice HNSW (~145 ms de mediana, ~220 ms
+        no pior caso), descrita em docs/pipeline-rag.md, seção 9."""
         disponivel = self.documento(
             paginas=None,
             status_validacao=StatusValidacao.DISPONIVEL,
@@ -116,7 +130,7 @@ class CriteriosDeAceiteTests(BuscaBase):
         )
 
         inicio = time.perf_counter()
-        trechos = busca_vetorial.buscar_por_vetor(vetor(7), k=5)
+        trechos = busca_vetorial.buscar_por_vetor(vetor(7), k=5, modelo=MODELO)
         duracao = time.perf_counter() - inicio
 
         self.assertEqual(len(trechos), 5)
@@ -124,16 +138,27 @@ class CriteriosDeAceiteTests(BuscaBase):
 
 
 class RegraDaBuscaTests(BuscaBase):
+    def test_embedding_de_outro_modelo_fica_de_fora(self):
+        doc = self.documento_com_trecho(StatusValidacao.DISPONIVEL)
+        EmbeddingVersion.objects.filter(chunk__documento=doc).update(
+            modelo="outro-modelo"
+        )
+        self.assertEqual(
+            busca_vetorial.buscar_por_vetor(vetor(), k=5, modelo=MODELO), []
+        )
+
     def test_embedding_que_nao_e_vigente_fica_de_fora(self):
         doc = self.documento_com_trecho(StatusValidacao.DISPONIVEL)
         EmbeddingVersion.objects.filter(chunk__documento=doc).update(vigente=False)
-        self.assertEqual(busca_vetorial.buscar_por_vetor(vetor(), k=5), [])
+        self.assertEqual(
+            busca_vetorial.buscar_por_vetor(vetor(), k=5, modelo=MODELO), []
+        )
 
     def test_ordena_pela_similaridade_e_respeita_k(self):
         perto = self.documento_com_trecho(StatusValidacao.DISPONIVEL, v=vetor(0))
         self.documento_com_trecho(StatusValidacao.DISPONIVEL, v=vetor(1))
 
-        trechos = busca_vetorial.buscar_por_vetor(vetor(0), k=1)
+        trechos = busca_vetorial.buscar_por_vetor(vetor(0), k=1, modelo=MODELO)
 
         self.assertEqual(len(trechos), 1)
         self.assertEqual(trechos[0]["documento_id"], str(perto.id))
@@ -141,9 +166,9 @@ class RegraDaBuscaTests(BuscaBase):
 
     def test_trecho_traz_metadados_do_documento(self):
         doc = self.documento_com_trecho(StatusValidacao.DISPONIVEL, texto="Texto X")
-        [t] = busca_vetorial.buscar_por_vetor(vetor(), k=5)
+        [t] = busca_vetorial.buscar_por_vetor(vetor(), k=5, modelo=MODELO)
         self.assertEqual(t["documento"], doc.identificador_codigo)
-        self.assertEqual(t["revisao"], doc.numero_revisao)
+        self.assertEqual(t["revisao"], doc.numero_revisao or None)
         self.assertEqual(t["titulo"], doc.titulo)
         self.assertEqual((t["pagina_inicio"], t["pagina_fim"]), (3, 4))
         self.assertEqual(t["texto"], "Texto X")
@@ -158,7 +183,9 @@ class RegraDaBuscaTests(BuscaBase):
             "disponiveis",
             lambda qs: qs.exclude(pk=doc.pk),
         ):
-            self.assertEqual(busca_vetorial.buscar_por_vetor(vetor(), k=5), [])
+            self.assertEqual(
+                busca_vetorial.buscar_por_vetor(vetor(), k=5, modelo=MODELO), []
+            )
 
 
 class BasePublicaTests(BuscaBase):
@@ -174,26 +201,27 @@ class BasePublicaTests(BuscaBase):
             cursor.execute("DROP TABLE IF EXISTS rag_chunks")
         super().tearDown()
 
-    def publica(self, v, documento="FED-STD/FED-STD-123H.pdf"):
+    def publica(self, v, documento="FED-STD/FED-STD-123H.pdf", modelo=MODELO):
         texto_vetor = "[" + ",".join(str(x) for x in v) + "]"
         with connection.cursor() as cursor:
             cursor.execute(
                 "INSERT INTO rag_chunks (id, documento, titulo, url_pdf, "
                 "pagina_inicio, pagina_fim, texto, modelo, embedding) "
-                "VALUES (%s, %s, %s, %s, 7, 7, %s, 'bge-m3', %s::vector)",
+                "VALUES (%s, %s, %s, %s, 7, 7, %s, %s, %s::vector)",
                 [
                     uuid.uuid4().hex,
                     documento,
                     "FED-STD-123H, FEDERAL STANDARD: MARKING",
                     "https://everyspec.com/FED-STD-123H.pdf",
                     "Marking shall be ...",
+                    modelo,
                     texto_vetor,
                 ],
             )
 
     def test_base_publica_entra_sem_documento_id_e_com_link(self):
         self.publica(vetor())
-        [t] = busca_vetorial.buscar_por_vetor(vetor(), k=5)
+        [t] = busca_vetorial.buscar_por_vetor(vetor(), k=5, modelo=MODELO)
         self.assertIsNone(t["documento_id"])
         self.assertEqual(t["url_pdf"], "https://everyspec.com/FED-STD-123H.pdf")
 
@@ -202,16 +230,26 @@ class BasePublicaTests(BuscaBase):
         self.publica(vetor(1))
         self.documento_com_trecho(StatusValidacao.DEVOLVIDO, v=vetor(0))
 
-        trechos = busca_vetorial.buscar_por_vetor(vetor(0), k=5)
+        trechos = busca_vetorial.buscar_por_vetor(vetor(0), k=5, modelo=MODELO)
 
         self.assertEqual([t["documento_id"] for t in trechos], [str(doc.id), None])
 
-    def test_sem_tabela_da_base_publica_a_busca_continua(self):
+    def test_sem_tabela_da_base_publica_a_busca_continua_e_avisa_no_log(self):
         with connection.cursor() as cursor:
             cursor.execute("DROP TABLE rag_chunks")
         doc = self.documento_com_trecho(StatusValidacao.DISPONIVEL)
+        busca_vetorial._avisos_dados.discard("sem_base_publica")
+
+        with self.assertLogs(busca_vetorial.logger, "WARNING") as log:
+            trechos = busca_vetorial.buscar_por_vetor(vetor(), k=5, modelo=MODELO)
+
+        self.assertEqual(self.ids(trechos), {str(doc.id)})
+        self.assertIn("rag_chunks", log.output[0])
+
+    def test_base_publica_de_outro_modelo_fica_de_fora(self):
+        self.publica(vetor(), modelo="outro-modelo")
         self.assertEqual(
-            self.ids(busca_vetorial.buscar_por_vetor(vetor(), k=5)), {str(doc.id)}
+            busca_vetorial.buscar_por_vetor(vetor(), k=5, modelo=MODELO), []
         )
 
 
@@ -270,3 +308,55 @@ class FontesNaRespostaTests(BuscaBase):
         self.assertFalse(dados["encontrou"])
         self.assertEqual(dados["fontes"], [])
         ia.assert_not_called()
+
+
+class IndiceVetorialTests(BuscaBase):
+    """O índice HNSW entrega os vizinhos mais próximos (40 por padrão) e o
+    filtro de disponível vem depois. Com muitos trechos de documentos não
+    disponíveis mais perto da pergunta, a busca não pode voltar vazia: a busca
+    iterativa do pgvector 0.8 continua percorrendo o índice."""
+
+    def test_documento_disponivel_aparece_mesmo_com_muitos_nao_disponiveis_perto(self):
+        sorteio = random.Random(51)  # semente fixa: o teste é sempre igual
+
+        def perto_da_pergunta(ruido):
+            return [x + (sorteio.random() - 0.5) * ruido for x in vetor(0)]
+
+        pergunta = perto_da_pergunta(0.02)
+        devolvido = self.documento(paginas=None, status_validacao="DEVOLVIDO")
+        chunks = Chunk.objects.bulk_create(
+            Chunk(documento=devolvido, ordem=i, texto=f"trecho {i}") for i in range(300)
+        )
+        EmbeddingVersion.objects.bulk_create(
+            EmbeddingVersion(chunk=c, modelo=MODELO, embedding=perto_da_pergunta(0.06))
+            for c in chunks
+        )
+        # Parecido com a pergunta, mas menos que os 300 do devolvido.
+        disponivel = self.documento_com_trecho(
+            StatusValidacao.DISPONIVEL, v=perto_da_pergunta(0.12)
+        )
+
+        # Mesmo plano da base real (milhares de trechos): percorrer o índice
+        # HNSW pela distância e só depois filtrar.
+        with connection.cursor() as cursor:
+            cursor.execute("REINDEX INDEX embedding_version_hnsw_idx")
+            cursor.execute("ANALYZE embedding_version")
+            cursor.execute("SET enable_sort = off")
+            cursor.execute("SET enable_seqscan = off")
+        try:
+            trechos = busca_vetorial.buscar_por_vetor(pergunta, k=5, modelo=MODELO)
+        finally:
+            with connection.cursor() as cursor:
+                cursor.execute("RESET enable_sort")
+                cursor.execute("RESET enable_seqscan")
+
+        self.assertEqual(self.ids(trechos), {str(disponivel.id)})
+
+
+class PaginasSemNumeroTests(TestCase):
+    """Trecho do sistema pode vir sem página (pagina_inicio nula)."""
+
+    def test_scripts_e_api_nao_mostram_none(self):
+        self.assertEqual(responder.formatar_paginas(None, None), "p. —")
+        self.assertEqual(responder.formatar_paginas(3, None), "p. 3")
+        self.assertEqual(pergunta.formatar_paginas(None, None), "—")

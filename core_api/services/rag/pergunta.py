@@ -63,7 +63,7 @@ def buscar_trechos(pergunta, k=TOP_K):
         "embeddings"
     ][0]
     try:
-        return buscar_por_vetor(vetor, k)
+        return buscar_por_vetor(vetor, k, MODELO_EMBEDDING)
     except DatabaseError as e:
         raise ErroIA("Não consegui consultar a base de documentos.") from e
 

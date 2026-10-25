@@ -59,6 +59,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "core_api.utils.cors_middleware.CorsMiddleware",
+    # Guarda o usuário do token para o log de auditoria (AKA-31). Não barra
+    # nada: a autenticação continua em require_auth/require_role.
+    "core_api.utils.usuario_atual.UsuarioAtualMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",

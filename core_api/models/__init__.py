@@ -12,6 +12,11 @@ from core_api.models.historico_validacao import (
     HistoricoValidacao,
 )
 from core_api.models.log_acesso import AcaoAcesso, LogAcesso
+from core_api.models.log_auditoria import (
+    AcaoAuditoria,
+    EntidadeAuditoria,
+    LogAuditoria,
+)
 from core_api.models.perfil_operacional import PerfilOperacional
 from core_api.models.registro_pergunta import RegistroPergunta
 from core_api.models.taxonomia import (
@@ -43,6 +48,9 @@ __all__ = [
     "EmbeddingVersion",
     "LogAcesso",
     "AcaoAcesso",
+    "LogAuditoria",
+    "AcaoAuditoria",
+    "EntidadeAuditoria",
     "PerfilOperacional",
     "RegistroPergunta",
 ]

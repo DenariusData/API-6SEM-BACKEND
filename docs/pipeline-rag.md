@@ -172,7 +172,7 @@ Resposta:
       "resposta": "... [1]",
       "encontrou": true,
       "fontes": [
-        {"numero": 1, "documento": "CxP 70024", "revisao": "BASELINE", "pagina": "30",
+        {"numero": 1, "documento_id": null, "documento": "CxP 70024", "revisao": "BASELINE", "pagina": "30",
          "pagina_inicio": 30, "pagina_fim": 30, "titulo": "CxP 70024 (BASELINE), ...",
          "url_pdf": "https://...", "similaridade": 0.568, "citada": true}
       ],
@@ -180,7 +180,8 @@ Resposta:
     }
 
 - **Sem base no acervo**: se nenhum trecho passar de `RAG_SIMILARIDADE_MINIMA`, a IA nem é chamada, e a resposta vem com `"encontrou": false`, `"fontes": []` e a mensagem "Não encontrei essa informação nos documentos consultados.". O mesmo acontece quando a própria IA diz que os trechos não têm a resposta.
-- **Revisão**: vem do título do EverySpec, por exemplo `(REV. B)`, `(BASELINE)` ou a letra final do código (`FED-STD-123H` fica com revisão `H`). É `null` quando o documento não indica revisão.
+- **`documento_id`**: id do documento do sistema, usado pelo botão "Ver documento" (AKA-61); `null` na base pública do EverySpec (seção 9).
+- **Revisão**: nos documentos do sistema, é o número da revisão do upload. Na base pública, vem do título do EverySpec, por exemplo `(REV. B)`, `(BASELINE)` ou a letra final do código (`FED-STD-123H` fica com revisão `H`). É `null` quando o documento não indica revisão.
 - **Desempenho**: toda pergunta respondida é gravada na tabela `registro_pergunta` com os tempos de busca, da IA e total. Se o Ollama ou o banco não responderem, a API devolve `503` e não grava nada.
 
 | Variável | Padrão | O que faz |
@@ -208,7 +209,25 @@ Não há chamada externa: o processamento recusa um `OLLAMA_URL` que não seja a
 |---|---|---|
 | `PROCESSAMENTO_AUTOMATICO` | `true` | Processa o documento aprovado em segundo plano |
 
-> A tela de pergunta (seção 7) ainda busca na tabela `rag_chunks`. Passar a buscar também nos trechos dos documentos aprovados é da busca (AKA-51/AKA-65).
+## 9. O que a busca enxerga (AKA-51)
+
+A tela de pergunta, o `buscar.py` e o `responder.py` usam a mesma busca (`core_api/services/rag/busca_vetorial.py`), que junta duas fontes e ordena pela similaridade:
+
+| Fonte | Tabelas | Filtro | `documento_id` na fonte |
+|---|---|---|---|
+| Documentos do sistema | `chunk` + `embedding_version` (vigente) | só `Documento.objects.disponiveis()` e o modelo da pergunta | id do documento |
+| Base pública do EverySpec | `rag_chunks` | só o modelo da pergunta (normas públicas) | `null` |
+
+- Documento **aguardando validação** ou **devolvido** nunca aparece em resposta. O documento aprovado aparece assim que o processamento (seção 8) termina.
+- O filtro fica só em `Documento.objects.disponiveis()`. A regra de permissão da Sprint 3 entra ali e a busca passa a respeitá-la sem outra mudança.
+- O `documento_id` da fonte abre o documento no visualizador seguro do front (AKA-61). Na base pública ele é `null`, e a fonte continua com o `url_pdf` do EverySpec.
+- **Modelo do embedding**: só entram vetores gerados pelo mesmo modelo da pergunta (`RAG_MODELO_EMBEDDING`, padrão `bge-m3`; nos scripts, `--modelo`/`--modelo-embedding`). Vetores de modelos diferentes não se comparam.
+- **Banco da base pública**: os comandos `gerar_embeddings`/`importar_embeddings` gravam a `rag_chunks` pelo `DATABASE_URL`, e a busca lê pela conexão do Django. Os dois precisam apontar para o mesmo banco (o padrão de ambos é `localhost:5434/rag`). Se a tabela não existir nesse banco, a busca usa só os documentos do sistema e avisa no log (`Tabela rag_chunks não encontrada...`). Para conferir:
+
+      python manage.py shell -c "from django.db import connection as c; cur=c.cursor(); cur.execute('select count(*) from rag_chunks'); print(cur.fetchone())"
+
+- **Índice HNSW e filtro**: o Postgres percorre o índice pela distância e só depois filtra. Sem ajuste, o índice entrega só 40 vizinhos (`hnsw.ef_search`), e com muitos trechos de documentos não disponíveis perto da pergunta a busca podia voltar vazia. A busca liga `hnsw.iterative_scan = relaxed_order` (pgvector 0.8+, o do `docker-compose.yml`), pede 4×k candidatos de cada fonte e refaz a ordem. Em pgvector mais antigo, usa `hnsw.ef_search = 200` e avisa no log.
+- **Desempenho** (20 mil trechos em cada fonte, vetores agrupados por assunto, índice HNSW): mediana ~145 ms, p95 ~190 ms, pior caso ~220 ms, com o mesmo resultado da busca exata (recall@5 = 100%). Sem contar o tempo do Ollama para converter a pergunta. A primeira busca depois de reiniciar o Postgres é mais lenta, porque o índice ainda está sendo lido do disco.
 
 ## Compartilhar a base pronta
 

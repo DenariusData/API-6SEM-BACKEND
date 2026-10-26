@@ -38,14 +38,14 @@ MIN_PALAVRAS_AVALIAR = (
 
 # ----------------------------------------------------------------------------- qualidade
 @cache
-def palavra_valida(palavra):
+def palavra_valida(palavra, idioma="en"):
     if palavra.isupper():  # siglas: MIL, HDBK, NASA, CEV...
         return True
-    return zipf_frequency(palavra.lower(), "en") >= 1.5
+    return zipf_frequency(palavra.lower(), idioma) >= 1.5
 
 
-def qualidade(texto):
-    """Fração das palavras que existem em inglês. OCR ruim gera muitas palavras inexistentes."""
+def qualidade(texto, idioma="en"):
+    """Fração das palavras que existem no idioma (padrão: inglês). OCR ruim gera muitas palavras inexistentes."""
     total = validas = 0
     for token in texto.split():
         for parte in re.split(r"[-/,]", token):
@@ -53,7 +53,7 @@ def qualidade(texto):
             if len(parte) < 2 or any(c.isdigit() for c in parte):
                 continue  # números, códigos e letras soltas não contam
             total += 1
-            if parte.isalpha() and palavra_valida(parte):
+            if parte.isalpha() and palavra_valida(parte, idioma):
                 validas += 1
     if total < MIN_PALAVRAS_AVALIAR:
         return None

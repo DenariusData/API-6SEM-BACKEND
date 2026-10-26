@@ -17,7 +17,8 @@ pessoais.
 from typing import Dict, List, Optional, Tuple
 from uuid import UUID
 
-from core_api.models import PerfilOperacional
+from core_api.models import AcaoAuditoria, EntidadeAuditoria, PerfilOperacional
+from core_api.services.auditoria import registrar_acao
 from credenciais.models import Papel, Usuario
 
 MAX_TENTATIVAS_LOGIN = 5
@@ -103,25 +104,46 @@ class AuthService:
         (None, codigo_do_erro) em caso de falha. O codigo de erro serve
         apenas para a view decidir a mensagem/telemetria; a view NAO deve
         expor ao cliente se o e-mail existe ou nao (mensagem unificada).
+
+        Toda tentativa vai para o log de auditoria (AKA-31) so com o id do
+        usuario, nunca com o e-mail digitado. E-mail que nao existe fica
+        como LOGIN_FALHOU sem usuario.
         """
+        usuario, erro = cls._verificar_credenciais(email, senha)
+        registrar_acao(
+            usuario.id if usuario else None,
+            AcaoAuditoria.LOGIN_FALHOU if erro else AcaoAuditoria.LOGIN,
+            EntidadeAuditoria.USUARIO,
+            usuario.id if usuario else None,
+        )
+        if erro:
+            return None, erro
+        return cls._compor_usuario(usuario), None
+
+    @classmethod
+    def _verificar_credenciais(
+        cls, email: str, senha: str
+    ) -> Tuple[Optional[Usuario], Optional[str]]:
+        """(usuario, None) no sucesso; (usuario ou None, codigo_do_erro) na
+        falha. O usuario vem junto na falha para o log saber de quem foi."""
         usuario = cls.find_by_email(email)
         if usuario is None:
             return None, ERRO_CREDENCIAIS_INVALIDAS
 
         if usuario.esta_bloqueado:
-            return None, ERRO_USUARIO_BLOQUEADO
+            return usuario, ERRO_USUARIO_BLOQUEADO
 
         if not usuario.ativo:
-            return None, ERRO_USUARIO_INATIVO
+            return usuario, ERRO_USUARIO_INATIVO
 
         if not usuario.verificar_senha(senha):
             usuario.registrar_falha_login(MAX_TENTATIVAS_LOGIN, MINUTOS_BLOQUEIO)
             if usuario.esta_bloqueado:
-                return None, ERRO_USUARIO_BLOQUEADO
-            return None, ERRO_CREDENCIAIS_INVALIDAS
+                return usuario, ERRO_USUARIO_BLOQUEADO
+            return usuario, ERRO_CREDENCIAIS_INVALIDAS
 
         usuario.registrar_login_sucesso()
-        return cls._compor_usuario(usuario), None
+        return usuario, None
 
     # -- Cadastro ------------------------------------------------------
     @classmethod
@@ -176,6 +198,8 @@ class AuthService:
             "name": usuario.nome,
             "role": usuario.papel.descricao,
             "role_code": usuario.papel_id,
+            "email_pendente": usuario.email_pendente,
+            "pode_validar": usuario.papel_id == Papel.ADMINISTRADOR,
             "matricula": perfil.matricula if perfil else None,
             "cargo": perfil.cargo if perfil else "",
             "avatar": perfil.avatar if perfil else "/avatars/default.png",

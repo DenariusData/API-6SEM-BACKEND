@@ -6,6 +6,7 @@ chama a IA e devolve a resposta com as fontes.
 import json
 import logging
 
+from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -25,7 +26,7 @@ TAMANHO_MAXIMO_PERGUNTA = 1000
 def pergunta_view(request):
     """
     Endpoint da tela de pergunta.
-    POST /api/perguntas/  {"pergunta": "..."}
+    POST /api/perguntas/  {"pergunta": "...", "idioma": "pt-BR" | "en"}
     """
     try:
         data = json.loads(request.body.decode("utf-8"))
@@ -44,8 +45,18 @@ def pergunta_view(request):
             status=400,
         )
 
+    idiomas_aceitos = getattr(settings, "IDIOMAS_ACEITOS", ["pt-BR", "en"])
+    idioma_padrao = getattr(settings, "IDIOMA_PADRAO", "pt-BR")
+
+    idioma = data.get("idioma")
+    if idioma is None:
+        idioma = idioma_padrao
+    elif idioma not in idiomas_aceitos:
+        detalhe = f"Idioma inválido. Idiomas aceitos: {', '.join(idiomas_aceitos)}."
+        return JsonResponse({"detail": detalhe}, status=400)
+
     try:
-        resultado = responder_pergunta(pergunta)
+        resultado = responder_pergunta(pergunta, idioma=idioma)
     except ErroIA:
         logger.exception("Falha ao responder a pergunta")
         return JsonResponse(
@@ -60,6 +71,7 @@ def pergunta_view(request):
     RegistroPergunta.objects.create(
         usuario_id=request.auth_user.get("sub"),
         pergunta=pergunta,
+        idioma=idioma,
         encontrou=resultado["encontrou"],
         quantidade_fontes=len(resultado["fontes"]),
         tempo_busca_ms=tempos["busca"],
@@ -67,7 +79,8 @@ def pergunta_view(request):
         tempo_total_ms=tempos["total"],
     )
     logger.info(
-        "Pergunta respondida em %d ms (busca %d ms, IA %d ms, encontrou=%s)",
+        "Pergunta [%s] respondida em %d ms (busca %d ms, IA %d ms, encontrou=%s)",
+        idioma,
         tempos["total"],
         tempos["busca"],
         tempos["ia"],

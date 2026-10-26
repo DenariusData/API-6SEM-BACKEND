@@ -5,18 +5,24 @@ pede ao LLM do Ollama uma resposta em português citando as fontes.
 É a mesma lógica do `responder.py` (mesmo prompt, mesmo formato de contexto),
 mas sem `sys.exit`/`print`: devolve um dict pronto para a API e levanta
 `ErroIA` quando o Ollama ou o banco não respondem.
+
+Os trechos vêm de `busca_vetorial.buscar_por_vetor` (AKA-51): só documentos
+disponíveis, mais a base pública do EverySpec.
 """
 
 import os
 import re
 import time
 
-import psycopg
 import requests
+from django.db import DatabaseError
 
-from core_api.services.rag.responder import PROMPT_SISTEMA
+from core_api.services.rag.busca_vetorial import buscar_por_vetor
+from core_api.services.rag.responder import (
+    FRASES_NAO_ENCONTROU,
+    montar_prompt_sistema,
+)
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://rag:rag@localhost:5432/rag")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 MODELO_LLM = os.getenv("RAG_MODELO_LLM", "llama3.2")
 MODELO_EMBEDDING = os.getenv("RAG_MODELO_EMBEDDING", "bge-m3")
@@ -26,7 +32,8 @@ TOP_K = int(os.getenv("RAG_TOP_K", "5"))
 # do acervo (receita, futebol, câmbio) ficam em 0.33-0.46.
 SIMILARIDADE_MINIMA = float(os.getenv("RAG_SIMILARIDADE_MINIMA", "0.5"))
 
-MENSAGEM_NAO_ENCONTROU = "Não encontrei essa informação nos documentos consultados."
+MENSAGENS_NAO_ENCONTROU = FRASES_NAO_ENCONTROU
+MENSAGEM_NAO_ENCONTROU = FRASES_NAO_ENCONTROU["pt-BR"]
 
 # Parênteses logo após o código que indicam revisão: (REV. B), (BASELINE),
 # (REV. B, CHANGE 003), (VER 1.0), (V1.0)
@@ -55,27 +62,10 @@ def buscar_trechos(pergunta, k=TOP_K):
     vetor = _ollama("/api/embed", {"model": MODELO_EMBEDDING, "input": [pergunta]})[
         "embeddings"
     ][0]
-    vetor = "[" + ",".join(f"{x:.7g}" for x in vetor) + "]"
     try:
-        with psycopg.connect(DATABASE_URL) as conn:
-            linhas = conn.execute(
-                """
-                SELECT documento, titulo, url_pdf, pagina_inicio, pagina_fim, texto,
-                       1 - (embedding <=> %(vetor)s::vector) AS similaridade
-                FROM rag_chunks
-                ORDER BY embedding <=> %(vetor)s::vector
-                LIMIT %(k)s
-                """,
-                {"vetor": vetor, "k": k},
-            ).fetchall()
-    except psycopg.Error as e:
+        return buscar_por_vetor(vetor, k, MODELO_EMBEDDING)
+    except DatabaseError as e:
         raise ErroIA("Não consegui consultar a base de documentos.") from e
-
-    colunas = ("documento", "titulo", "url_pdf", "pagina_inicio", "pagina_fim")
-    return [
-        dict(zip(colunas, linha[:5]), texto=linha[5], similaridade=float(linha[6]))
-        for linha in linhas
-    ]
 
 
 def extrair_codigo_e_revisao(titulo, documento):
@@ -100,13 +90,26 @@ def extrair_codigo_e_revisao(titulo, documento):
 
 
 def formatar_paginas(p1, p2):
-    return str(p1) if p1 == p2 else f"{p1}-{p2}"
+    if p1 is None:
+        return "—"
+    return str(p1) if p1 == p2 or p2 is None else f"{p1}-{p2}"
 
 
 def _montar_fonte(numero, trecho, citadas):
-    codigo, revisao = extrair_codigo_e_revisao(trecho["titulo"], trecho["documento"])
+    documento_id = trecho.get("documento_id")
+    if documento_id:
+        # Documento do sistema: código e revisão vêm dos metadados do upload.
+        codigo, revisao = trecho["documento"], trecho.get("revisao")
+    else:
+        # Base pública: código e revisão saem do título do EverySpec.
+        codigo, revisao = extrair_codigo_e_revisao(
+            trecho["titulo"], trecho["documento"]
+        )
     return {
         "numero": numero,
+        # Abre o documento no visualizador seguro do front (AKA-61);
+        # None na base pública, que não tem Documento.
+        "documento_id": documento_id,
         "documento": codigo,
         "revisao": revisao,
         "pagina": formatar_paginas(trecho["pagina_inicio"], trecho["pagina_fim"]),
@@ -119,23 +122,33 @@ def _montar_fonte(numero, trecho, citadas):
     }
 
 
-def perguntar_ia(pergunta, trechos):
+def perguntar_ia(pergunta, trechos, idioma="pt-BR"):
     contexto = "\n\n".join(
         f"[{n}] Documento: {t['titulo'] or t['documento']} | "
         f"p. {formatar_paginas(t['pagina_inicio'], t['pagina_fim'])}\n"
         f"{' '.join(t['texto'].split())}"
         for n, t in enumerate(trechos, 1)
     )
+    if idioma == "en":
+        conteudo_usuario = (
+            f"Document excerpts:\n\n{contexto}\n\n"
+            f"Question: {pergunta}\n"
+            "Answer in English:"
+        )
+    else:
+        conteudo_usuario = (
+            f"Trechos dos documentos:\n\n{contexto}\n\nPergunta: {pergunta}"
+        )
+
     dados = _ollama(
         "/api/chat",
         {
             "model": MODELO_LLM,
             "messages": [
-                {"role": "system", "content": PROMPT_SISTEMA},
+                {"role": "system", "content": montar_prompt_sistema(idioma)},
                 {
                     "role": "user",
-                    "content": f"Trechos dos documentos:\n\n{contexto}\n\n"
-                    f"Pergunta: {pergunta}",
+                    "content": conteudo_usuario,
                 },
             ],
             "stream": False,
@@ -145,33 +158,43 @@ def perguntar_ia(pergunta, trechos):
     return dados.get("message", {}).get("content", "").strip()
 
 
-def responder_pergunta(pergunta):
+def responder_pergunta(pergunta, idioma="pt-BR"):
     """
     Fluxo completo da tela de pergunta. Devolve:
 
         {
             "resposta": str,
             "encontrou": bool,
-            "fontes": [{numero, documento, revisao, pagina, ...}],
+            "idioma": str,
+            "fontes": [{numero, documento_id, documento, revisao, pagina, ...}],
             "tempos_ms": {"busca": int, "ia": int, "total": int},
         }
     """
+    if not idioma:
+        idioma = "pt-BR"
+
     inicio = time.perf_counter()
     trechos = [
         t for t in buscar_trechos(pergunta) if t["similaridade"] >= SIMILARIDADE_MINIMA
     ]
     fim_busca = time.perf_counter()
 
-    resposta = MENSAGEM_NAO_ENCONTROU
+    mensagem_nao_encontrou = MENSAGENS_NAO_ENCONTROU.get(idioma, MENSAGEM_NAO_ENCONTROU)
+    resposta = mensagem_nao_encontrou
     if trechos:
-        resposta = perguntar_ia(pergunta, trechos)
+        resposta = perguntar_ia(pergunta, trechos, idioma=idioma)
     fim_ia = time.perf_counter()
 
     # Sem trecho relevante nem chamamos a IA; se chamamos e ela mesma disse que
     # não achou nos trechos, também tratamos como "não encontrou"
-    encontrou = (
-        bool(trechos) and "não encontrei essa informação" not in resposta.lower()
+    resposta_lower = resposta.lower()
+    nao_achou_ia = (
+        "não encontrei essa informação" in resposta_lower
+        or "did not find this information" in resposta_lower
+        or "could not find this information" in resposta_lower
+        or resposta.strip() == mensagem_nao_encontrou
     )
+    encontrou = bool(trechos) and not nao_achou_ia
     citadas = {int(n) for n in RE_CITACAO.findall(resposta)}
     fontes = (
         [_montar_fonte(n, t, citadas) for n, t in enumerate(trechos, 1)]
@@ -182,6 +205,7 @@ def responder_pergunta(pergunta):
     return {
         "resposta": resposta,
         "encontrou": encontrou,
+        "idioma": idioma,
         "fontes": fontes,
         "tempos_ms": {
             "busca": round((fim_busca - inicio) * 1000),

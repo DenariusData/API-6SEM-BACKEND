@@ -5,6 +5,9 @@ e pede ao LLM do Ollama uma resposta em português, citando de onde veio cada in
 Pré-requisitos:
     ollama pull llama3.2
 
+Os trechos vêm da mesma busca da API (busca_vetorial.py, AKA-51): só documentos
+disponíveis, mais a base pública do EverySpec.
+
 Uso:
     python responder.py "Como é feito o ensaio de tração em materiais compósitos?"
     python responder.py "Quanto tempo a Orion deve manter a tripulação viva sem pressurização?" --mostrar-trechos
@@ -15,14 +18,24 @@ import json
 import os
 import sys
 import textwrap
+from pathlib import Path
 
-import psycopg
 import requests
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://rag:rag@localhost:5432/rag")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 
-PROMPT_SISTEMA = """Você é um assistente técnico que responde perguntas sobre normas e especificações técnicas.
+REGRAS_IDIOMA = {
+    "pt-BR": "Responda sempre em português do Brasil, mesmo que os trechos estejam em inglês.",
+    "en": "Answer always in English, even if the excerpts or question are in Portuguese or another language.",
+}
+
+FRASES_NAO_ENCONTROU = {
+    "pt-BR": "Não encontrei essa informação nos documentos consultados.",
+    "en": "I did not find this information in the consulted documents.",
+}
+
+PROMPTS_SISTEMA = {
+    "pt-BR": """Você é um assistente técnico que responde perguntas sobre normas e especificações técnicas.
 
 Regras:
 - Responda sempre em português do Brasil, mesmo que os trechos estejam em inglês.
@@ -30,7 +43,27 @@ Regras:
 - Se os trechos não tiverem a resposta, diga: "Não encontrei essa informação nos documentos consultados."
 - Indique a fonte de cada informação com o número do trecho entre colchetes, por exemplo [1] ou [2].
 - Mantenha siglas, códigos e números exatamente como no original (ex.: CA0532-PO, ASTM D3039, 144 horas).
-- Seja objetivo."""
+- Trechos citados devem permanecer no idioma original do documento.
+- Seja objetivo.""",
+    "en": """You are a technical assistant that answers questions about technical standards and specifications.
+
+Rules:
+- Answer always in English, even if the excerpts or question are in Portuguese or another language.
+- Use ONLY the information from the provided excerpts. Do not use your own knowledge.
+- If the excerpts do not have the answer, say: "I did not find this information in the consulted documents."
+- Indicate the source of each information with the excerpt number in brackets, for example [1] or [2].
+- Keep acronyms, codes and numbers exactly as in the original (e.g.: CA0532-PO, ASTM D3039, 144 hours).
+- Cited excerpts must remain in the original language of the document.
+- Be objective.""",
+}
+
+
+def montar_prompt_sistema(idioma="pt-BR"):
+    """Monta o prompt do sistema para o idioma escolhido."""
+    return PROMPTS_SISTEMA.get(idioma, PROMPTS_SISTEMA["pt-BR"])
+
+
+PROMPT_SISTEMA = montar_prompt_sistema("pt-BR")
 
 
 def ollama(caminho, dados, **kwargs):
@@ -49,23 +82,23 @@ def ollama(caminho, dados, **kwargs):
 
 
 def buscar_trechos(pergunta, k, modelo_embedding):
+    """Sobe o Django (o script roda fora do manage.py) e usa a busca da API.
+    O import fica aqui dentro porque a API importa este módulo (prompts)."""
+    import django
+
     resposta = ollama("/api/embed", {"model": modelo_embedding, "input": [pergunta]})
-    vetor = "[" + ",".join(f"{x:.7g}" for x in resposta.json()["embeddings"][0]) + "]"
-    with psycopg.connect(DATABASE_URL) as conn:
-        return conn.execute(
-            """
-            SELECT documento, titulo, url_pdf, pagina_inicio, pagina_fim, texto,
-                   1 - (embedding <=> %(vetor)s::vector) AS similaridade
-            FROM rag_chunks
-            ORDER BY embedding <=> %(vetor)s::vector
-            LIMIT %(k)s
-            """,
-            {"vetor": vetor, "k": k},
-        ).fetchall()
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "api.settings")
+    django.setup()
+    from core_api.services.rag.busca_vetorial import buscar_por_vetor
+
+    return buscar_por_vetor(resposta.json()["embeddings"][0], k, modelo_embedding)
 
 
 def formatar_paginas(p1, p2):
-    return f"p. {p1}" if p1 == p2 else f"p. {p1}-{p2}"
+    if p1 is None:
+        return "p. —"
+    return f"p. {p1}" if p1 == p2 or p2 is None else f"p. {p1}-{p2}"
 
 
 def main():
@@ -84,26 +117,38 @@ def main():
         action="store_true",
         help="mostra os trechos enviados ao LLM",
     )
+    ap.add_argument(
+        "--idioma",
+        default="pt-BR",
+        choices=["pt-BR", "en"],
+        help="idioma da resposta (pt-BR ou en)",
+    )
     args = ap.parse_args()
 
     trechos = buscar_trechos(args.pergunta, args.k, args.modelo_embedding)
     if not trechos:
-        sys.exit("Nenhum chunk no banco. Rode antes o gerar_embeddings.py")
+        sys.exit(
+            "Nenhum trecho encontrado. Aprove um documento ou rode o gerar_embeddings.py"
+        )
 
     contexto = "\n\n".join(
-        f"[{n}] Documento: {titulo or documento} | {formatar_paginas(p1, p2)}\n{' '.join(texto.split())}"
-        for n, (documento, titulo, _, p1, p2, texto, _) in enumerate(trechos, 1)
+        f"[{n}] Documento: {t['titulo'] or t['documento']} | "
+        f"{formatar_paginas(t['pagina_inicio'], t['pagina_fim'])}\n"
+        f"{' '.join(t['texto'].split())}"
+        for n, t in enumerate(trechos, 1)
     )
 
     if args.mostrar_trechos:
         print("=== Trechos enviados ao LLM ===")
-        for n, (documento, _, _, p1, p2, texto, similaridade) in enumerate(trechos, 1):
+        for n, t in enumerate(trechos, 1):
+            paginas = formatar_paginas(t["pagina_inicio"], t["pagina_fim"])
             print(
-                f"\n[{n}] similaridade {similaridade:.3f} | {documento} ({formatar_paginas(p1, p2)})"
+                f"\n[{n}] similaridade {t['similaridade']:.3f} | "
+                f"{t['documento']} ({paginas})"
             )
             print(
                 textwrap.indent(
-                    textwrap.fill(" ".join(texto.split())[:300], 100), "    "
+                    textwrap.fill(" ".join(t["texto"].split())[:300], 100), "    "
                 )
             )
         print()
@@ -112,7 +157,7 @@ def main():
     print("Resposta: ", end="", flush=True)
 
     mensagens = [
-        {"role": "system", "content": PROMPT_SISTEMA},
+        {"role": "system", "content": montar_prompt_sistema(args.idioma)},
         {
             "role": "user",
             "content": f"Trechos dos documentos:\n\n{contexto}\n\nPergunta: {args.pergunta}",
@@ -141,10 +186,11 @@ def main():
             break
 
     print("\n\nFontes:")
-    for n, (documento, titulo, url_pdf, p1, p2, _, _) in enumerate(trechos, 1):
-        print(f"  [{n}] {(titulo or documento)[:90]} ({formatar_paginas(p1, p2)})")
-        if url_pdf:
-            print(f"      {url_pdf}")
+    for n, t in enumerate(trechos, 1):
+        paginas = formatar_paginas(t["pagina_inicio"], t["pagina_fim"])
+        print(f"  [{n}] {(t['titulo'] or t['documento'])[:90]} ({paginas})")
+        if t["url_pdf"]:
+            print(f"      {t['url_pdf']}")
 
 
 if __name__ == "__main__":

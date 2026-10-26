@@ -1,7 +1,22 @@
 from core_api.models.chunk import Chunk
-from core_api.models.documento import Documento, DocumentoArea
+from core_api.models.documento import (
+    Documento,
+    DocumentoArea,
+    StatusProcessamento,
+    StatusValidacao,
+)
 from core_api.models.embedding_version import EmbeddingVersion
+from core_api.models.historico_validacao import (
+    AcaoValidacao,
+    HistoricoImutavelError,
+    HistoricoValidacao,
+)
 from core_api.models.log_acesso import AcaoAcesso, LogAcesso
+from core_api.models.log_auditoria import (
+    AcaoAuditoria,
+    EntidadeAuditoria,
+    LogAuditoria,
+)
 from core_api.models.perfil_operacional import PerfilOperacional
 from core_api.models.registro_pergunta import RegistroPergunta
 from core_api.models.taxonomia import (
@@ -24,10 +39,18 @@ __all__ = [
     "StatusDocumentoChoices",
     "Documento",
     "DocumentoArea",
+    "StatusValidacao",
+    "StatusProcessamento",
+    "HistoricoValidacao",
+    "AcaoValidacao",
+    "HistoricoImutavelError",
     "Chunk",
     "EmbeddingVersion",
     "LogAcesso",
     "AcaoAcesso",
+    "LogAuditoria",
+    "AcaoAuditoria",
+    "EntidadeAuditoria",
     "PerfilOperacional",
     "RegistroPergunta",
 ]

@@ -1,0 +1,55 @@
+name: Deploy na VM
+
+# Atualiza o backend na VM a cada push no develop (inclui o merge de PR).
+# Roda no runner self-hosted instalado na própria VM (label "akavision"),
+# como o usuário "deploy". Nunca roda em pull_request: código de PR de fork
+# não chega na VM.
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+# Um deploy por vez; um push novo espera o anterior terminar.
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, akavision]
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: /opt/akavision/backend
+    steps:
+      - name: Atualizar o código
+        # reset mantém .env, .venv e uploads/ (ignorados pelo git).
+        run: |
+          git fetch --prune origin
+          git reset --hard "${{ github.sha }}"
+
+      - name: Instalar dependências
+        run: $HOME/.local/bin/uv pip install --python .venv/bin/python -r requirements.txt
+
+      - name: Migrations
+        run: |
+          .venv/bin/python manage.py migrate --noinput
+          .venv/bin/python manage.py migrate --database=credenciais_db --noinput
+
+      - name: Reiniciar o backend
+        run: sudo systemctl restart akavision-backend
+
+      - name: Conferir se subiu
+        # Sem token, /api/auth/me/ responde 401: o Django está no ar.
+        run: |
+          for i in $(seq 1 30); do
+            codigo=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/api/auth/me/ || true)
+            if [ "$codigo" = "401" ]; then
+              echo "Backend no ar (HTTP 401 sem token, como esperado)."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend não respondeu em 60 s. Últimas linhas do log:"
+          journalctl -u akavision-backend -n 50 --no-pager || true
+          exit 1

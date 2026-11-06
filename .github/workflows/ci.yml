@@ -27,7 +27,9 @@ jobs:
       - name: Run pre-commit (Ruff + hooks)
         run: pre-commit run --all-files
 
-  unit-tests:
+  # O nome "test" é o check obrigatório do ruleset "Protect main and develop".
+  # Não renomear sem atualizar o ruleset junto.
+  test:
     runs-on: ubuntu-latest
     needs: lint
     steps:
@@ -41,7 +43,7 @@ jobs:
 
   integration-tests:
     runs-on: ubuntu-latest
-    needs: unit-tests
+    needs: test
     services:
       postgres:
         image: pgvector/pgvector:0.8.6-pg17
@@ -68,6 +70,9 @@ jobs:
       DEFAULT_DB_PASSWORD: rag
       DEFAULT_DB_HOST: localhost
       DEFAULT_DB_PORT: "5432"
+      # credenciais_db não tem mais usuário/senha padrão no settings.py
+      CREDENCIAIS_DB_USER: credenciais
+      CREDENCIAIS_DB_PASSWORD: credenciais
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

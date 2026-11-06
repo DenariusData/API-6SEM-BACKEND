@@ -26,7 +26,7 @@ from core_api.management.commands import gerar_embeddings
 from core_api.models import Chunk, Documento, EmbeddingVersion, StatusValidacao
 from core_api.services import processamento, validacao
 from core_api.services.rag import busca_vetorial, pergunta, responder
-from core_api.tests.test_processamento import ProcessamentoBase, _ollama_falso
+from tests.integration.test_processamento import ProcessamentoBase, _ollama_falso
 
 DIM = EmbeddingVersion.DIMENSAO_ATUAL
 MODELO = "bge-m3"

@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: rag
       POSTGRES_DB: rag
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - rag_pgdata:/var/lib/postgresql/data
 

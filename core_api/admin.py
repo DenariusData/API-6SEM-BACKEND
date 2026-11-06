@@ -9,6 +9,7 @@ from core_api.models import (
     EmbeddingVersion,
     Idioma,
     LogAcesso,
+    LogAuditoria,
     NivelSigilo,
     PerfilOperacional,
     Subcategoria,
@@ -44,4 +45,5 @@ admin.site.register(Idioma)
 admin.site.register(Chunk)
 admin.site.register(EmbeddingVersion)
 admin.site.register(LogAcesso)
+admin.site.register(LogAuditoria)
 admin.site.register(PerfilOperacional)

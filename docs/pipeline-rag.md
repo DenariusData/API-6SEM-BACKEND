@@ -172,7 +172,7 @@ Resposta:
       "resposta": "... [1]",
       "encontrou": true,
       "fontes": [
-        {"numero": 1, "documento": "CxP 70024", "revisao": "BASELINE", "pagina": "30",
+        {"numero": 1, "documento_id": null, "documento": "CxP 70024", "revisao": "BASELINE", "pagina": "30",
          "pagina_inicio": 30, "pagina_fim": 30, "titulo": "CxP 70024 (BASELINE), ...",
          "url_pdf": "https://...", "similaridade": 0.568, "citada": true}
       ],
@@ -180,7 +180,8 @@ Resposta:
     }
 
 - **Sem base no acervo**: se nenhum trecho passar de `RAG_SIMILARIDADE_MINIMA`, a IA nem é chamada, e a resposta vem com `"encontrou": false`, `"fontes": []` e a mensagem "Não encontrei essa informação nos documentos consultados.". O mesmo acontece quando a própria IA diz que os trechos não têm a resposta.
-- **Revisão**: vem do título do EverySpec, por exemplo `(REV. B)`, `(BASELINE)` ou a letra final do código (`FED-STD-123H` fica com revisão `H`). É `null` quando o documento não indica revisão.
+- **`documento_id`**: id do documento do sistema, usado pelo botão "Ver documento" (AKA-61); `null` na base pública do EverySpec (seção 9).
+- **Revisão**: nos documentos do sistema, é o número da revisão do upload. Na base pública, vem do título do EverySpec, por exemplo `(REV. B)`, `(BASELINE)` ou a letra final do código (`FED-STD-123H` fica com revisão `H`). É `null` quando o documento não indica revisão.
 - **Desempenho**: toda pergunta respondida é gravada na tabela `registro_pergunta` com os tempos de busca, da IA e total. Se o Ollama ou o banco não responderem, a API devolve `503` e não grava nada.
 
 | Variável | Padrão | O que faz |
@@ -189,6 +190,44 @@ Resposta:
 | `RAG_MODELO_EMBEDDING` | `bge-m3` | Modelo que converte a pergunta em vetor |
 | `RAG_TOP_K` | `5` | Quantos trechos buscar |
 | `RAG_SIMILARIDADE_MINIMA` | `0.5` | Trechos abaixo disso são descartados. No acervo atual, perguntas do domínio ficam acima de 0.55 e perguntas sem relação ficam entre 0.33 e 0.46 |
+
+## 8. Processamento automático do documento aprovado
+
+Documentos enviados pelo sistema não passam pelas etapas 1 a 4 à mão. Quando um documento é aprovado (`POST /api/documents/<id>/aprovar/`), o backend roda as mesmas etapas só para ele, numa thread, depois de responder a aprovação (`core_api/services/processamento.py`):
+
+1. extrai o texto com a página (`extrair_texto.py`), lendo o PDF da pasta privada do upload;
+2. divide em trechos e aplica o filtro de qualidade (`gerar_chunks.py`, mesmos padrões: 1500 caracteres, 200 de sobreposição, qualidade mínima de 80%). O filtro usa o idioma do documento (inglês ou português);
+3. gera os embeddings com o `bge-m3` do Ollama local (`gerar_embeddings.py`) e grava os trechos em `chunk` e os vetores em `embedding_version`, ligados ao documento.
+
+O estado fica no próprio documento, em `status_processamento` (`PENDENTE`, `PROCESSANDO`, `CONCLUIDO`, `ERRO`), com o motivo do erro em `erro_processamento`. Os dois aparecem no detalhe do documento. Para reprocessar (depois de um erro, ou se o servidor parou no meio):
+
+    python manage.py reprocessar_documento <id do documento>
+
+Não há chamada externa: o processamento recusa um `OLLAMA_URL` que não seja a própria máquina (mesma regra do teste do bge-m3, AKA-95) e nunca baixa arquivo de URL. Para aprovar sem processar (por exemplo, numa máquina sem Ollama), use `PROCESSAMENTO_AUTOMATICO=false` e rode o comando depois.
+
+| Variável | Padrão | O que faz |
+|---|---|---|
+| `PROCESSAMENTO_AUTOMATICO` | `true` | Processa o documento aprovado em segundo plano |
+
+## 9. O que a busca enxerga (AKA-51)
+
+A tela de pergunta, o `buscar.py` e o `responder.py` usam a mesma busca (`core_api/services/rag/busca_vetorial.py`), que junta duas fontes e ordena pela similaridade:
+
+| Fonte | Tabelas | Filtro | `documento_id` na fonte |
+|---|---|---|---|
+| Documentos do sistema | `chunk` + `embedding_version` (vigente) | só `Documento.objects.disponiveis()` e o modelo da pergunta | id do documento |
+| Base pública do EverySpec | `rag_chunks` | só o modelo da pergunta (normas públicas) | `null` |
+
+- Documento **aguardando validação** ou **devolvido** nunca aparece em resposta. O documento aprovado aparece assim que o processamento (seção 8) termina.
+- O filtro fica só em `Documento.objects.disponiveis()`. A regra de permissão da Sprint 3 entra ali e a busca passa a respeitá-la sem outra mudança.
+- O `documento_id` da fonte abre o documento no visualizador seguro do front (AKA-61). Na base pública ele é `null`, e a fonte continua com o `url_pdf` do EverySpec.
+- **Modelo do embedding**: só entram vetores gerados pelo mesmo modelo da pergunta (`RAG_MODELO_EMBEDDING`, padrão `bge-m3`; nos scripts, `--modelo`/`--modelo-embedding`). Vetores de modelos diferentes não se comparam.
+- **Banco da base pública**: os comandos `gerar_embeddings`/`importar_embeddings` gravam a `rag_chunks` pelo `DATABASE_URL`, e a busca lê pela conexão do Django. Os dois precisam apontar para o mesmo banco (o padrão de ambos é `localhost:5434/rag`). Se a tabela não existir nesse banco, a busca usa só os documentos do sistema e avisa no log (`Tabela rag_chunks não encontrada...`). Para conferir:
+
+      python manage.py shell -c "from django.db import connection as c; cur=c.cursor(); cur.execute('select count(*) from rag_chunks'); print(cur.fetchone())"
+
+- **Índice HNSW e filtro**: o Postgres percorre o índice pela distância e só depois filtra. Sem ajuste, o índice entrega só 40 vizinhos (`hnsw.ef_search`), e com muitos trechos de documentos não disponíveis perto da pergunta a busca podia voltar vazia. A busca liga `hnsw.iterative_scan = relaxed_order` (pgvector 0.8+, o do `docker-compose.yml`), pede 4×k candidatos de cada fonte e refaz a ordem. Em pgvector mais antigo, usa `hnsw.ef_search = 200` e avisa no log.
+- **Desempenho** (20 mil trechos em cada fonte, vetores agrupados por assunto, índice HNSW): mediana ~145 ms, p95 ~190 ms, pior caso ~220 ms, com o mesmo resultado da busca exata (recall@5 = 100%). Sem contar o tempo do Ollama para converter a pergunta. A primeira busca depois de reiniciar o Postgres é mais lenta, porque o índice ainda está sendo lido do disco.
 
 ## Compartilhar a base pronta
 

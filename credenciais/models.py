@@ -18,6 +18,10 @@ Estrutura extraída da modelagem (tabela `usuario`):
     bloqueado_ate        timestamptz     (nullable)
     ativo                boolean
     criado_em            timestamptz
+    email_pendente       varchar(180)    (nullable, troca de e-mail a confirmar)
+    token_confirmacao_hash varchar(64)   (nullable, SHA-256 do token enviado)
+    token_expira_em      timestamptz     (nullable)
+    confirmacao_enviada_em timestamptz   (nullable, limite de 1 envio/minuto)
 """
 
 import uuid
@@ -77,6 +81,13 @@ class Usuario(models.Model):
     bloqueado_ate = models.DateTimeField(null=True, blank=True)
     ativo = models.BooleanField(default=True)
     criado_em = models.DateTimeField(auto_now_add=True)
+
+    email_pendente = models.CharField(max_length=180, null=True, blank=True)
+    token_confirmacao_hash = models.CharField(
+        max_length=64, null=True, blank=True, db_index=True
+    )
+    token_expira_em = models.DateTimeField(null=True, blank=True)
+    confirmacao_enviada_em = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         app_label = "credenciais"

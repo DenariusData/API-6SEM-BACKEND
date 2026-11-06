@@ -29,7 +29,11 @@ load_dotenv(BASE_DIR / ".env")
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-(f%8_n)c8yhv_3s0n*ex6+#l1xy@sv3l+f5y%hs^y(g%sa(-!b"
+# Em produção (VM) a chave vem do .env; o valor abaixo só vale para dev.
+SECRET_KEY = os.getenv(
+    "SECRET_KEY",
+    "django-insecure-(f%8_n)c8yhv_3s0n*ex6+#l1xy@sv3l+f5y%hs^y(g%sa(-!b",
+)
 
 # JWT usado para autenticar as chamadas da API (core_api.utils.jwt_auth).
 # Em produção, JWT_SECRET DEVE vir de variável de ambiente própria,
@@ -39,9 +43,15 @@ JWT_SECRET = os.getenv("JWT_SECRET", SECRET_KEY)
 JWT_EXP_MINUTES = int(os.getenv("JWT_EXP_MINUTES", "60"))
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Padrão True para o dev continuar igual; na VM o .env define DEBUG=False.
+DEBUG = os.getenv("DEBUG", "True").strip().lower() in ("1", "true", "yes")
 
-ALLOWED_HOSTS = []
+# Endereços pelos quais o sistema pode ser acessado, separados por vírgula
+# (ex.: ALLOWED_HOSTS=192.168.15.5,localhost). Vazio com DEBUG=True aceita
+# localhost, como antes.
+ALLOWED_HOSTS = [
+    host.strip() for host in os.getenv("ALLOWED_HOSTS", "").split(",") if host.strip()
+]
 
 
 # Application definition
@@ -59,6 +69,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "core_api.utils.cors_middleware.CorsMiddleware",
+    # Guarda o usuário do token para o log de auditoria (AKA-31). Não barra
+    # nada: a autenticação continua em require_auth/require_role.
+    "core_api.utils.usuario_atual.UsuarioAtualMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -103,18 +116,18 @@ WSGI_APPLICATION = "api.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": os.getenv("DEFAULT_DB_ENGINE", "django.db.backends.sqlite3"),
-        "NAME": os.getenv("DEFAULT_DB_NAME", str(BASE_DIR / "db.sqlite3")),
+        "ENGINE": os.getenv("DEFAULT_DB_ENGINE", "django.db.backends.postgresql"),
+        "NAME": os.getenv("DEFAULT_DB_NAME", "rag"),
         "USER": os.getenv("DEFAULT_DB_USER", ""),
         "PASSWORD": os.getenv("DEFAULT_DB_PASSWORD", ""),
-        "HOST": os.getenv("DEFAULT_DB_HOST", ""),
-        "PORT": os.getenv("DEFAULT_DB_PORT", ""),
+        "HOST": os.getenv("DEFAULT_DB_HOST", "localhost"),
+        "PORT": os.getenv("DEFAULT_DB_PORT", "5434"),
     },
     "credenciais_db": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.getenv("CREDENCIAIS_DB_NAME", "credenciais"),
-        "USER": os.getenv("CREDENCIAIS_DB_USER", "credenciais"),
-        "PASSWORD": os.getenv("CREDENCIAIS_DB_PASSWORD", "credenciais"),
+        "USER": os.getenv("CREDENCIAIS_DB_USER", ""),
+        "PASSWORD": os.getenv("CREDENCIAIS_DB_PASSWORD", ""),
         "HOST": os.getenv("CREDENCIAIS_DB_HOST", "localhost"),
         "PORT": os.getenv("CREDENCIAIS_DB_PORT", "5433"),
     },
@@ -156,13 +169,64 @@ USE_TZ = True
 IDIOMAS_ACEITOS = ["pt-BR", "en"]
 IDIOMA_PADRAO = "pt-BR"
 
+# Processamento para a IA depois da aprovação (AKA-62): extrai o texto, gera
+# os trechos e os embeddings numa thread, sem segurar a resposta do aprovar.
+# Desligue (false) para aprovar sem processar, por exemplo sem Ollama na
+# máquina; o comando `reprocessar_documento <id>` processa depois.
+PROCESSAMENTO_AUTOMATICO = (
+    os.getenv("PROCESSAMENTO_AUTOMATICO", "true").strip().lower() == "true"
+)
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "static/"
 
+# Pasta PRIVADA dos arquivos enviados no upload (S2-32). Fica fora de
+# STATIC/MEDIA e nenhuma rota serve esta pasta: o arquivo não tem URL
+# pública, só o backend lê. O nome de cada arquivo é um uuid gerado.
+DOCUMENTOS_UPLOAD_DIR = Path(
+    os.getenv("DOCUMENTOS_UPLOAD_DIR", BASE_DIR / "uploads" / "documentos")
+)
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# E-mail (S2-49: confirmação de troca de e-mail). Em desenvolvimento o padrão
+# é o backend de console: o e-mail aparece no terminal do runserver. Em
+# produção, defina EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+# e as variáveis EMAIL_HOST/EMAIL_PORT/EMAIL_HOST_USER/EMAIL_HOST_PASSWORD.
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
+)
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False").lower() in ("1", "true", "yes")
+DEFAULT_FROM_EMAIL = os.getenv(
+    "DEFAULT_FROM_EMAIL", "AkaVision <nao-responda@akaer.com.br>"
+)
+# Endereço do front, usado para montar o link do e-mail de confirmação.
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+# Log de auditoria de dados pessoais (S2-49). Sem LOGGING, o nível INFO não
+# aparece em lugar nenhum. A linha traz usuário, campos e data, nunca valores.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "simples": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"}
+    },
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "simples"}},
+    "loggers": {
+        "core_api.auditoria": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        }
+    },
+}

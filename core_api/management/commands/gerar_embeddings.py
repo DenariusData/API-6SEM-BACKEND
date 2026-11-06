@@ -11,7 +11,7 @@ Uso:
     python gerar_embeddings.py                todos os chunks (pode interromper com Ctrl+C e continuar)
 
 Variáveis de ambiente opcionais:
-    DATABASE_URL   padrão: postgresql://rag:rag@localhost:5432/rag
+    DATABASE_URL   padrão: postgresql://rag:rag@localhost:5434/rag
     OLLAMA_URL     padrão: http://localhost:11434
 """
 
@@ -26,7 +26,7 @@ from pathlib import Path
 import psycopg
 import requests
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://rag:rag@localhost:5432/rag")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://rag:rag@localhost:5434/rag")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 ARQUIVO_CHUNKS = Path("chunks/chunks.jsonl")
 ARQUIVO_FALHAS = Path("chunks/falhas_embedding.jsonl")
@@ -70,10 +70,12 @@ def gerar_vetores(textos, modelo):
             json={"model": modelo, "input": textos},
             timeout=300,
         )
-    except requests.ConnectionError:
-        sys.exit(
-            f"\nNão consegui conectar ao Ollama em {OLLAMA_URL}. Confira se ele está aberto."
-        )
+    except requests.ConnectionError as e:
+        # Exceção, e não sys.exit: o processamento em segundo plano
+        # (services/processamento.py) precisa registrar o erro no documento.
+        raise ErroOllama(
+            f"Não consegui conectar ao Ollama em {OLLAMA_URL}. Confira se ele está aberto."
+        ) from e
     if r.status_code != 200:
         raise ErroOllama(f"HTTP {r.status_code}: {r.text[:300]}")
     vetores = r.json().get("embeddings", [])

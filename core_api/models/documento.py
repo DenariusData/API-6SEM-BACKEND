@@ -93,6 +93,9 @@ class Documento(models.Model):
     # Quando aplicável
     data_vigencia = models.DateField(null=True, blank=True)
     data_validade = models.DateField(null=True, blank=True)
+    # Campo 14 do upload, em texto livre nesta sprint. As relações de verdade
+    # entre documentos (`documento_relacao`, ver modelagem 1.6) são da Sprint 3.
+    referencia_normativa = models.TextField(null=True, blank=True)
 
     # Campos de sistema
     usuario_upload = models.ForeignKey(

@@ -41,7 +41,7 @@ from core_api.models import (
     TipoDocumento,
 )
 from core_api.services import processamento, validacao
-from core_api.tests.test_aprovar_devolver import _usuario
+from tests.integration.test_aprovar_devolver import _usuario
 
 ADMIN = "ADMINISTRADOR"
 PAGINA_EN = (

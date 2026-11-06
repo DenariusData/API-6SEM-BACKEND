@@ -21,8 +21,8 @@ from core_api.models import (
     StatusValidacao,
 )
 from core_api.services import validacao
-from core_api.tests.test_documento import _documento_valido
 from core_api.utils.jwt_auth import generate_token
+from tests.integration.test_documento import _documento_valido
 
 ADMIN = "ADMINISTRADOR"
 

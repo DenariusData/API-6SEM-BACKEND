@@ -18,6 +18,7 @@ import json
 import os
 import sys
 import textwrap
+import uuid
 from pathlib import Path
 
 import requests
@@ -81,9 +82,10 @@ def ollama(caminho, dados, **kwargs):
     return r
 
 
-def buscar_trechos(pergunta, k, modelo_embedding):
+def buscar_trechos(pergunta, k, modelo_embedding, usuario_id=None):
     """Sobe o Django (o script roda fora do manage.py) e usa a busca da API.
-    O import fica aqui dentro porque a API importa este módulo (prompts)."""
+    O import fica aqui dentro porque a API importa este módulo (prompts).
+    Sem `usuario_id` só a base pública aparece (nenhum documento do sistema)."""
     import django
 
     resposta = ollama("/api/embed", {"model": modelo_embedding, "input": [pergunta]})
@@ -92,7 +94,9 @@ def buscar_trechos(pergunta, k, modelo_embedding):
     django.setup()
     from core_api.services.rag.busca_vetorial import buscar_por_vetor
 
-    return buscar_por_vetor(resposta.json()["embeddings"][0], k, modelo_embedding)
+    return buscar_por_vetor(
+        resposta.json()["embeddings"][0], k, modelo_embedding, usuario_id
+    )
 
 
 def formatar_paginas(p1, p2):
@@ -123,9 +127,15 @@ def main():
         choices=["pt-BR", "en"],
         help="idioma da resposta (pt-BR ou en)",
     )
+    ap.add_argument(
+        "--usuario",
+        type=uuid.UUID,
+        help="uuid do usuário (PerfilOperacional) cuja permissão vale na busca; "
+        "sem ele só a base pública aparece",
+    )
     args = ap.parse_args()
 
-    trechos = buscar_trechos(args.pergunta, args.k, args.modelo_embedding)
+    trechos = buscar_trechos(args.pergunta, args.k, args.modelo_embedding, args.usuario)
     if not trechos:
         sys.exit(
             "Nenhum trecho encontrado. Aprove um documento ou rode o gerar_embeddings.py"

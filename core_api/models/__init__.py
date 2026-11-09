@@ -18,6 +18,7 @@ from core_api.models.log_auditoria import (
     LogAuditoria,
 )
 from core_api.models.perfil_operacional import PerfilOperacional
+from core_api.models.permissao import UsuarioPermissaoArea
 from core_api.models.registro_pergunta import RegistroPergunta
 from core_api.models.taxonomia import (
     Area,
@@ -52,5 +53,6 @@ __all__ = [
     "AcaoAuditoria",
     "EntidadeAuditoria",
     "PerfilOperacional",
+    "UsuarioPermissaoArea",
     "RegistroPergunta",
 ]

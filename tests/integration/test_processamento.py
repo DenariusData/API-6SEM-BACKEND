@@ -41,6 +41,7 @@ from core_api.models import (
     TipoDocumento,
 )
 from core_api.services import processamento, validacao
+from tests.integration.permissao import liberar
 from tests.integration.test_aprovar_devolver import _usuario
 
 ADMIN = "ADMINISTRADOR"
@@ -345,6 +346,7 @@ class AprovacaoTestCase(ProcessamentoBase):
 
     def test_estado_do_processamento_fica_visivel_no_documento(self):
         doc = self.documento(paginas=None)  # sem arquivo: vai dar erro
+        liberar(self.admin, doc)  # aprovado = disponível: ver exige permissão
         self.assertEqual(self.aprovar(doc).status_code, 200)
         _esperar_processamento(doc.pk)
         r = self.client.get(

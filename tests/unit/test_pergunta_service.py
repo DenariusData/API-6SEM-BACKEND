@@ -1,3 +1,4 @@
+import uuid
 from unittest.mock import Mock, patch
 
 import pytest
@@ -24,12 +25,35 @@ def trecho(similaridade):
     }
 
 
+USUARIO = uuid.uuid4()
+
+
 def responder(trechos, resposta_ia="Resposta [1]", idioma="pt-BR"):
     with (
         patch.object(pergunta, "buscar_trechos", return_value=trechos),
         patch.object(pergunta, "perguntar_ia", return_value=resposta_ia) as ia,
     ):
-        return responder_pergunta("Como marcar a carga?", idioma=idioma), ia
+        return (
+            responder_pergunta(
+                "Como marcar a carga?", idioma=idioma, usuario_id=USUARIO
+            ),
+            ia,
+        )
+
+
+def test_a_busca_recebe_o_usuario_que_perguntou():
+    with (
+        patch.object(pergunta, "buscar_trechos", return_value=[]) as busca,
+        patch.object(pergunta, "perguntar_ia"),
+    ):
+        responder_pergunta("Como marcar a carga?", usuario_id=USUARIO)
+
+    assert busca.call_args.args == ("Como marcar a carga?", USUARIO)
+
+
+def test_usuario_e_obrigatorio_para_responder():
+    with pytest.raises(TypeError):
+        responder_pergunta("Como marcar a carga?")
 
 
 @pytest.mark.parametrize("p1, p2, esperado", [(7, 7, "7"), (42, 43, "42-43")])

@@ -69,8 +69,10 @@ Isso é só a política **padrão**. Para documentos cuja política é `REQUER_A
 
 Regra confirmada pelo cliente: **nunca herança automática por setor**. Acesso é o cruzamento de usuário + área + nível de sigilo máximo:
 
-- `usuario_permissao_area` — regra geral: usuário X pode acessar, na área Y, documentos até o sigilo Z.
-- `documento_restricao_especifica` — exceção pontual (`PERMITIR`/`NEGAR`) por usuário e documento, que sobrepõe a regra geral.
+- `usuario_permissao_area` — regra geral: usuário X pode acessar, na área Y, documentos até o sigilo Z. Colunas: `id`, `usuario_id` (FK `perfil_operacional`, cuja PK é o uuid do JWT), `area_id`, `nivel_sigilo_maximo_id`; única por (`usuario_id`, `area_id`).
+- `documento_restricao_especifica` — exceção pontual (`PERMITIR`/`NEGAR`) por usuário e documento, que sobrepõe a regra geral. **Ainda não implementada.**
+
+**Como a regra é aplicada** (`Documento.objects.permitidos_para(usuario_id)`, único lugar): o documento é acessível se **alguma** das suas áreas (principal ou secundária) tem permissão para o usuário e `nivel_sigilo.ordinal` do documento é **menor ou igual** ao máximo concedido **naquela mesma área** (o máximo de uma área não vale para outra). Falha fechado: sem usuário, ou sem nenhuma permissão, não acessa nenhum documento. O papel (ENGENHARIA, QUALIDADE, ADMINISTRADOR) não concede acesso. Vale para a busca da IA (antes do prompt), para o detalhe e para o visualizador; a exceção é o **autor**, que continua vendo o próprio documento. Documento que ainda não está `DISPONIVEL` segue a regra do fluxo de validação (autor e validadores). A base pública do EverySpec não tem sigilo e não passa por essa regra.
 
 ### 1.6 Relações entre documentos (R2P2)
 
@@ -105,7 +107,7 @@ O `Usuario` real já inclui hash de senha (`set_senha`/`verificar_senha`, via `d
 - `usuario_upload_id` vem do token, nunca do formulário; o documento nasce `AGUARDANDO_VALIDACAO`, com `nivel_sigilo` igual ao `nivel_sigilo_sugerido`;
 - identificador + revisão repetidos devolvem 409 (checagem prévia + `uq_documento_identificador_revisao`).
 
-Os selects do formulário vêm de `GET /api/tipos-documento/`, `/api/areas/`, `/api/niveis-sigilo/`, `/api/idiomas/` e `/api/responsaveis/?area=` (só id e nome, por LGPD). Ainda não existe ligação entre usuário e área (`usuario_permissao_area`, 1.5), então `?area=` é validado mas não filtra a lista.
+Os selects do formulário vêm de `GET /api/tipos-documento/`, `/api/areas/`, `/api/niveis-sigilo/`, `/api/idiomas/` e `/api/responsaveis/?area=` (só id e nome, por LGPD). A tabela `usuario_permissao_area` (1.5) é de acesso a documento, não de vínculo de responsável com área, então `?area=` continua validado mas sem filtrar a lista.
 
 ### 1.9 Fluxo de validação do documento (S2-33)
 

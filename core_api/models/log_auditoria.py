@@ -37,6 +37,11 @@ class AcaoAuditoria(models.TextChoices):
     LOGIN = "LOGIN", "Login"
     LOGIN_FALHOU = "LOGIN_FALHOU", "Login falhou"
     DADOS_PESSOAIS_ALTERADOS = "DADOS_PESSOAIS_ALTERADOS", "Dados pessoais alterados"
+    # AKA-75: o titular baixou a cópia dos próprios dados (LGPD art. 18).
+    DADOS_PESSOAIS_EXPORTADOS = (
+        "DADOS_PESSOAIS_EXPORTADOS",
+        "Dados pessoais exportados",
+    )
 
 
 class EntidadeAuditoria(models.TextChoices):

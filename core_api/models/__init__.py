@@ -17,6 +17,7 @@ from core_api.models.log_auditoria import (
     EntidadeAuditoria,
     LogAuditoria,
 )
+from core_api.models.log_imutavel import LogImutavelError
 from core_api.models.perfil_operacional import PerfilOperacional
 from core_api.models.registro_pergunta import RegistroPergunta
 from core_api.models.taxonomia import (
@@ -47,6 +48,7 @@ __all__ = [
     "Chunk",
     "EmbeddingVersion",
     "LogAcesso",
+    "LogImutavelError",
     "AcaoAcesso",
     "LogAuditoria",
     "AcaoAuditoria",

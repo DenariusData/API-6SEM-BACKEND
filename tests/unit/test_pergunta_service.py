@@ -9,7 +9,10 @@ from core_api.services.rag.pergunta import (
     formatar_paginas,
     responder_pergunta,
 )
-from core_api.services.rag.responder import FRASES_NAO_ENCONTROU
+from core_api.services.rag.responder import (
+    FRASES_NAO_ENCONTROU,
+    montar_prompt_sistema,
+)
 
 
 def trecho(similaridade):
@@ -84,3 +87,99 @@ def test_ollama_com_erro_http_vira_erro_ia():
     with patch.object(pergunta.requests, "post", return_value=falha):
         with pytest.raises(ErroIA, match="500"):
             pergunta._ollama("/api/chat", {})
+
+
+# -- AKA-22: resposta só com base nos trechos ------------------------------
+@pytest.mark.parametrize("idioma", ["pt-BR", "en"])
+def test_resposta_sem_citacao_vira_nao_encontrei(idioma):
+    resultado, _ = responder(
+        [trecho(0.9)], resposta_ia="A marcação usa tinta preta.", idioma=idioma
+    )
+
+    assert resultado["encontrou"] is False
+    assert resultado["resposta"] == FRASES_NAO_ENCONTROU[idioma]
+    assert resultado["fontes"] == []
+
+
+def test_citacao_de_trecho_que_nao_foi_enviado_nao_conta():
+    resultado, _ = responder([trecho(0.9)], resposta_ia="Conforme o trecho [7].")
+
+    assert resultado["encontrou"] is False
+    assert resultado["resposta"] == FRASES_NAO_ENCONTROU["pt-BR"]
+
+
+def test_nao_encontrei_seguido_de_suposicao_devolve_so_o_aviso():
+    resposta_ia = (
+        "Não encontrei essa informação nos documentos consultados. "
+        "Mas provavelmente o prazo é de 10 dias [1]."
+    )
+    resultado, _ = responder([trecho(0.9)], resposta_ia=resposta_ia)
+
+    assert resultado["encontrou"] is False
+    assert resultado["resposta"] == FRASES_NAO_ENCONTROU["pt-BR"]
+    assert resultado["fontes"] == []
+
+
+@pytest.mark.parametrize(
+    "resposta_ia",
+    [
+        "Não encontrei essa informação nos trechos fornecidos.",
+        '"Não encontrei essa informação nos documentos consultados."',
+        "I could not find this information in the excerpts.",
+    ],
+)
+def test_variacoes_da_frase_de_nao_encontrei(resposta_ia):
+    resultado, _ = responder([trecho(0.9)], resposta_ia=resposta_ia)
+
+    assert resultado["encontrou"] is False
+    assert resultado["fontes"] == []
+
+
+def test_resposta_parcial_com_citacao_continua_encontrada():
+    resposta_ia = (
+        "A carga deve ser marcada na lateral [1]. "
+        "Os trechos não informam a cor da tinta."
+    )
+    resultado, _ = responder([trecho(0.9)], resposta_ia=resposta_ia)
+
+    assert resultado["encontrou"] is True
+    assert resultado["resposta"] == resposta_ia
+    assert resultado["fontes"][0]["citada"] is True
+
+
+def test_citacao_de_varios_trechos_juntos():
+    resultado, _ = responder(
+        [trecho(0.9), trecho(0.8), trecho(0.7)], resposta_ia="Marcação lateral [1, 3]."
+    )
+
+    citadas = [f["citada"] for f in resultado["fontes"]]
+    assert citadas == [True, False, True]
+
+
+def test_ollama_fora_da_maquina_local_e_recusado():
+    with (
+        patch.object(pergunta, "OLLAMA_URL", "http://10.0.0.5:11434"),
+        patch.object(pergunta.requests, "post") as post,
+    ):
+        with pytest.raises(ErroIA, match="não é a máquina local"):
+            pergunta._ollama("/api/chat", {})
+
+    post.assert_not_called()
+
+
+@pytest.mark.parametrize("idioma", ["pt-BR", "en"])
+def test_perguntar_ia_usa_prompt_dos_trechos_e_temperatura_zero(idioma):
+    with patch.object(
+        pergunta, "_ollama", return_value={"message": {"content": "Ok [1]"}}
+    ) as ollama:
+        resposta = pergunta.perguntar_ia("Como marcar?", [trecho(0.9)], idioma)
+
+    assert resposta == "Ok [1]"
+    caminho, dados = ollama.call_args.args
+    assert caminho == "/api/chat"
+    assert dados["model"] == pergunta.MODELO_LLM
+    assert dados["options"]["temperature"] == 0
+    sistema, usuario = dados["messages"]
+    assert sistema["content"] == montar_prompt_sistema(idioma)
+    assert "[1] Documento: FED-STD-123H" in usuario["content"]
+    assert "Marking shall be ..." in usuario["content"]

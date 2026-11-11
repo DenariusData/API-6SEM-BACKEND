@@ -4,11 +4,11 @@ Views de Autenticacao SSO e Gestao de Usuarios da API.
 
 import json
 
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from core_api.services.auth import dados_pessoais
+from core_api.services.auth import dados_pessoais, exportacao_dados
 from core_api.services.auth.autenticacao import (
     ERRO_USUARIO_BLOQUEADO,
     AuthService,
@@ -146,6 +146,38 @@ def _alterar_dados_pessoais(request):
             "e-mail; ele só vale depois de confirmado."
         )
     return JsonResponse(corpo, status=200)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+@require_auth
+def exportar_dados_view(request):
+    """
+    GET /api/auth/me/exportar/?formato=json|pdf  (AKA-75, LGPD art. 18)
+
+    Baixa a copia dos dados pessoais do proprio usuario. A identidade vem do
+    token, nunca da URL: nao ha como pedir os dados de outra pessoa.
+    200 arquivo (attachment) · 400 formato invalido · 401 sem token ·
+    404 usuario nao encontrado · 429 mais de 1 exportacao por minuto.
+    """
+    try:
+        arquivo = exportacao_dados.exportar(
+            request.auth_user["sub"], request.GET.get("formato")
+        )
+    except exportacao_dados.FormatoInvalido as e:
+        return _erro(str(e), 400, "formato")
+    except exportacao_dados.MuitosPedidos as e:
+        resposta = _erro(str(e), 429)
+        resposta["Retry-After"] = str(e.segundos)
+        return resposta
+    except (Usuario.DoesNotExist, ValueError):
+        return _erro("Usuário não encontrado.", 404)
+
+    resposta = HttpResponse(arquivo.conteudo, content_type=arquivo.content_type)
+    resposta["Content-Disposition"] = f'attachment; filename="{arquivo.nome}"'
+    # Dado pessoal: nao pode ficar guardado em cache de navegador ou proxy.
+    resposta["Cache-Control"] = "no-store"
+    return resposta
 
 
 @csrf_exempt

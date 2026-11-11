@@ -8,6 +8,14 @@ mas sem `sys.exit`/`print`: devolve um dict pronto para a API e levanta
 
 Os trechos vêm de `busca_vetorial.buscar_por_vetor` (AKA-51): só documentos
 disponíveis, mais a base pública do EverySpec.
+
+Resposta só com base nos trechos (AKA-22):
+    - sem trecho acima da similaridade mínima, a IA nem é chamada;
+    - o prompt proíbe completar lacunas e manda devolver só a frase de "não
+      encontrei" quando os trechos não têm a resposta;
+    - resposta que começa com essa frase, ou que não cita nenhum trecho
+      enviado ([1], [2]...), vira o aviso de "não encontrei", sem fontes;
+    - a geração roda só no Ollama local (mesma checagem da D1 do bge-m3).
 """
 
 import os
@@ -17,9 +25,11 @@ import time
 import requests
 from django.db import DatabaseError
 
+from core_api.management.commands.testar_bge_m3_local import validar_ollama_local
 from core_api.services.rag.busca_vetorial import buscar_por_vetor
 from core_api.services.rag.responder import (
     FRASES_NAO_ENCONTROU,
+    OPCOES_LLM,
     montar_prompt_sistema,
 )
 
@@ -40,7 +50,17 @@ MENSAGEM_NAO_ENCONTROU = FRASES_NAO_ENCONTROU["pt-BR"]
 RE_REVISAO_PARENTESES = re.compile(r"\b(REV|BASELINE|CHANGE|VER|V\d)", re.IGNORECASE)
 # Revisão como letra no fim do código: FED-STD-123H, MIL-HDBK-17/1F
 RE_REVISAO_SUFIXO = re.compile(r"\d([A-Z]{1,2})$")
-RE_CITACAO = re.compile(r"\[(\d+)\]")
+# Citação de trecho: [1], [2] ou várias juntas, [1, 3]
+RE_CITACAO = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
+# Começos de resposta em que a própria IA diz que os trechos não têm a
+# resposta (a frase do prompt e as variações que o modelo costuma usar).
+INICIOS_NAO_ENCONTROU = (
+    "não encontrei essa informação",
+    "nao encontrei essa informacao",
+    "i did not find this information",
+    "i could not find this information",
+    "i couldn't find this information",
+)
 
 
 class ErroIA(Exception):
@@ -48,6 +68,11 @@ class ErroIA(Exception):
 
 
 def _ollama(caminho, dados):
+    # D1: embedding e geração rodam só no Ollama da própria máquina.
+    try:
+        validar_ollama_local(OLLAMA_URL)
+    except ValueError as e:
+        raise ErroIA(str(e)) from e
     try:
         r = requests.post(f"{OLLAMA_URL}{caminho}", json=dados, timeout=600)
     except requests.RequestException as e:
@@ -152,10 +177,26 @@ def perguntar_ia(pergunta, trechos, idioma="pt-BR"):
                 },
             ],
             "stream": False,
-            "options": {"temperature": 0.1, "num_ctx": 4096},
+            "options": OPCOES_LLM,
         },
     )
     return dados.get("message", {}).get("content", "").strip()
+
+
+def citacoes_validas(resposta, quantidade_trechos):
+    """Números de trecho citados na resposta que existem de fato (1 a N)."""
+    return {
+        int(numero)
+        for grupo in RE_CITACAO.findall(resposta)
+        for numero in grupo.split(",")
+        if 1 <= int(numero) <= quantidade_trechos
+    }
+
+
+def ia_nao_encontrou(resposta):
+    """True se a resposta da IA começa dizendo que não achou nos trechos."""
+    inicio = " ".join(resposta.lower().split()).lstrip("\"'“*>#- ")
+    return inicio.startswith(INICIOS_NAO_ENCONTROU)
 
 
 def responder_pergunta(pergunta, idioma="pt-BR"):
@@ -181,21 +222,18 @@ def responder_pergunta(pergunta, idioma="pt-BR"):
 
     mensagem_nao_encontrou = MENSAGENS_NAO_ENCONTROU.get(idioma, MENSAGEM_NAO_ENCONTROU)
     resposta = mensagem_nao_encontrou
+    citadas = set()
     if trechos:
         resposta = perguntar_ia(pergunta, trechos, idioma=idioma)
+        citadas = citacoes_validas(resposta, len(trechos))
+        # A IA disse que não achou, ou respondeu sem citar nenhum trecho
+        # enviado (resposta sem base nos documentos): devolve o aviso padrão.
+        if ia_nao_encontrou(resposta) or not citadas:
+            resposta = mensagem_nao_encontrou
+            citadas = set()
     fim_ia = time.perf_counter()
 
-    # Sem trecho relevante nem chamamos a IA; se chamamos e ela mesma disse que
-    # não achou nos trechos, também tratamos como "não encontrou"
-    resposta_lower = resposta.lower()
-    nao_achou_ia = (
-        "não encontrei essa informação" in resposta_lower
-        or "did not find this information" in resposta_lower
-        or "could not find this information" in resposta_lower
-        or resposta.strip() == mensagem_nao_encontrou
-    )
-    encontrou = bool(trechos) and not nao_achou_ia
-    citadas = {int(n) for n in RE_CITACAO.findall(resposta)}
+    encontrou = bool(citadas)
     fontes = (
         [_montar_fonte(n, t, citadas) for n, t in enumerate(trechos, 1)]
         if encontrou

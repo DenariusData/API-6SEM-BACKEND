@@ -301,6 +301,16 @@ class PromptSistemaTestCase(TestCase):
         self.assertIn(
             "Trechos citados devem permanecer no idioma original do documento", prompt
         )
+        # AKA-22: sem inferência, conclusão objetiva e toda afirmação com fonte
+        self.assertIn("Não complete lacunas nem faça suposições", prompt)
+        self.assertIn(
+            'responda apenas: "Não encontrei essa informação nos documentos'
+            ' consultados." e não escreva mais nada',
+            prompt,
+        )
+        self.assertIn("diga claramente o que os trechos não informam", prompt)
+        self.assertIn("Comece pela conclusão objetiva", prompt)
+        self.assertIn("Toda afirmação precisa de pelo menos uma fonte", prompt)
 
     def test_prompt_en(self):
         prompt = montar_prompt_sistema("en")
@@ -324,3 +334,12 @@ class PromptSistemaTestCase(TestCase):
             "Cited excerpts must remain in the original language of the document",
             prompt,
         )
+        self.assertIn("Do not fill gaps or make assumptions", prompt)
+        self.assertIn(
+            'reply only: "I did not find this information in the consulted'
+            ' documents." and write nothing else',
+            prompt,
+        )
+        self.assertIn("state clearly what the excerpts do not say", prompt)
+        self.assertIn("Start with the objective conclusion", prompt)
+        self.assertIn("Every statement needs at least one source", prompt)

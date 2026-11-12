@@ -10,6 +10,7 @@ from core_api.views import (
     confirmar_email_view,
     detalhe_documento_view,
     devolver_documento_view,
+    exportar_dados_view,
     idiomas_view,
     login_view,
     meus_documentos_view,
@@ -40,6 +41,11 @@ urlpatterns = [
         "auth/me/",
         profile_view,
         name="auth_me",
+    ),
+    path(
+        "auth/me/exportar/",
+        exportar_dados_view,
+        name="auth_me_exportar",
     ),
     path(
         "auth/confirmar-email/",

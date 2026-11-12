@@ -1,0 +1,44 @@
+name: Preencher requisito a partir do Jira
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  fill-requirement:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extrair código AKA-XX da branch ou do título do PR
+        id: issue
+        run: |
+          KEY=$(echo "${{ github.head_ref }}" | grep -oiE 'AKA-[0-9]+' | head -1 | tr '[:lower:]' '[:upper:]')
+          if [ -z "$KEY" ]; then
+            KEY=$(echo "${{ github.event.pull_request.title }}" | grep -oiE 'AKA-[0-9]+' | head -1 | tr '[:lower:]' '[:upper:]')
+          fi
+          echo "key=$KEY" >> "$GITHUB_OUTPUT"
+
+      - name: Buscar labels do card no Jira
+        if: steps.issue.outputs.key != ''
+        id: jira
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+          RESPONSE=$(curl -s -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
+            -H "Accept: application/json" \
+            "$JIRA_BASE_URL/rest/api/3/issue/${{ steps.issue.outputs.key }}?fields=labels")
+          LABELS=$(echo "$RESPONSE" | jq -r '.fields.labels[]? | select(test("^(RF|RNF|D)[0-9]+$"))' | paste -sd ", " -)
+          echo "labels=$LABELS" >> "$GITHUB_OUTPUT"
+
+      - name: Atualizar descrição do PR
+        if: steps.issue.outputs.key != '' && steps.jira.outputs.labels != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BODY=$(gh pr view "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --json body -q .body)
+          NEW_BODY=$(printf '%s' "$BODY" | sed "s/Requisito: _(preenchido automaticamente)_/Requisito: ${{ steps.jira.outputs.labels }} (via Jira ${{ steps.issue.outputs.key }})/")
+          gh pr edit "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --body "$NEW_BODY"

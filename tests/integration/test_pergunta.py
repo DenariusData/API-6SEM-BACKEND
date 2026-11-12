@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from django.test import Client, TestCase
 
-from core_api.models import RegistroPergunta
+from core_api.models import FontePergunta, RegistroPergunta
 from core_api.services.rag.pergunta import (
     MENSAGEM_NAO_ENCONTROU,
     ErroIA,
@@ -343,3 +343,78 @@ class PromptSistemaTestCase(TestCase):
         self.assertIn("state clearly what the excerpts do not say", prompt)
         self.assertIn("Start with the objective conclusion", prompt)
         self.assertIn("Every statement needs at least one source", prompt)
+
+
+class OrigemDaRespostaTestCase(TestCase):
+    """AKA-24: origem da resposta separada da interpretação e registrada."""
+
+    def setUp(self):
+        self.client = Client()
+        self.headers = {"HTTP_AUTHORIZATION": f"Bearer {generate_token(USUARIO)}"}
+
+    def _perguntar(self, pergunta):
+        return self.client.post(
+            "/api/perguntas/",
+            data=json.dumps({"pergunta": pergunta}),
+            content_type="application/json",
+            **self.headers,
+        )
+
+    @patch(PERGUNTAR_IA, return_value="A arquitetura deve ... [1]. Marcação [2].")
+    @patch(BUSCAR, return_value=TRECHOS)
+    def test_resposta_separa_trecho_extraido_da_interpretacao(self, *_):
+        dados = self._perguntar("Quais os requisitos?").json()
+
+        self.assertEqual(
+            dados["interpretacao_ia"], "A arquitetura deve ... [1]. Marcação [2]."
+        )
+        self.assertEqual(
+            [t["texto"] for t in dados["trechos_extraidos"]],
+            [TRECHOS[0]["texto"], TRECHOS[1]["texto"]],
+        )
+        self.assertEqual([a["fontes"] for a in dados["afirmacoes"]], [[1], [2]])
+        self.assertEqual(dados["modelos"]["llm"], "llama3.2")
+
+    @patch(PERGUNTAR_IA, return_value="A arquitetura deve ... [1]")
+    @patch(BUSCAR, return_value=TRECHOS)
+    def test_origem_fica_registrada_junto_da_pergunta(self, *_):
+        self._perguntar("Quais os requisitos?")
+
+        registro = RegistroPergunta.objects.get()
+        self.assertEqual(registro.resposta, "A arquitetura deve ... [1]")
+        self.assertEqual(registro.modelo_llm, "llama3.2")
+        self.assertEqual(registro.modelo_embedding, "bge-m3")
+
+        fontes = list(registro.fontes.order_by("numero"))
+        self.assertEqual([f.numero for f in fontes], [1, 2])
+        self.assertEqual([f.citada for f in fontes], [True, False])
+        primeira = fontes[0]
+        self.assertEqual(primeira.documento, "CxP 70000")
+        self.assertEqual(primeira.revisao, "REV. B")
+        self.assertEqual((primeira.pagina_inicio, primeira.pagina_fim), (42, 43))
+        self.assertEqual(primeira.titulo, TRECHOS[0]["titulo"])
+        self.assertAlmostEqual(primeira.similaridade, 0.62)
+        # Cópia literal: a origem continua legível mesmo sem o documento.
+        self.assertEqual(primeira.texto, TRECHOS[0]["texto"])
+
+    @patch(PERGUNTAR_IA, return_value=MENSAGEM_NAO_ENCONTROU)
+    @patch(BUSCAR, return_value=TRECHOS)
+    def test_sem_base_registra_o_aviso_e_nenhuma_fonte(self, *_):
+        self._perguntar("Pergunta sem resposta nos trechos")
+
+        registro = RegistroPergunta.objects.get()
+        self.assertFalse(registro.encontrou)
+        self.assertEqual(registro.resposta, MENSAGEM_NAO_ENCONTROU)
+        self.assertFalse(FontePergunta.objects.exists())
+
+    @patch(PERGUNTAR_IA)
+    @patch(BUSCAR, return_value=TRECHOS[2:])
+    def test_sem_trecho_relevante_registra_que_a_ia_nao_foi_usada(
+        self, mock_buscar, mock_ia
+    ):
+        self._perguntar("Qual a receita de bolo?")
+
+        mock_ia.assert_not_called()
+        registro = RegistroPergunta.objects.get()
+        self.assertEqual(registro.modelo_llm, "")
+        self.assertEqual(registro.modelo_embedding, "bge-m3")

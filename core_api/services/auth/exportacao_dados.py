@@ -83,6 +83,12 @@ NAO_INCLUIDOS = [
         "dado": "Tempos de processamento das perguntas",
         "motivo": "São medições técnicas do sistema e não dizem nada sobre você.",
     },
+    {
+        "dado": "Resposta da IA e trechos de documentos usados em cada pergunta",
+        "motivo": "São o texto gerado pela IA e o conteúdo dos documentos "
+        "técnicos, que pertencem à empresa e não são dados pessoais. Suas "
+        "perguntas e se tiveram resposta constam no arquivo.",
+    },
 ]
 
 

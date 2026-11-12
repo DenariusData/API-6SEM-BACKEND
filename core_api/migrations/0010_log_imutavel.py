@@ -6,7 +6,11 @@ Log só de inclusão (AKA-80, LGPD).
    documento (rascunho) e do usuário (exclusão física da LGPD), guardando
    só os ids — mesmo modelo do LogAuditoria (0008).
 
-2. Trigger BEFORE UPDATE OR DELETE em log_acesso e log_auditoria: qualquer
+2. O IP sai do log (decisão de 11/11): IP é dado pessoal pela LGPD e o
+   RF21 pede auditoria sem dado pessoal. A coluna ip_origem é removida.
+   O DROP COLUMN é DDL e não dispara o trigger de linha do passo 3.
+
+3. Trigger BEFORE UPDATE OR DELETE em log_acesso e log_auditoria: qualquer
    tentativa de alterar ou apagar uma linha é recusada pelo próprio banco,
    venha do ORM, do admin, do shell ou de SQL direto.
 
@@ -32,7 +36,10 @@ POSTGRES_CRIAR = [
     $$ LANGUAGE plpgsql;
     """
 ] + [
+    # DROP IF EXISTS antes: quem aplicou a versão antiga desta migration
+    # (0009_log_imutavel, antes do rebase) já tem os triggers no banco.
     f"""
+    DROP TRIGGER IF EXISTS trg_{tabela}_imutavel ON {tabela};
     CREATE TRIGGER trg_{tabela}_imutavel
         BEFORE UPDATE OR DELETE ON {tabela}
         FOR EACH ROW EXECUTE FUNCTION fn_log_imutavel();
@@ -62,6 +69,10 @@ SQLITE_REMOVER = [
 ]
 
 
+# Idempotente como no Postgres; no SQLite é um comando por execute.
+SQLITE_CRIAR = SQLITE_REMOVER + SQLITE_CRIAR
+
+
 def _executar(schema_editor, por_banco):
     comandos = por_banco.get(schema_editor.connection.vendor, [])
     for sql in comandos:
@@ -83,7 +94,7 @@ def remover_triggers(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("core_api", "0008_log_auditoria"),
+        ("core_api", "0009_log_auditoria_dados_exportados"),
     ]
 
     operations = [
@@ -106,6 +117,10 @@ class Migration(migrations.Migration):
                 related_name="logs_acesso",
                 to="core_api.perfiloperacional",
             ),
+        ),
+        migrations.RemoveField(
+            model_name="logacesso",
+            name="ip_origem",
         ),
         migrations.RunPython(criar_triggers, remover_triggers),
     ]

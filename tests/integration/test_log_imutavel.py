@@ -51,7 +51,6 @@ class LogImutavelBase(AuditoriaBase):
             documento=doc,
             usuario=perfil,
             acao=AcaoAcesso.VISUALIZACAO,
-            ip_origem="10.0.0.1",
         )
 
     def sql(self, comando, params):
@@ -168,7 +167,17 @@ class LogSobreviveAExclusaoTests(LogImutavelBase):
 class LogNaoGuardaDadoPessoalTests(LogImutavelBase):
     # Campos que identificam a pessoa diretamente. O usuário aparece no log
     # só pelo uuid (usuario_id).
-    PROIBIDOS = {"nome", "email", "email_pendente", "telefone", "cpf", "senha"}
+    # O IP também é dado pessoal pela LGPD (decisão de 11/11).
+    PROIBIDOS = {
+        "nome",
+        "email",
+        "email_pendente",
+        "telefone",
+        "cpf",
+        "senha",
+        "ip",
+        "ip_origem",
+    }
 
     def colunas(self, modelo):
         return {f.column for f in modelo._meta.concrete_fields}
@@ -183,7 +192,10 @@ class LogNaoGuardaDadoPessoalTests(LogImutavelBase):
             with self.subTest(tabela=modelo._meta.db_table):
                 self.assertEqual(self.colunas(modelo) & pessoais, set())
                 self.assertFalse(
-                    any("senha" in c or "email" in c for c in self.colunas(modelo))
+                    any(
+                        "senha" in c or "email" in c or c.startswith("ip")
+                        for c in self.colunas(modelo)
+                    )
                 )
 
     def test_fluxo_real_nao_deixa_nome_email_telefone_ou_senha_no_log(self):

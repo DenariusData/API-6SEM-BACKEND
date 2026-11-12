@@ -10,6 +10,7 @@ vive em `credenciais_db`.
 import json
 import uuid
 from datetime import timedelta
+from unittest import mock
 
 import pymupdf
 from django.db import transaction
@@ -91,13 +92,13 @@ class ExportacaoBase(TransactionTestCase):
         self.assertEqual(resposta.status_code, 200, resposta.content)
         return json.loads(resposta.content.decode("utf-8"))
 
-    def liberar_intervalo(self):
-        """Simula 2 minutos passados desde as exportações já feitas."""
-        LogAuditoria.objects.filter(
-            acao=AcaoAuditoria.DADOS_PESSOAIS_EXPORTADOS
-        ).update(criado_em=timezone.now() - timedelta(minutes=2))
+    def depois_de_2_minutos(self):
+        """Adianta o relógio em 2 minutos. O log de auditoria é só de inclusão
+        (AKA-80), então não dá para recuar o criado_em das exportações feitas."""
+        futuro = timezone.now() + timedelta(minutes=2)
+        return mock.patch("django.utils.timezone.now", return_value=futuro)
 
-    def subir_documento(self, dono, identificador="MAT-COMP-001"):
+    def subir_documento(self, dono, identificador="MAT-COMP-001", historico=True):
         perfil = PerfilOperacional.objects.get(pk=dono["id"])
         with com_usuario(perfil.pk), transaction.atomic():
             doc = Documento.objects.create(
@@ -119,12 +120,13 @@ class ExportacaoBase(TransactionTestCase):
             DocumentoArea.objects.create(
                 documento=doc, area=self.area, is_principal=True
             )
-            HistoricoValidacao.objects.create(
-                documento=doc,
-                acao=AcaoValidacao.ENVIADO,
-                usuario=perfil,
-                comentario="Primeira versão.",
-            )
+            if historico:
+                HistoricoValidacao.objects.create(
+                    documento=doc,
+                    acao=AcaoValidacao.ENVIADO,
+                    usuario=perfil,
+                    comentario="Primeira versão.",
+                )
         return doc
 
 
@@ -149,7 +151,6 @@ class ConteudoTests(ExportacaoBase):
             documento=doc,
             usuario_id=self.ana["id"],
             acao=AcaoAcesso.VISUALIZACAO,
-            ip_origem="10.0.0.7",
         )
         RegistroPergunta.objects.create(
             usuario_id=self.ana["id"],
@@ -175,9 +176,33 @@ class ConteudoTests(ExportacaoBase):
         self.assertEqual(historico["acao"], "ENVIADO")
         self.assertEqual(historico["comentario"], "Primeira versão.")
         [acesso] = dados["acessos_a_documentos"]
-        self.assertEqual(acesso["ip_origem"], "10.0.0.7")
+        self.assertEqual(acesso["documento_identificador"], "MAT-COMP-001")
+        self.assertNotIn("ip_origem", acesso)
         acoes = {a["acao"] for a in dados["registro_de_atividades"]}
         self.assertIn("CRIADO", acoes)
+
+    def test_acesso_a_documento_apagado_continua_na_exportacao(self):
+        # AKA-80: o log sobrevive ao documento (sem FK no banco). A exportação
+        # não pode esconder esse acesso; o identificador só fica vazio.
+        doc = self.subir_documento(self.ana, "RASCUNHO-001", historico=False)
+        LogAcesso.objects.create(
+            documento=doc, usuario_id=self.ana["id"], acao=AcaoAcesso.VISUALIZACAO
+        )
+        doc_id = str(doc.pk)
+        Documento.objects.filter(pk=doc.pk).delete()
+
+        [acesso] = self.exportar_json()["acessos_a_documentos"]
+        self.assertEqual(acesso["documento_id"], doc_id)
+        self.assertIsNone(acesso["documento_identificador"])
+        self.assertEqual(acesso["acao"], AcaoAcesso.VISUALIZACAO)
+
+        with self.depois_de_2_minutos():
+            resposta = self.exportar("pdf")
+        self.assertEqual(resposta.status_code, 200)
+        with pymupdf.open("pdf", resposta.content) as pdf:
+            texto = "".join(pagina.get_text() for pagina in pdf)
+        self.assertIn("VISUALIZACAO", texto)
+        self.assertNotIn("IP de origem", texto)
 
     def test_nao_traz_dados_de_outro_usuario(self):
         self.subir_documento(self.bia, "DOC-DA-BIA")
@@ -300,9 +325,8 @@ class AuditoriaELimiteTests(ExportacaoBase):
         self.assertEqual(self.exportar("json").status_code, 200)
         self.assertEqual(self.exportar("json", self.token_bia).status_code, 200)
 
-        self.liberar_intervalo()
-
-        self.assertEqual(self.exportar("json").status_code, 200)
+        with self.depois_de_2_minutos():
+            self.assertEqual(self.exportar("json").status_code, 200)
 
     def test_formato_invalido_nao_conta_para_o_limite(self):
         self.assertEqual(self.exportar("csv").status_code, 400)

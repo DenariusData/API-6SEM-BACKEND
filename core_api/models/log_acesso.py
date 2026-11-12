@@ -39,7 +39,8 @@ class LogAcesso(LogImutavelMixin):
         related_name="logs_acesso",
     )
     acao = models.CharField(max_length=20, choices=AcaoAcesso.choices)
-    ip_origem = models.GenericIPAddressField(null=True, blank=True)
+    # Sem IP (AKA-80): IP é dado pessoal pela LGPD e o RF21 pede auditoria
+    # sem dado pessoal. O log guarda só usuário (uuid), documento, ação e data.
     criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -1,5 +1,6 @@
 from core_api.views.auth_views import (
     confirmar_email_view,
+    exportar_dados_view,
     login_view,
     profile_view,
     reenviar_confirmacao_view,
@@ -35,6 +36,7 @@ __all__ = [
     "profile_view",
     "user_management_view",
     "confirmar_email_view",
+    "exportar_dados_view",
     "reenviar_confirmacao_view",
     "upload_document_view",
     "reenviar_documento_view",

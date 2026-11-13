@@ -11,8 +11,8 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from core_api.models import RegistroPergunta
 from core_api.services.rag.pergunta import ErroIA, responder_pergunta
+from core_api.services.rag.registro import registrar_pergunta
 from core_api.utils.jwt_auth import require_auth
 
 logger = logging.getLogger(__name__)
@@ -68,16 +68,8 @@ def pergunta_view(request):
         )
 
     tempos = resultado["tempos_ms"]
-    RegistroPergunta.objects.create(
-        usuario_id=request.auth_user.get("sub"),
-        pergunta=pergunta,
-        idioma=idioma,
-        encontrou=resultado["encontrou"],
-        quantidade_fontes=len(resultado["fontes"]),
-        tempo_busca_ms=tempos["busca"],
-        tempo_ia_ms=tempos["ia"],
-        tempo_total_ms=tempos["total"],
-    )
+    # Pergunta + origem da resposta (trechos, interpretação, modelos): AKA-24
+    registrar_pergunta(request.auth_user.get("sub"), pergunta, idioma, resultado)
     logger.info(
         "Pergunta [%s] respondida em %d ms (busca %d ms, IA %d ms, encontrou=%s)",
         idioma,

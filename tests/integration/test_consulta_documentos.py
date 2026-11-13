@@ -26,6 +26,7 @@ from core_api.models import (
 )
 from core_api.services.auth.autenticacao import AuthService
 from core_api.utils.jwt_auth import generate_token
+from tests.integration.permissao import liberar
 from tests.integration.test_documento import _documento_valido
 
 ADMIN = "ADMINISTRADOR"
@@ -296,21 +297,24 @@ class DetalheTestCase(ConsultaBase):
     def url(self, doc):
         return f"/api/documents/{doc.id}/"
 
-    def test_usuario_comum_recebe_404_em_pendente_de_outra_pessoa(self):
+    def test_usuario_comum_recebe_403_em_pendente_de_outra_pessoa(self):
         doc = self.doc(self.autor)
         r = self.get(self.url(doc), self.token_outro)
-        self.assertEqual(r.status_code, 404)
+        self.assertEqual(r.status_code, 403)
 
-    def test_404_tambem_para_devolvido_de_outra_pessoa(self):
+    def test_403_tambem_para_devolvido_de_outra_pessoa(self):
         doc = self.doc(self.autor, StatusValidacao.DEVOLVIDO)
-        self.assertEqual(self.get(self.url(doc), self.token_outro).status_code, 404)
+        self.assertEqual(self.get(self.url(doc), self.token_outro).status_code, 403)
 
-    def test_404_nao_denuncia_que_o_documento_existe(self):
+    def test_sem_permissao_e_403_e_inexistente_continua_404(self):
+        """D11: quem não pode ver recebe só a mensagem de acesso não autorizado
+        (o que dá o gancho do botão de pedir acesso); id que não existe é 404."""
         doc = self.doc(self.autor)
         proibido = self.get(self.url(doc), self.token_outro)
         inexistente = self.get(f"/api/documents/{uuid.uuid4()}/", self.token_outro)
-        self.assertEqual(proibido.status_code, inexistente.status_code)
-        self.assertEqual(proibido.json(), inexistente.json())
+        self.assertEqual(proibido.status_code, 403)
+        self.assertEqual(inexistente.status_code, 404)
+        self.assertEqual(proibido.json()["codigo"], "ACESSO_NAO_AUTORIZADO")
 
     def test_autor_ve_o_proprio_documento_em_qualquer_estado(self):
         for estado in StatusValidacao.values:
@@ -318,14 +322,27 @@ class DetalheTestCase(ConsultaBase):
             r = self.get(self.url(doc), self.token_autor)
             self.assertEqual(r.status_code, 200, estado)
 
-    def test_validador_ve_documento_de_qualquer_estado(self):
-        for estado in StatusValidacao.values:
+    def test_validador_ve_documento_que_ainda_nao_esta_disponivel(self):
+        for estado in (
+            StatusValidacao.AGUARDANDO_VALIDACAO,
+            StatusValidacao.DEVOLVIDO,
+        ):
             doc = self.doc(self.autor, estado)
             self.assertEqual(self.get(self.url(doc), self.token_admin).status_code, 200)
 
-    def test_documento_disponivel_e_visto_por_qualquer_usuario_autenticado(self):
+    def test_documento_disponivel_e_visto_so_por_quem_tem_permissao(self):
         doc = self.doc(self.autor, StatusValidacao.DISPONIVEL)
+        # Logado, mas sem permissão: só a mensagem de acesso não autorizado.
+        self.assertEqual(self.get(self.url(doc), self.token_outro).status_code, 403)
+        # Nem o papel de validador dá acesso a documento já disponível.
+        self.assertEqual(self.get(self.url(doc), self.token_admin).status_code, 403)
+
+        liberar(self.outro, doc)
         self.assertEqual(self.get(self.url(doc), self.token_outro).status_code, 200)
+
+    def test_autor_continua_vendo_o_proprio_documento_disponivel(self):
+        doc = self.doc(self.autor, StatusValidacao.DISPONIVEL)
+        self.assertEqual(self.get(self.url(doc), self.token_autor).status_code, 200)
 
     def test_exige_autenticacao_e_404_para_id_inexistente(self):
         doc = self.doc(self.autor)
@@ -380,6 +397,7 @@ class DetalheTestCase(ConsultaBase):
 
     def test_validado_por_aparece_pelo_nome(self):
         doc = self.doc(self.autor, StatusValidacao.DISPONIVEL)
+        liberar(self.outro, doc)
         Documento.objects.filter(pk=doc.pk).update(
             validado_por=self.admin, validado_em=timezone.now()
         )

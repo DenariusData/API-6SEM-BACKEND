@@ -2,9 +2,9 @@
 Processamento do documento para a IA (AKA-62 / S2-38).
 
     processar_documento(documento_id)
-        extrai o texto com página -> divide em trechos -> filtra por
-        qualidade -> gera o embedding com o bge-m3 local -> grava Chunk e
-        EmbeddingVersion ligados ao documento.
+        extrai o texto com página -> divide em trechos -> marca a seção de
+        cada trecho (AKA-24) -> filtra por qualidade -> gera o embedding com o
+        bge-m3 local -> grava Chunk e EmbeddingVersion ligados ao documento.
 
     agendar_processamento(documento_id)
         chamado na aprovação (services/validacao.py). Roda o processamento
@@ -48,6 +48,7 @@ from core_api.models import Chunk, Documento, EmbeddingVersion, StatusProcessame
 # O mesmo modelo que converte a pergunta em vetor na tela de pergunta: trecho
 # e pergunta precisam estar no mesmo espaço de vetores.
 from core_api.services.rag.pergunta import MODELO_EMBEDDING
+from core_api.services.rag.secoes import secoes_dos_trechos
 
 logger = logging.getLogger(__name__)
 
@@ -95,15 +96,19 @@ def _idioma_do_filtro(documento):
 
 
 def _trechos(documento, caminho):
-    """[(texto, pagina_inicio, pagina_fim, qualidade)] aprovados no filtro."""
+    """[(texto, pagina_inicio, pagina_fim, secao, qualidade)] aprovados no
+    filtro. A seção é calculada antes do filtro: o título que cai num trecho
+    descartado continua valendo para os seguintes."""
     try:
         extraido = extrair_texto.processar(caminho, caminho.name, {})
     except Exception as e:  # noqa: BLE001 - PDF corrompido, protegido etc.
         raise ErroProcessamento(f"Não foi possível ler o PDF: {e}") from e
 
     idioma = _idioma_do_filtro(documento)
+    pedacos = gerar_chunks.dividir(extraido, TAMANHO_TRECHO, SOBREPOSICAO)
+    secoes = secoes_dos_trechos([pedaco["texto"] for pedaco in pedacos])
     aprovados = []
-    for pedaco in gerar_chunks.dividir(extraido, TAMANHO_TRECHO, SOBREPOSICAO):
+    for pedaco, secao in zip(pedacos, secoes):
         nota = gerar_chunks.qualidade(pedaco["texto"], idioma) if idioma else None
         if nota is not None and nota < QUALIDADE_MINIMA:
             continue
@@ -112,6 +117,7 @@ def _trechos(documento, caminho):
                 pedaco["texto"],
                 pedaco["pagina_inicio"],
                 pedaco["pagina_fim"],
+                secao,
                 None if nota is None else round(nota, 3),
             )
         )
@@ -174,9 +180,10 @@ def processar_documento(documento_id) -> Documento:
                     texto=texto,
                     pagina_inicio=pagina_inicio,
                     pagina_fim=pagina_fim,
+                    secao=secao,
                     qualidade=nota,
                 )
-                for ordem, (texto, pagina_inicio, pagina_fim, nota) in enumerate(
+                for ordem, (texto, pagina_inicio, pagina_fim, secao, nota) in enumerate(
                     trechos
                 )
             )

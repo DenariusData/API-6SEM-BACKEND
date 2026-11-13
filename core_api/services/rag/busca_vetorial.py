@@ -43,12 +43,15 @@ Cada trecho volta como dict:
 
     {
         "documento_id": str | None,  # id do Documento; None na base pública
+        "trecho_id": str,            # chunk.id ou rag_chunks.id (AKA-24)
         "documento": str,            # identificador do documento
         "revisao": str | None,       # só documentos do sistema
         "titulo": str,
         "url_pdf": str | None,       # só base pública
         "pagina_inicio": int | None,
         "pagina_fim": int | None,
+        "secao": str | None,         # seção do documento (AKA-24); None na
+                                     # base pública, que não guarda seção
         "texto": str,
         "similaridade": float,       # 1 - distância de cosseno
     }
@@ -70,7 +73,7 @@ EF_SEARCH_SEM_ITERATIVA = 200
 FATOR_CANDIDATOS = 4
 
 SQL_BASE_PUBLICA = f"""
-    SELECT documento, titulo, url_pdf, pagina_inicio, pagina_fim, texto,
+    SELECT id, documento, titulo, url_pdf, pagina_inicio, pagina_fim, texto,
            1 - (embedding <=> %s::vector) AS similaridade
     FROM {TABELA_BASE_PUBLICA}
     WHERE modelo = %s
@@ -133,12 +136,14 @@ def _trechos_do_sistema(vetor, k, modelo, usuario_id):
         trechos.append(
             {
                 "documento_id": str(doc.id),
+                "trecho_id": str(chunk.id),
                 "documento": doc.identificador_codigo,
                 "revisao": doc.numero_revisao or None,
                 "titulo": doc.titulo,
                 "url_pdf": None,
                 "pagina_inicio": chunk.pagina_inicio,
                 "pagina_fim": chunk.pagina_fim,
+                "secao": chunk.secao,
                 "texto": chunk.texto,
                 "similaridade": 1 - float(e.distancia),
             }
@@ -165,16 +170,18 @@ def _trechos_da_base_publica(vetor, k, modelo):
     return [
         {
             "documento_id": None,
+            "trecho_id": str(trecho_id),
             "documento": documento,
             "revisao": None,
             "titulo": titulo,
             "url_pdf": url_pdf or None,
             "pagina_inicio": p1,
             "pagina_fim": p2,
+            "secao": None,
             "texto": texto,
             "similaridade": float(similaridade),
         }
-        for documento, titulo, url_pdf, p1, p2, texto, similaridade in linhas
+        for trecho_id, documento, titulo, url_pdf, p1, p2, texto, similaridade in linhas
     ]
 
 

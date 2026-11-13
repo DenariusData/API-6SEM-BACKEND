@@ -83,6 +83,12 @@ NAO_INCLUIDOS = [
         "dado": "Tempos de processamento das perguntas",
         "motivo": "São medições técnicas do sistema e não dizem nada sobre você.",
     },
+    {
+        "dado": "Resposta da IA e trechos de documentos usados em cada pergunta",
+        "motivo": "São o texto gerado pela IA e o conteúdo dos documentos "
+        "técnicos, que pertencem à empresa e não são dados pessoais. Suas "
+        "perguntas e se tiveram resposta constam no arquivo.",
+    },
 ]
 
 
@@ -157,10 +163,16 @@ def coletar(usuario_id) -> dict:
         .order_by("criado_em", "id")
     )
 
-    acessos = (
-        LogAcesso.objects.filter(usuario_id=usuario_uuid)
-        .select_related("documento")
-        .order_by("criado_em", "id")
+    # Sem select_related: o LogAcesso sobrevive ao documento apagado
+    # (AKA-80, sem FK no banco) e o JOIN esconderia esses acessos. Os
+    # identificadores vêm à parte; documento que não existe mais fica vazio.
+    acessos = list(
+        LogAcesso.objects.filter(usuario_id=usuario_uuid).order_by("criado_em", "id")
+    )
+    identificadores = dict(
+        Documento.objects.filter(pk__in={a.documento_id for a in acessos}).values_list(
+            "id", "identificador_codigo"
+        )
     )
 
     atividades = LogAuditoria.objects.filter(usuario_id=usuario_uuid).order_by(
@@ -220,9 +232,8 @@ def coletar(usuario_id) -> dict:
         "acessos_a_documentos": [
             {
                 "documento_id": str(a.documento_id),
-                "documento_identificador": a.documento.identificador_codigo,
+                "documento_identificador": identificadores.get(a.documento_id),
                 "acao": a.acao,
-                "ip_origem": a.ip_origem,
                 "data": _data(a.criado_em),
             }
             for a in acessos
@@ -397,7 +408,6 @@ def _html(dados) -> str:
                 ("Data", "data"),
                 ("Documento", "documento_identificador"),
                 ("Ação", "acao"),
-                ("IP de origem", "ip_origem"),
             ],
             dados["acessos_a_documentos"],
             "Nenhum acesso registrado.",

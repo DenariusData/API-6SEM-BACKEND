@@ -19,9 +19,14 @@ O que NUNCA entra aqui (LGPD):
 `acao` e `entidade` são listas fixas (TextChoices), nunca texto livre.
 `LogAcesso` continua sendo o registro de visualização de documento; este
 log cobre as demais ações.
+
+Só de inclusão (AKA-80): nenhuma linha pode ser alterada ou apagada; ver
+core_api/models/log_imutavel.py.
 """
 
 from django.db import models
+
+from core_api.models.log_imutavel import LogImutavelMixin
 
 
 class AcaoAuditoria(models.TextChoices):
@@ -51,7 +56,7 @@ class EntidadeAuditoria(models.TextChoices):
     USUARIO = "USUARIO", "Usuário"
 
 
-class LogAuditoria(models.Model):
+class LogAuditoria(LogImutavelMixin):
     # Nulo quando não há usuário identificado: login com e-mail que não
     # existe, ou ação feita por comando de manutenção, fora de requisição.
     usuario_id = models.UUIDField(null=True, blank=True)

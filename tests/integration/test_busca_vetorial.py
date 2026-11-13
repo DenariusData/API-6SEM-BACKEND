@@ -210,12 +210,18 @@ class RegraDaBuscaTests(BuscaBase):
         [t] = busca_vetorial.buscar_por_vetor(
             vetor(), k=5, modelo=MODELO, usuario_id=self.admin.pk
         )
+        chunk = Chunk.objects.get(documento=doc)
+        chunk.secao = "4.1 General"
+        chunk.save(update_fields=["secao"])
+        [t] = busca_vetorial.buscar_por_vetor(vetor(), k=5, modelo=MODELO)
         self.assertEqual(t["documento"], doc.identificador_codigo)
         self.assertEqual(t["revisao"], doc.numero_revisao or None)
         self.assertEqual(t["titulo"], doc.titulo)
         self.assertEqual((t["pagina_inicio"], t["pagina_fim"]), (3, 4))
         self.assertEqual(t["texto"], "Texto X")
         self.assertIsNone(t["url_pdf"])
+        self.assertEqual(t["secao"], "4.1 General")
+        self.assertEqual(t["trecho_id"], str(chunk.id))
 
     def test_filtro_vem_de_documento_disponiveis(self):
         """Regra num lugar só: o que disponiveis() não devolver, a busca não
@@ -277,6 +283,8 @@ class BasePublicaTests(BuscaBase):
         )
         self.assertIsNone(t["documento_id"])
         self.assertEqual(t["url_pdf"], "https://everyspec.com/FED-STD-123H.pdf")
+        self.assertTrue(t["trecho_id"])
+        self.assertIsNone(t["secao"])  # a base pública não guarda seção
 
     def test_junta_as_duas_fontes_pela_similaridade(self):
         doc = self.documento_com_trecho(StatusValidacao.DISPONIVEL, v=vetor(0))

@@ -12,6 +12,7 @@ documento só disparam no COMMIT) e porque o processamento automático roda
 numa thread, com conexão própria, que só enxerga dados já comitados.
 """
 
+import importlib
 import tempfile
 import threading
 import uuid
@@ -21,6 +22,7 @@ from unittest import mock
 
 import pymupdf
 import requests
+from django.apps import apps
 from django.core.management import CommandError, call_command
 from django.db import transaction
 from django.test import Client, TransactionTestCase, override_settings
@@ -181,6 +183,48 @@ class ProcessarDocumentoTestCase(ProcessamentoBase):
             self.assertTrue(embedding.vigente)
             self.assertEqual(embedding.modelo, "bge-m3")
             self.assertEqual(len(embedding.embedding), 1024)
+
+    def test_trechos_guardam_a_secao_do_documento(self):
+        """AKA-24: a seção vem dos títulos numerados do texto."""
+        paginas = [
+            "1. Scope\n" + PAGINA_EN,
+            PAGINA_EN,
+            "2. Requirements\n" + PAGINA_EN,
+            PAGINA_EN,
+            PAGINA_EN,
+        ]
+        doc = self.processar(self.documento(paginas=paginas))
+
+        secoes = list(
+            Chunk.objects.filter(documento=doc)
+            .order_by("ordem")
+            .values_list("secao", flat=True)
+        )
+        self.assertEqual(secoes[0], "1. Scope")
+        self.assertEqual(secoes[-1], "2. Requirements")
+        # Em ordem: depois que a seção 2 começa, não volta para a 1.
+        primeira_da_2 = secoes.index("2. Requirements")
+        self.assertEqual(set(secoes[:primeira_da_2]), {"1. Scope"})
+        self.assertEqual(set(secoes[primeira_da_2:]), {"2. Requirements"})
+
+    def test_migration_preenche_a_secao_dos_trechos_que_ja_existiam(self):
+        paginas = [
+            "1. Scope\n" + PAGINA_EN,
+            PAGINA_EN,
+            "2. Requirements\n" + PAGINA_EN,
+        ]
+        doc = self.processar(self.documento(paginas=paginas))
+        chunks = Chunk.objects.filter(documento=doc).order_by("ordem")
+        esperado = list(chunks.values_list("secao", flat=True))
+        chunks.update(secao=None)
+
+        migracao = importlib.import_module(
+            "core_api.migrations.0011_origem_da_resposta"
+        )
+        migracao.preencher_secoes(apps, None)
+
+        self.assertEqual(list(chunks.values_list("secao", flat=True)), esperado)
+        self.assertIn("1. Scope", esperado)
 
     def test_reprocessar_substitui_os_trechos_em_vez_de_duplicar(self):
         doc = self.documento()

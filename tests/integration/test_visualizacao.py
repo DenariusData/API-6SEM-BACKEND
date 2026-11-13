@@ -305,16 +305,16 @@ class MarcaDaguaTestCase(VisualizacaoBase):
 
 
 class LogDeAcessoTestCase(VisualizacaoBase):
-    """Toda abertura grava log com usuário, documento, data e IP."""
+    """Toda abertura grava log com usuário, documento e data; sem IP (AKA-80)."""
 
-    def test_visualizar_grava_log_com_ip(self):
+    def test_visualizar_grava_log_sem_ip(self):
         r = self.visualizar(self.token_autor)
         self.assertEqual(r.status_code, 200)
         log = LogAcesso.objects.get(documento=self.doc)
         self.assertEqual(log.usuario, self.autor)
         self.assertEqual(log.acao, AcaoAcesso.VISUALIZACAO)
-        self.assertEqual(log.ip_origem, "10.1.2.3")
         self.assertIsNotNone(log.criado_em)
+        self.assertFalse(hasattr(log, "ip_origem"))
 
     def test_cada_abertura_grava_um_log(self):
         self.visualizar(self.token_autor)
@@ -326,13 +326,15 @@ class LogDeAcessoTestCase(VisualizacaoBase):
         self.visualizar(token)
         self.assertFalse(LogAcesso.objects.exists())
 
-    def test_ip_ignora_x_forwarded_for_forjado(self):
+    def test_ip_nao_vai_para_o_log(self):
         self.client.get(
             f"/api/documents/{self.doc.id}/visualizar/",
             HTTP_AUTHORIZATION=f"Bearer {self.token_autor}",
             HTTP_X_FORWARDED_FOR="1.1.1.1",
         )
-        self.assertEqual(LogAcesso.objects.get().ip_origem, "10.1.2.3")
+        valores = str(list(LogAcesso.objects.values()))
+        self.assertNotIn("10.1.2.3", valores)
+        self.assertNotIn("1.1.1.1", valores)
 
 
 class FormatoTestCase(VisualizacaoBase):

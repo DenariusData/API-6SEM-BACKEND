@@ -14,6 +14,9 @@ class Chunk(models.Model):
     )
     pagina_inicio = models.PositiveIntegerField(null=True, blank=True)
     pagina_fim = models.PositiveIntegerField(null=True, blank=True)
+    # Título da seção do documento onde o trecho começa (AKA-24), lido dos
+    # títulos numerados do texto. None quando o documento não tem títulos.
+    secao = models.CharField(max_length=200, null=True, blank=True)
     qualidade = models.FloatField(null=True, blank=True)
     texto = models.TextField()
     criado_em = models.DateTimeField(auto_now_add=True)

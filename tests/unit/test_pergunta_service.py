@@ -207,3 +207,136 @@ def test_perguntar_ia_usa_prompt_dos_trechos_e_temperatura_zero(idioma):
     assert sistema["content"] == montar_prompt_sistema(idioma)
     assert "[1] Documento: FED-STD-123H" in usuario["content"]
     assert "Marking shall be ..." in usuario["content"]
+
+
+# -- AKA-24: origem da resposta --------------------------------------------
+TEXTO_LITERAL = "4.1 General\nMarking shall be  applied on   two sides."
+
+
+def trecho_do_sistema(similaridade=0.9, texto=TEXTO_LITERAL, secao="4.1 General"):
+    return {
+        "documento_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
+        "trecho_id": "42",
+        "documento": "PI-TC-001",
+        "revisao": "A",
+        "titulo": "Procedimento de inspeção",
+        "url_pdf": None,
+        "pagina_inicio": 2,
+        "pagina_fim": 2,
+        "secao": secao,
+        "texto": texto,
+        "similaridade": similaridade,
+    }
+
+
+def test_trecho_extraido_vem_literal_e_separado_da_interpretacao():
+    resultado, _ = responder(
+        [trecho_do_sistema()], resposta_ia="A marcação vai nos dois lados [1]."
+    )
+
+    assert resultado["interpretacao_ia"] == "A marcação vai nos dois lados [1]."
+    assert resultado["resposta"] == resultado["interpretacao_ia"]
+    [extraido] = resultado["trechos_extraidos"]
+    # Sem reescrita: quebras de linha e espaços duplos como estão no banco.
+    assert extraido["texto"] == TEXTO_LITERAL
+    assert extraido == {
+        "numero": 1,
+        "citado": True,
+        "documento_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
+        "documento": "PI-TC-001",
+        "revisao": "A",
+        "pagina": "2",
+        "secao": "4.1 General",
+        "texto": TEXTO_LITERAL,
+    }
+
+
+def test_fonte_traz_documento_revisao_pagina_e_secao():
+    resultado, _ = responder([trecho_do_sistema()], resposta_ia="Resposta [1].")
+
+    fonte = resultado["fontes"][0]
+    assert (fonte["documento"], fonte["revisao"], fonte["pagina"]) == (
+        "PI-TC-001",
+        "A",
+        "2",
+    )
+    assert fonte["secao"] == "4.1 General"
+    assert fonte["trecho_id"] == "42"
+
+
+def test_base_publica_le_a_secao_do_texto_do_trecho():
+    publico = trecho(0.9)
+    publico["texto"] = "Marking shall be ...\n5.3 Container markings\nThe ..."
+    resultado, _ = responder([publico], resposta_ia="Resposta [1].")
+
+    assert resultado["fontes"][0]["secao"] == "5.3 Container markings"
+
+
+def test_cada_afirmacao_aponta_os_trechos_de_origem():
+    resposta_ia = (
+        "A marcação vai nos dois lados [1]. O prazo é de 10 dias [2].\n"
+        "As ferramentas necessárias são [1, 2]:\n"
+        "- Lanterna de alta intensidade\n"
+        "- Lupa de dez aumentos [2]\n"
+        "Os trechos não informam a cor da tinta."
+    )
+    resultado, _ = responder(
+        [trecho_do_sistema(), trecho_do_sistema(0.8)], resposta_ia=resposta_ia
+    )
+
+    assert resultado["afirmacoes"] == [
+        {"texto": "A marcação vai nos dois lados [1].", "fontes": [1]},
+        {"texto": "O prazo é de 10 dias [2].", "fontes": [2]},
+        {"texto": "As ferramentas necessárias são [1, 2]:", "fontes": [1, 2]},
+        # item de lista sem citação herda a da linha que abre a lista
+        {"texto": "Lanterna de alta intensidade", "fontes": [1, 2]},
+        {"texto": "Lupa de dez aumentos [2]", "fontes": [2]},
+        # sem citação: fica sem fonte, ou seja, não rastreável
+        {"texto": "Os trechos não informam a cor da tinta.", "fontes": []},
+    ]
+
+
+def test_afirmacao_nao_quebra_em_abreviacao_nem_numero():
+    resultado, _ = responder(
+        [trecho_do_sistema()],
+        resposta_ia="Conforme a seção 4.1, ver p. 7 e ex.: CA0532-PO [1].",
+    )
+
+    assert len(resultado["afirmacoes"]) == 1
+    assert resultado["afirmacoes"][0]["fontes"] == [1]
+
+
+def test_trechos_nao_citados_tambem_vao_com_o_texto_literal():
+    resultado, _ = responder(
+        [trecho_do_sistema(), trecho_do_sistema(0.8, texto="Outro trecho")],
+        resposta_ia="Resposta [1].",
+    )
+
+    citados = [(t["numero"], t["citado"]) for t in resultado["trechos_extraidos"]]
+    assert citados == [(1, True), (2, False)]
+    assert resultado["trechos_extraidos"][1]["texto"] == "Outro trecho"
+
+
+def test_modelos_locais_que_geraram_a_resposta():
+    resultado, _ = responder([trecho_do_sistema()], resposta_ia="Resposta [1].")
+
+    assert resultado["modelos"] == {
+        "embedding": pergunta.MODELO_EMBEDDING,
+        "llm": pergunta.MODELO_LLM,
+    }
+
+
+@pytest.mark.parametrize("resposta_ia", ["Sem citação.", FRASES_NAO_ENCONTROU["pt-BR"]])
+def test_sem_base_devolve_as_listas_de_origem_vazias(resposta_ia):
+    resultado, _ = responder([trecho_do_sistema()], resposta_ia=resposta_ia)
+
+    assert resultado["trechos_extraidos"] == []
+    assert resultado["afirmacoes"] == []
+    assert resultado["interpretacao_ia"] == FRASES_NAO_ENCONTROU["pt-BR"]
+
+
+def test_sem_trecho_relevante_a_ia_nao_gera_nada():
+    resultado, ia = responder([trecho_do_sistema(0.1)])
+
+    ia.assert_not_called()
+    assert resultado["modelos"]["llm"] is None

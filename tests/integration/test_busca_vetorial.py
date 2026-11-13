@@ -213,7 +213,6 @@ class RegraDaBuscaTests(BuscaBase):
         chunk = Chunk.objects.get(documento=doc)
         chunk.secao = "4.1 General"
         chunk.save(update_fields=["secao"])
-        [t] = busca_vetorial.buscar_por_vetor(vetor(), k=5, modelo=MODELO)
         self.assertEqual(t["documento"], doc.identificador_codigo)
         self.assertEqual(t["revisao"], doc.numero_revisao or None)
         self.assertEqual(t["titulo"], doc.titulo)

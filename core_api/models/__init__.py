@@ -20,7 +20,6 @@ from core_api.models.log_auditoria import (
 from core_api.models.log_imutavel import LogImutavelError
 from core_api.models.perfil_operacional import PerfilOperacional
 from core_api.models.permissao import UsuarioPermissaoArea
-from core_api.models.registro_pergunta import RegistroPergunta
 from core_api.models.registro_pergunta import FontePergunta, RegistroPergunta
 from core_api.models.taxonomia import (
     Area,

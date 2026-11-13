@@ -218,7 +218,7 @@ class ProcessarDocumentoTestCase(ProcessamentoBase):
         chunks.update(secao=None)
 
         migracao = importlib.import_module(
-            "core_api.migrations.0010_origem_da_resposta"
+            "core_api.migrations.0011_origem_da_resposta"
         )
         migracao.preencher_secoes(apps, None)
 

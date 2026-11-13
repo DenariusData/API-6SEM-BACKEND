@@ -7,9 +7,9 @@ Endpoints de visualização segura do documento (AKA-48 / S2-43).
 O PDF original nunca sai do servidor: o navegador só recebe imagens.
 As regras (arquivo, cache, marca, log) ficam em services/visualizacao.py.
 
-Status: 401 sem token · 403 usuário sem perfil operacional ·
-404 documento inexistente, sem permissão ou página fora do intervalo ·
-415 documento que não é PDF.
+Status: 401 sem token · 403 sem permissão no documento (só a mensagem de acesso
+não autorizado, D11) ou usuário sem perfil operacional · 404 documento
+inexistente ou página fora do intervalo · 415 documento que não é PDF.
 """
 
 import uuid
@@ -20,7 +20,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from core_api.models import Documento
-from core_api.services import visualizacao
+from core_api.services import acesso_negado, visualizacao
 from core_api.services.consulta_documentos import nomes_dos_usuarios, pode_ver
 from core_api.utils.jwt_auth import require_auth
 
@@ -50,16 +50,20 @@ def _usuario_id(request):
 def _documento_visivel(request, documento_id):
     """(documento, caminho_do_pdf, None) ou (None, None, resposta de erro).
 
-    Inexistente e sem permissão dão o MESMO 404, para não revelar que o
-    documento existe (mesma regra do detalhe, AKA-52)."""
+    Sem permissão: 403 com o corpo fixo de acesso não autorizado (D11), antes
+    de olhar o arquivo e sem nada do documento. Inexistente: 404."""
     usuario_id = _usuario_id(request)
     if usuario_id is None:
         return None, None, _erro("Token inválido.", 401)
     documento = Documento.objects.filter(pk=documento_id).first()
-    if documento is None or not pode_ver(
-        documento, usuario_id, request.auth_user.get("role")
-    ):
+    if documento is None:
         return None, None, _erro(NAO_ENCONTRADO, 404)
+    if not pode_ver(documento, usuario_id, request.auth_user.get("role")):
+        return (
+            None,
+            None,
+            _sem_cache(JsonResponse(acesso_negado.corpo(), status=403)),
+        )
     try:
         caminho = visualizacao.caminho_do_pdf(documento)
     except visualizacao.FormatoNaoSuportado as e:
@@ -73,11 +77,13 @@ def _documento_visivel(request, documento_id):
 @require_auth
 def visualizar_documento_view(request, documento_id):
     """GET /api/documents/<id>/visualizar/ -> {total_paginas, titulo}.
-    Grava VISUALIZACAO no LogAcesso (sem IP: AKA-80)."""
+    Grava VISUALIZACAO no LogAcesso, com o IP de origem."""
     documento, caminho, erro = _documento_visivel(request, documento_id)
     if erro:
         return erro
-    if not visualizacao.registrar_visualizacao(documento, _usuario_id(request)):
+    if not visualizacao.registrar_visualizacao(
+        documento, _usuario_id(request), visualizacao.ip_de(request)
+    ):
         return _erro("Perfil operacional não encontrado para este usuário.", 403)
     return _sem_cache(
         JsonResponse(

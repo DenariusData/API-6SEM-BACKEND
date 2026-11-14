@@ -41,6 +41,7 @@ from core_api.services.auditoria import registrar_acao
 from core_api.services.auth.autenticacao import AuthService
 from core_api.utils.jwt_auth import generate_token
 from core_api.utils.usuario_atual import com_usuario, get_usuario_atual
+from tests.integration.permissao import liberar
 
 ADMIN = "ADMINISTRADOR"
 DOC = EntidadeAuditoria.DOCUMENTO
@@ -172,6 +173,9 @@ class FluxoCompletoTestCase(AuditoriaBase):
             documento=doc, acao=AcaoValidacao.APROVADO
         )
         antes_da_consulta = LogAuditoria.objects.count()
+        # Disponível: consultar exige permissão (S2-26). Conceder não gera
+        # linha de auditoria (só documento, área e histórico geram).
+        liberar(PerfilOperacional.objects.get(pk=self.admin["id"]), doc)
         self.assertEqual(self.consultar(doc, self.token_admin).status_code, 200)
 
         autor, admin = self.autor["id"], self.admin["id"]

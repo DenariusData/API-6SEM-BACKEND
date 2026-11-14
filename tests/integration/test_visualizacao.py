@@ -23,12 +23,14 @@ from core_api.models import (
     AcaoAcesso,
     Documento,
     LogAcesso,
+    NivelSigilo,
     PerfilOperacional,
     StatusValidacao,
 )
 from core_api.services import visualizacao
 from core_api.utils.jwt_auth import generate_token
 from credenciais.models import Papel, Usuario
+from tests.integration.permissao import liberar
 from tests.integration.test_documento import _documento_valido
 
 ADMIN = Papel.ADMINISTRADOR
@@ -160,11 +162,41 @@ class PermissaoTestCase(VisualizacaoBase):
         self.assertEqual(self.visualizar(token_admin).status_code, 200)
         self.assertEqual(self.pagina(token_admin).status_code, 200)
 
-    def test_disponivel_qualquer_usuario_logado_ve(self):
+    def test_disponivel_com_permissao_na_area_ve(self):
         self.tornar_disponivel()
-        _, token, _ = _usuario(Papel.QUALIDADE)
+        perfil, token, _ = _usuario(Papel.QUALIDADE)
+        liberar(perfil, self.doc)
         self.assertEqual(self.visualizar(token).status_code, 200)
         self.assertEqual(self.pagina(token).status_code, 200)
+
+    def test_disponivel_sem_permissao_404_mesmo_logado(self):
+        self.tornar_disponivel()
+        _, token, _ = _usuario(Papel.QUALIDADE)
+        self.assertEqual(self.visualizar(token).status_code, 404)
+        self.assertEqual(self.pagina(token).status_code, 404)
+
+    def test_disponivel_sem_permissao_nao_grava_log_de_acesso(self):
+        self.tornar_disponivel()
+        _, token, _ = _usuario(Papel.QUALIDADE)
+        self.visualizar(token)
+        self.assertEqual(LogAcesso.objects.filter(documento=self.doc).count(), 0)
+
+    def test_disponivel_com_nivel_maximo_abaixo_do_sigilo_do_documento_404(self):
+        self.tornar_disponivel()
+        perfil, token, _ = _usuario(Papel.QUALIDADE)
+        abaixo = NivelSigilo.objects.create(nome="MENOR", ordinal=0)
+        liberar(perfil, self.doc, nivel=abaixo)
+        self.assertEqual(self.visualizar(token).status_code, 404)
+
+    def test_disponivel_administrador_sem_permissao_tambem_404(self):
+        """Papel não herda acesso: administrador também precisa da permissão."""
+        self.tornar_disponivel()
+        _, token_admin, _ = _usuario(ADMIN)
+        self.assertEqual(self.visualizar(token_admin).status_code, 404)
+
+    def test_disponivel_autor_continua_vendo_o_proprio_documento(self):
+        self.tornar_disponivel()
+        self.assertEqual(self.visualizar(self.token_autor).status_code, 200)
 
     def test_documento_inexistente_404(self):
         r = self.get(f"/api/documents/{uuid.uuid4()}/visualizar/", self.token_autor)
@@ -207,8 +239,10 @@ class MarcaDaguaTestCase(VisualizacaoBase):
 
     def test_dois_usuarios_veem_cada_um_o_proprio_nome(self):
         self.tornar_disponivel()
-        _, token_ana, email_ana = _usuario(ENG, nome="Ana Souza")
-        _, token_rui, email_rui = _usuario(Papel.QUALIDADE, nome="Rui Lima")
+        perfil_ana, token_ana, email_ana = _usuario(ENG, nome="Ana Souza")
+        perfil_rui, token_rui, email_rui = _usuario(Papel.QUALIDADE, nome="Rui Lima")
+        liberar(perfil_ana, self.doc)
+        liberar(perfil_rui, self.doc)
 
         texto_ana = self._texto_usado_por(token_ana)
         texto_rui = self._texto_usado_por(token_rui)
@@ -224,7 +258,8 @@ class MarcaDaguaTestCase(VisualizacaoBase):
 
     def test_nome_e_email_nao_vem_do_front(self):
         self.tornar_disponivel()
-        _, token, email = _usuario(ENG, nome="Ana Souza")
+        perfil, token, email = _usuario(ENG, nome="Ana Souza")
+        liberar(perfil, self.doc)
         with mock.patch.object(
             visualizacao, "aplicar_marca_dagua", side_effect=lambda img, txt: img
         ) as marca:

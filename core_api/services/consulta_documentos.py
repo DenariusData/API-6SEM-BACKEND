@@ -9,8 +9,10 @@ Regras (todas aqui, no backend):
     de devolução; filtro opcional por status_validacao. A resposta traz
     também `contagens` por status (sem o filtro), numa consulta só, para a
     tela não precisar de uma chamada por filtro (AKA-63);
-  - detalhe: documento DISPONIVEL é visto por qualquer usuário autenticado;
-    documento em outro estado só pelo autor e pelos validadores
+  - detalhe (e visualizador): documento DISPONIVEL só por quem tem permissão
+    de acesso a ele (S2-26: alguma área do documento com nível de sigilo
+    máximo igual ou acima do sigilo do documento) e pelo autor, que já tem o
+    arquivo; documento em outro estado só pelo autor e pelos validadores
     (ADMINISTRADOR). Para os demais é como se não existisse (404, nunca 403,
     para não confirmar que o id existe);
   - listas paginadas, 20 por página;
@@ -182,11 +184,16 @@ def serializar_lista(documentos, com_ultimo_comentario=False):
 
 # -- detalhe ------------------------------------------------------------
 def pode_ver(documento, usuario_id, papel_codigo) -> bool:
+    if usuario_id is not None and documento.usuario_upload_id == usuario_id:
+        return True
     if documento.status_validacao == StatusValidacao.DISPONIVEL:
-        return True
-    if papel_codigo == Papel.ADMINISTRADOR:
-        return True
-    return usuario_id is not None and documento.usuario_upload_id == usuario_id
+        # Papel não conta: permissão é por usuário + área + sigilo, sem herança.
+        return (
+            Documento.objects.filter(pk=documento.pk)
+            .permitidos_para(usuario_id)
+            .exists()
+        )
+    return papel_codigo == Papel.ADMINISTRADOR
 
 
 def detalhe(documento_id, usuario_id, papel_codigo) -> dict:

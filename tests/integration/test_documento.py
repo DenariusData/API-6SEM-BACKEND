@@ -33,7 +33,7 @@ def _criar_taxonomia():
     )
     tipo = TipoDocumento.objects.create(nome=f"Norma ou regulamento {sufixo}")
     sigilo = NivelSigilo.objects.create(
-        nome=f"INTERNO-{sufixo}", ordinal=int(sufixo[:4], 16) % 10000 + 100
+        nome=f"INTERNO-{sufixo}", ordinal=uuid.uuid4().int % 30000 + 1
     )
     idioma = Idioma.objects.create(codigo=sufixo[:8], nome="Português")
     perfil = PerfilOperacional.objects.create(

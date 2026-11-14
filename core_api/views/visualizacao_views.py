@@ -77,13 +77,11 @@ def _documento_visivel(request, documento_id):
 @require_auth
 def visualizar_documento_view(request, documento_id):
     """GET /api/documents/<id>/visualizar/ -> {total_paginas, titulo}.
-    Grava VISUALIZACAO no LogAcesso, com o IP de origem."""
+    Grava VISUALIZACAO no LogAcesso (sem IP: AKA-80)."""
     documento, caminho, erro = _documento_visivel(request, documento_id)
     if erro:
         return erro
-    if not visualizacao.registrar_visualizacao(
-        documento, _usuario_id(request), visualizacao.ip_de(request)
-    ):
+    if not visualizacao.registrar_visualizacao(documento, _usuario_id(request)):
         return _erro("Perfil operacional não encontrado para este usuário.", 403)
     return _sem_cache(
         JsonResponse(

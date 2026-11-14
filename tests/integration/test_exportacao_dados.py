@@ -8,6 +8,7 @@ vive em `credenciais_db`.
 """
 
 import json
+import unicodedata
 import uuid
 from datetime import timedelta
 from unittest import mock
@@ -266,6 +267,7 @@ class FormatoTests(ExportacaoBase):
         self.assertEqual(resposta["Cache-Control"], "no-store")
         with pymupdf.open("pdf", resposta.content) as doc:
             texto = "".join(pagina.get_text() for pagina in doc)
+            texto = unicodedata.normalize("NFKC", texto)
         self.assertIn("Ana Souza", texto)
         self.assertIn(self.ana["email"], texto)
         self.assertIn(self.ana["matricula"], texto)

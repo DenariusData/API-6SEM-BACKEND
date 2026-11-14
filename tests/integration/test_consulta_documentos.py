@@ -26,6 +26,7 @@ from core_api.models import (
 )
 from core_api.services.auth.autenticacao import AuthService
 from core_api.utils.jwt_auth import generate_token
+from tests.integration.permissao import liberar
 from tests.integration.test_documento import _documento_valido
 
 ADMIN = "ADMINISTRADOR"
@@ -318,14 +319,27 @@ class DetalheTestCase(ConsultaBase):
             r = self.get(self.url(doc), self.token_autor)
             self.assertEqual(r.status_code, 200, estado)
 
-    def test_validador_ve_documento_de_qualquer_estado(self):
-        for estado in StatusValidacao.values:
+    def test_validador_ve_documento_que_ainda_nao_esta_disponivel(self):
+        for estado in (
+            StatusValidacao.AGUARDANDO_VALIDACAO,
+            StatusValidacao.DEVOLVIDO,
+        ):
             doc = self.doc(self.autor, estado)
             self.assertEqual(self.get(self.url(doc), self.token_admin).status_code, 200)
 
-    def test_documento_disponivel_e_visto_por_qualquer_usuario_autenticado(self):
+    def test_documento_disponivel_e_visto_so_por_quem_tem_permissao(self):
         doc = self.doc(self.autor, StatusValidacao.DISPONIVEL)
+        # Logado, mas sem permissão: como se o documento não existisse.
+        self.assertEqual(self.get(self.url(doc), self.token_outro).status_code, 404)
+        # Nem o papel de validador dá acesso a documento já disponível.
+        self.assertEqual(self.get(self.url(doc), self.token_admin).status_code, 404)
+
+        liberar(self.outro, doc)
         self.assertEqual(self.get(self.url(doc), self.token_outro).status_code, 200)
+
+    def test_autor_continua_vendo_o_proprio_documento_disponivel(self):
+        doc = self.doc(self.autor, StatusValidacao.DISPONIVEL)
+        self.assertEqual(self.get(self.url(doc), self.token_autor).status_code, 200)
 
     def test_exige_autenticacao_e_404_para_id_inexistente(self):
         doc = self.doc(self.autor)
@@ -380,6 +394,7 @@ class DetalheTestCase(ConsultaBase):
 
     def test_validado_por_aparece_pelo_nome(self):
         doc = self.doc(self.autor, StatusValidacao.DISPONIVEL)
+        liberar(self.outro, doc)
         Documento.objects.filter(pk=doc.pk).update(
             validado_por=self.admin, validado_em=timezone.now()
         )

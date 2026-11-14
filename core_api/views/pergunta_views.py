@@ -5,6 +5,7 @@ chama a IA e devolve a resposta com as fontes.
 
 import json
 import logging
+import uuid
 
 from django.conf import settings
 from django.http import JsonResponse
@@ -33,6 +34,12 @@ def pergunta_view(request):
     except (json.JSONDecodeError, UnicodeDecodeError):
         return JsonResponse({"detail": "Dados de requisição inválidos."}, status=400)
 
+    # Quem pergunta define o que a IA pode usar: o id vem só do token.
+    try:
+        usuario_id = uuid.UUID(str(request.auth_user["sub"]))
+    except (KeyError, ValueError):
+        return JsonResponse({"detail": "Token inválido."}, status=401)
+
     pergunta = str(data.get("pergunta", "")).strip()
     if not pergunta:
         return JsonResponse({"detail": "Informe a pergunta."}, status=400)
@@ -56,7 +63,7 @@ def pergunta_view(request):
         return JsonResponse({"detail": detalhe}, status=400)
 
     try:
-        resultado = responder_pergunta(pergunta, idioma=idioma)
+        resultado = responder_pergunta(pergunta, idioma=idioma, usuario_id=usuario_id)
     except ErroIA:
         logger.exception("Falha ao responder a pergunta")
         return JsonResponse(

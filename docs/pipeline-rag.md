@@ -215,11 +215,12 @@ A tela de pergunta, o `buscar.py` e o `responder.py` usam a mesma busca (`core_a
 
 | Fonte | Tabelas | Filtro | `documento_id` na fonte |
 |---|---|---|---|
-| Documentos do sistema | `chunk` + `embedding_version` (vigente) | só `Documento.objects.disponiveis()` e o modelo da pergunta | id do documento |
+| Documentos do sistema | `chunk` + `embedding_version` (vigente) | só `Documento.objects.disponiveis().permitidos_para(usuario)` e o modelo da pergunta | id do documento |
 | Base pública do EverySpec | `rag_chunks` | só o modelo da pergunta (normas públicas) | `null` |
 
 - Documento **aguardando validação** ou **devolvido** nunca aparece em resposta. O documento aprovado aparece assim que o processamento (seção 8) termina.
-- O filtro fica só em `Documento.objects.disponiveis()`. A regra de permissão da Sprint 3 entra ali e a busca passa a respeitá-la sem outra mudança.
+- **Permissão (S2-26)**: a busca recebe quem pergunta (`usuario_id`, o `sub` do JWT; parâmetro obrigatório) e filtra **na query**, antes da IA: só entram documentos de alguma área em que o usuário tem permissão (`usuario_permissao_area`) e com nível de sigilo até o máximo concedido naquela área. Um trecho que o usuário não pode ver nunca chega ao prompt. Quem não tem permissão nenhuma só recebe a base pública; sem fontes, a IA nem é chamada. Os scripts `buscar.py` e `responder.py` aceitam `--usuario <uuid>` (sem ele, só a base pública).
+- O mesmo filtro (`Documento.objects.permitidos_para`) vale no detalhe e no visualizador, então o link da fonte não abre o que a busca escondeu.
 - O `documento_id` da fonte abre o documento no visualizador seguro do front (AKA-61). Na base pública ele é `null`, e a fonte continua com o `url_pdf` do EverySpec.
 - **Modelo do embedding**: só entram vetores gerados pelo mesmo modelo da pergunta (`RAG_MODELO_EMBEDDING`, padrão `bge-m3`; nos scripts, `--modelo`/`--modelo-embedding`). Vetores de modelos diferentes não se comparam.
 - **Banco da base pública**: os comandos `gerar_embeddings`/`importar_embeddings` gravam a `rag_chunks` pelo `DATABASE_URL`, e a busca lê pela conexão do Django. Os dois precisam apontar para o mesmo banco (o padrão de ambos é `localhost:5434/rag`). Se a tabela não existir nesse banco, a busca usa só os documentos do sistema e avisa no log (`Tabela rag_chunks não encontrada...`). Para conferir:

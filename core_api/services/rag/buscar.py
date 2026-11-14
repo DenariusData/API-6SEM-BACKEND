@@ -13,6 +13,7 @@ import argparse
 import os
 import sys
 import textwrap
+import uuid
 from pathlib import Path
 
 import requests
@@ -20,9 +21,10 @@ import requests
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 
 
-def buscar_com_django(vetor, k, modelo):
+def buscar_com_django(vetor, k, modelo, usuario_id=None):
     """Sobe o Django (o script roda fora do manage.py) e usa a busca da API,
-    para o filtro de documentos disponíveis ficar num lugar só."""
+    para o filtro de documentos e de permissão ficar num lugar só. Sem
+    `usuario_id` só a base pública aparece (nenhum documento do sistema)."""
     import django
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
@@ -30,7 +32,7 @@ def buscar_com_django(vetor, k, modelo):
     django.setup()
     from core_api.services.rag.busca_vetorial import buscar_por_vetor
 
-    return buscar_por_vetor(vetor, k, modelo)
+    return buscar_por_vetor(vetor, k, modelo, usuario_id)
 
 
 def main():
@@ -41,6 +43,12 @@ def main():
     ap.add_argument("pergunta")
     ap.add_argument("--k", type=int, default=5, help="quantos chunks mostrar")
     ap.add_argument("--modelo", default="bge-m3")
+    ap.add_argument(
+        "--usuario",
+        type=uuid.UUID,
+        help="uuid do usuário (PerfilOperacional) cuja permissão vale na busca; "
+        "sem ele só a base pública aparece",
+    )
     args = ap.parse_args()
 
     try:
@@ -55,7 +63,9 @@ def main():
         )
     if r.status_code != 200:
         sys.exit(f"Erro do Ollama: {r.text[:300]}")
-    trechos = buscar_com_django(r.json()["embeddings"][0], args.k, args.modelo)
+    trechos = buscar_com_django(
+        r.json()["embeddings"][0], args.k, args.modelo, args.usuario
+    )
 
     if not trechos:
         sys.exit(

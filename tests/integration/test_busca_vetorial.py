@@ -23,7 +23,13 @@ from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
 from core_api.management.commands import gerar_embeddings
-from core_api.models import Chunk, Documento, EmbeddingVersion, StatusValidacao
+from core_api.models import (
+    Chunk,
+    Documento,
+    EmbeddingVersion,
+    StatusValidacao,
+    UsuarioPermissaoArea,
+)
 from core_api.services import processamento, validacao
 from core_api.services.rag import busca_vetorial, pergunta, responder
 from tests.integration.test_processamento import ProcessamentoBase, _ollama_falso
@@ -43,6 +49,15 @@ def vetor(posicao=0):
 
 @override_settings(PROCESSAMENTO_AUTOMATICO=False)
 class BuscaBase(ProcessamentoBase):
+    def setUp(self):
+        super().setUp()
+        # Quem pergunta nestes testes (o admin) tem permissão na área e no
+        # nível dos documentos de teste: o que aparece ou não é pela regra de
+        # estado/modelo, não por permissão (essa é de test_permissao_busca.py).
+        UsuarioPermissaoArea.objects.create(
+            usuario=self.admin, area=self.area, nivel_sigilo_maximo=self.nivel
+        )
+
     def documento_com_trecho(self, status, texto="Trecho do documento", v=None):
         """Documento no estado pedido, já com um trecho e o embedding vigente."""
         extra = {"status_validacao": status}
@@ -67,7 +82,9 @@ class CriteriosDeAceiteTests(BuscaBase):
         devolvido = self.documento_com_trecho(StatusValidacao.DEVOLVIDO)
         disponivel = self.documento_com_trecho(StatusValidacao.DISPONIVEL)
 
-        trechos = busca_vetorial.buscar_por_vetor(vetor(), k=10, modelo=MODELO)
+        trechos = busca_vetorial.buscar_por_vetor(
+            vetor(), k=10, modelo=MODELO, usuario_id=self.admin.pk
+        )
 
         self.assertEqual(self.ids(trechos), {str(disponivel.id)})
         self.assertNotIn(str(aguardando.id), self.ids(trechos))
@@ -76,13 +93,19 @@ class CriteriosDeAceiteTests(BuscaBase):
     def test_aguardando_validacao_nao_aparece_em_nenhuma_resposta(self):
         self.documento_com_trecho(StatusValidacao.AGUARDANDO_VALIDACAO)
         self.assertEqual(
-            busca_vetorial.buscar_por_vetor(vetor(), k=10, modelo=MODELO), []
+            busca_vetorial.buscar_por_vetor(
+                vetor(), k=10, modelo=MODELO, usuario_id=self.admin.pk
+            ),
+            [],
         )
 
     def test_devolvido_nao_aparece_em_nenhuma_resposta(self):
         self.documento_com_trecho(StatusValidacao.DEVOLVIDO)
         self.assertEqual(
-            busca_vetorial.buscar_por_vetor(vetor(), k=10, modelo=MODELO), []
+            busca_vetorial.buscar_por_vetor(
+                vetor(), k=10, modelo=MODELO, usuario_id=self.admin.pk
+            ),
+            [],
         )
 
     def test_documento_aprovado_aparece_depois_de_processado(self):
@@ -91,13 +114,19 @@ class CriteriosDeAceiteTests(BuscaBase):
 
         # Antes de aprovar: não aparece.
         self.assertEqual(
-            busca_vetorial.buscar_por_vetor(consulta, k=5, modelo=MODELO), []
+            busca_vetorial.buscar_por_vetor(
+                consulta, k=5, modelo=MODELO, usuario_id=self.admin.pk
+            ),
+            [],
         )
 
         validacao.aprovar(doc.pk, self.admin, "ADMINISTRADOR")
         # Aprovado, mas ainda não processado: ainda não há trecho.
         self.assertEqual(
-            busca_vetorial.buscar_por_vetor(consulta, k=5, modelo=MODELO), []
+            busca_vetorial.buscar_por_vetor(
+                consulta, k=5, modelo=MODELO, usuario_id=self.admin.pk
+            ),
+            [],
         )
 
         with mock.patch.object(
@@ -105,7 +134,9 @@ class CriteriosDeAceiteTests(BuscaBase):
         ):
             processamento.processar_documento(doc.pk)
 
-        trechos = busca_vetorial.buscar_por_vetor(consulta, k=5, modelo=MODELO)
+        trechos = busca_vetorial.buscar_por_vetor(
+            consulta, k=5, modelo=MODELO, usuario_id=self.admin.pk
+        )
         self.assertTrue(trechos)
         self.assertEqual(self.ids(trechos), {str(doc.id)})
 
@@ -130,7 +161,9 @@ class CriteriosDeAceiteTests(BuscaBase):
         )
 
         inicio = time.perf_counter()
-        trechos = busca_vetorial.buscar_por_vetor(vetor(7), k=5, modelo=MODELO)
+        trechos = busca_vetorial.buscar_por_vetor(
+            vetor(7), k=5, modelo=MODELO, usuario_id=self.admin.pk
+        )
         duracao = time.perf_counter() - inicio
 
         self.assertEqual(len(trechos), 5)
@@ -144,21 +177,29 @@ class RegraDaBuscaTests(BuscaBase):
             modelo="outro-modelo"
         )
         self.assertEqual(
-            busca_vetorial.buscar_por_vetor(vetor(), k=5, modelo=MODELO), []
+            busca_vetorial.buscar_por_vetor(
+                vetor(), k=5, modelo=MODELO, usuario_id=self.admin.pk
+            ),
+            [],
         )
 
     def test_embedding_que_nao_e_vigente_fica_de_fora(self):
         doc = self.documento_com_trecho(StatusValidacao.DISPONIVEL)
         EmbeddingVersion.objects.filter(chunk__documento=doc).update(vigente=False)
         self.assertEqual(
-            busca_vetorial.buscar_por_vetor(vetor(), k=5, modelo=MODELO), []
+            busca_vetorial.buscar_por_vetor(
+                vetor(), k=5, modelo=MODELO, usuario_id=self.admin.pk
+            ),
+            [],
         )
 
     def test_ordena_pela_similaridade_e_respeita_k(self):
         perto = self.documento_com_trecho(StatusValidacao.DISPONIVEL, v=vetor(0))
         self.documento_com_trecho(StatusValidacao.DISPONIVEL, v=vetor(1))
 
-        trechos = busca_vetorial.buscar_por_vetor(vetor(0), k=1, modelo=MODELO)
+        trechos = busca_vetorial.buscar_por_vetor(
+            vetor(0), k=1, modelo=MODELO, usuario_id=self.admin.pk
+        )
 
         self.assertEqual(len(trechos), 1)
         self.assertEqual(trechos[0]["documento_id"], str(perto.id))
@@ -166,10 +207,13 @@ class RegraDaBuscaTests(BuscaBase):
 
     def test_trecho_traz_metadados_do_documento(self):
         doc = self.documento_com_trecho(StatusValidacao.DISPONIVEL, texto="Texto X")
+
         chunk = Chunk.objects.get(documento=doc)
         chunk.secao = "4.1 General"
         chunk.save(update_fields=["secao"])
-        [t] = busca_vetorial.buscar_por_vetor(vetor(), k=5, modelo=MODELO)
+        [t] = busca_vetorial.buscar_por_vetor(
+            vetor(), k=5, modelo=MODELO, usuario_id=self.admin.pk
+        )
         self.assertEqual(t["documento"], doc.identificador_codigo)
         self.assertEqual(t["revisao"], doc.numero_revisao or None)
         self.assertEqual(t["titulo"], doc.titulo)
@@ -189,7 +233,10 @@ class RegraDaBuscaTests(BuscaBase):
             lambda qs: qs.exclude(pk=doc.pk),
         ):
             self.assertEqual(
-                busca_vetorial.buscar_por_vetor(vetor(), k=5, modelo=MODELO), []
+                busca_vetorial.buscar_por_vetor(
+                    vetor(), k=5, modelo=MODELO, usuario_id=self.admin.pk
+                ),
+                [],
             )
 
 
@@ -206,7 +253,12 @@ class BasePublicaTests(BuscaBase):
             cursor.execute("DROP TABLE IF EXISTS rag_chunks")
         super().tearDown()
 
-    def publica(self, v, documento="FED-STD/FED-STD-123H.pdf", modelo=MODELO):
+    def publica(
+        self,
+        v,
+        documento="FED-STD/FED-STD-123H.pdf",
+        modelo=MODELO,
+    ):
         texto_vetor = "[" + ",".join(str(x) for x in v) + "]"
         with connection.cursor() as cursor:
             cursor.execute(
@@ -226,7 +278,9 @@ class BasePublicaTests(BuscaBase):
 
     def test_base_publica_entra_sem_documento_id_e_com_link(self):
         self.publica(vetor())
-        [t] = busca_vetorial.buscar_por_vetor(vetor(), k=5, modelo=MODELO)
+        [t] = busca_vetorial.buscar_por_vetor(
+            vetor(), k=5, modelo=MODELO, usuario_id=self.admin.pk
+        )
         self.assertIsNone(t["documento_id"])
         self.assertEqual(t["url_pdf"], "https://everyspec.com/FED-STD-123H.pdf")
         self.assertTrue(t["trecho_id"])
@@ -237,7 +291,9 @@ class BasePublicaTests(BuscaBase):
         self.publica(vetor(1))
         self.documento_com_trecho(StatusValidacao.DEVOLVIDO, v=vetor(0))
 
-        trechos = busca_vetorial.buscar_por_vetor(vetor(0), k=5, modelo=MODELO)
+        trechos = busca_vetorial.buscar_por_vetor(
+            vetor(0), k=5, modelo=MODELO, usuario_id=self.admin.pk
+        )
 
         self.assertEqual([t["documento_id"] for t in trechos], [str(doc.id), None])
 
@@ -248,7 +304,9 @@ class BasePublicaTests(BuscaBase):
         busca_vetorial._avisos_dados.discard("sem_base_publica")
 
         with self.assertLogs(busca_vetorial.logger, "WARNING") as log:
-            trechos = busca_vetorial.buscar_por_vetor(vetor(), k=5, modelo=MODELO)
+            trechos = busca_vetorial.buscar_por_vetor(
+                vetor(), k=5, modelo=MODELO, usuario_id=self.admin.pk
+            )
 
         self.assertEqual(self.ids(trechos), {str(doc.id)})
         self.assertIn("rag_chunks", log.output[0])
@@ -256,7 +314,10 @@ class BasePublicaTests(BuscaBase):
     def test_base_publica_de_outro_modelo_fica_de_fora(self):
         self.publica(vetor(), modelo="outro-modelo")
         self.assertEqual(
-            busca_vetorial.buscar_por_vetor(vetor(), k=5, modelo=MODELO), []
+            busca_vetorial.buscar_por_vetor(
+                vetor(), k=5, modelo=MODELO, usuario_id=self.admin.pk
+            ),
+            [],
         )
 
 
@@ -351,7 +412,9 @@ class IndiceVetorialTests(BuscaBase):
             cursor.execute("SET enable_sort = off")
             cursor.execute("SET enable_seqscan = off")
         try:
-            trechos = busca_vetorial.buscar_por_vetor(pergunta, k=5, modelo=MODELO)
+            trechos = busca_vetorial.buscar_por_vetor(
+                pergunta, k=5, modelo=MODELO, usuario_id=self.admin.pk
+            )
         finally:
             with connection.cursor() as cursor:
                 cursor.execute("RESET enable_sort")

@@ -7,6 +7,9 @@ mas sem `sys.exit`/`print`: devolve um dict pronto para a API e levanta
 `ErroIA` quando o Ollama ou o banco não respondem.
 
 Os trechos vêm de `busca_vetorial.buscar_por_vetor` (AKA-51): só documentos
+disponíveis que o usuário que pergunta tem permissão de acessar (S2-26), mais
+a base pública do EverySpec. O filtro é feito na query, antes da IA: um trecho
+que o usuário não pode ver nunca chega ao prompt, nem como contexto.
 disponíveis, mais a base pública do EverySpec.
 
 Resposta só com base nos trechos (AKA-22):
@@ -99,13 +102,14 @@ def _ollama(caminho, dados):
     return r.json()
 
 
-def buscar_trechos(pergunta, k=TOP_K):
-    """Devolve os k trechos mais parecidos com a pergunta, do mais parecido ao menos."""
+def buscar_trechos(pergunta, usuario_id, k=TOP_K):
+    """Devolve os k trechos mais parecidos com a pergunta, do mais parecido ao
+    menos, só entre o que `usuario_id` pode acessar."""
     vetor = _ollama("/api/embed", {"model": MODELO_EMBEDDING, "input": [pergunta]})[
         "embeddings"
     ][0]
     try:
-        return buscar_por_vetor(vetor, k, MODELO_EMBEDDING)
+        return buscar_por_vetor(vetor, k, MODELO_EMBEDDING, usuario_id)
     except DatabaseError as e:
         raise ErroIA("Não consegui consultar a base de documentos.") from e
 
@@ -266,9 +270,10 @@ def ia_nao_encontrou(resposta):
     return inicio.startswith(INICIOS_NAO_ENCONTROU)
 
 
-def responder_pergunta(pergunta, idioma="pt-BR"):
+def responder_pergunta(pergunta, idioma="pt-BR", *, usuario_id):
     """
-    Fluxo completo da tela de pergunta. Devolve:
+    Fluxo completo da tela de pergunta, para o usuário `usuario_id` (uuid do
+    JWT; obrigatório: define quais documentos a IA pode usar). Devolve:
 
         {
             "resposta": str,
@@ -291,7 +296,9 @@ def responder_pergunta(pergunta, idioma="pt-BR"):
 
     inicio = time.perf_counter()
     trechos = [
-        t for t in buscar_trechos(pergunta) if t["similaridade"] >= SIMILARIDADE_MINIMA
+        t
+        for t in buscar_trechos(pergunta, usuario_id)
+        if t["similaridade"] >= SIMILARIDADE_MINIMA
     ]
     fim_busca = time.perf_counter()
 

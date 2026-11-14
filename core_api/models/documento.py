@@ -23,8 +23,10 @@ import uuid
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Exists, OuterRef
 
 from core_api.models.perfil_operacional import PerfilOperacional
+from core_api.models.permissao import UsuarioPermissaoArea
 from core_api.models.taxonomia import (
     Area,
     Idioma,
@@ -52,6 +54,30 @@ class DocumentoQuerySet(models.QuerySet):
     def disponiveis(self):
         """Só documentos já validados — é o que a busca (AKA-51) pode enxergar."""
         return self.filter(status_validacao=StatusValidacao.DISPONIVEL)
+
+    def permitidos_para(self, usuario_id):
+        """Só os documentos que `usuario_id` (uuid do JWT) tem permissão de
+        acessar (S2-26): alguma das áreas do documento em que o usuário tem
+        permissão, com o nível de sigilo do documento menor ou igual ao máximo
+        concedido NAQUELA área. É a regra de acesso, num lugar só; a busca da
+        IA, o detalhe e o visualizador passam por aqui.
+
+        Falha fechado: sem usuário, ou usuário sem nenhuma permissão, não
+        devolve nada. Não filtra por status: combine com `disponiveis()`.
+        """
+        if usuario_id is None:
+            return self.none()
+        concedida = UsuarioPermissaoArea.objects.filter(
+            usuario_id=usuario_id,
+            area_id=OuterRef("area_id"),
+            nivel_sigilo_maximo__ordinal__gte=OuterRef(
+                "documento__nivel_sigilo__ordinal"
+            ),
+        )
+        area_permitida = DocumentoArea.objects.filter(
+            documento_id=OuterRef("pk")
+        ).filter(Exists(concedida))
+        return self.filter(Exists(area_permitida))
 
 
 class Documento(models.Model):

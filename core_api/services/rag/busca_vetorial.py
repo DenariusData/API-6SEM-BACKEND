@@ -5,8 +5,8 @@ Duas fontes, juntadas e ordenadas pela similaridade com a pergunta:
 
     1. Documentos do sistema (upload -> validação -> processamento): tabelas
        `chunk` + `embedding_version`. Só entram documentos de
-       `Documento.objects.disponiveis()`. Esse é o ÚNICO lugar do filtro de
-       documento.
+       `Documento.objects.disponiveis().permitidos_para(usuario)`. Esse é o
+       ÚNICO lugar do filtro de documento.
 
     2. Base pública do EverySpec: tabela `rag_chunks`, gerada pelos comandos
        gerar_embeddings/importar_embeddings. São normas públicas, que não
@@ -30,9 +30,14 @@ vezes k candidatos e a ordem final é refeita aqui, pela similaridade (como o
 pgvector recomenda). `strict_order` também resolve, mas mediu ~10x mais lento
 no p95. Em pgvector antigo, a busca aumenta o `hnsw.ef_search` como paliativo.
 
-Sprint 3 (permissão por usuário): a regra entra em `disponiveis()`, mas a
-busca vai precisar saber quem pergunta, então `buscar_por_vetor` deve ganhar
-um parâmetro `usuario` nessa hora.
+Permissão por usuário: a busca recebe quem pergunta (`usuario_id`, o
+uuid do JWT) e a regra de acesso entra NA QUERY, antes de qualquer trecho
+chegar à IA: documento disponível, com alguma área em que o usuário tem
+permissão e nível de sigilo até o máximo concedido naquela área
+(`Documento.objects.permitidos_para`). O parâmetro é obrigatório, de
+propósito: esquecer de passá-lo é erro, não acesso liberado. `usuario_id=None`
+(ou usuário sem permissão nenhuma) não enxerga NENHUM documento do sistema;
+a base pública não tem sigilo e segue visível.
 
 Cada trecho volta como dict:
 
@@ -112,12 +117,14 @@ def _configurar_indice():
         pass  # sem índice HNSW, o Postgres faz a busca exata
 
 
-def _trechos_do_sistema(vetor, k, modelo):
+def _trechos_do_sistema(vetor, k, modelo, usuario_id):
     embeddings = (
         EmbeddingVersion.objects.filter(
             vigente=True,
             modelo=modelo,
-            chunk__documento__in=Documento.objects.disponiveis(),
+            chunk__documento__in=Documento.objects.disponiveis().permitidos_para(
+                usuario_id
+            ),
         )
         .select_related("chunk__documento")
         .annotate(distancia=CosineDistance("embedding", vetor))
@@ -178,16 +185,16 @@ def _trechos_da_base_publica(vetor, k, modelo):
     ]
 
 
-def buscar_por_vetor(vetor, k, modelo):
+def buscar_por_vetor(vetor, k, modelo, usuario_id):
     """Os k trechos mais parecidos com `vetor` (lista de floats, gerada pelo
-    `modelo` de embedding), do mais parecido ao menos, entre documentos
-    disponíveis e a base pública. Cada fonte traz os seus melhores candidatos;
+    `modelo` de embedding), do mais parecido ao menos, entre os documentos
+    disponíveis que `usuario_id` pode acessar e a base pública. Cada fonte traz os seus melhores candidatos;
     juntar, ordenar e cortar dá o top-k geral."""
     candidatos = k * FATOR_CANDIDATOS
     with transaction.atomic():
         _configurar_indice()
         trechos = _trechos_do_sistema(
-            vetor, candidatos, modelo
+            vetor, candidatos, modelo, usuario_id
         ) + _trechos_da_base_publica(vetor, candidatos, modelo)
     trechos.sort(key=lambda t: t["similaridade"], reverse=True)
     return trechos[:k]

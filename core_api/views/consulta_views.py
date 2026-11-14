@@ -11,7 +11,8 @@ As listas aceitam ?page= (20 por página). Esta camada só faz HTTP; as regras
 ficam em services/consulta_documentos.py.
 
 Status: 400 parâmetro inválido · 401 sem token · 403 não é validador (fila) ·
-404 documento inexistente ou que o usuário não pode ver (detalhe).
+403 documento que o usuário não pode ver (detalhe: só a mensagem de acesso não
+autorizado, D11) · 404 documento inexistente.
 """
 
 import uuid
@@ -20,6 +21,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
 from core_api.models import Documento
+from core_api.services import acesso_negado
 from core_api.services import consulta_documentos as consulta
 from core_api.services.auditoria import registrar_visualizacao
 from core_api.utils.jwt_auth import require_auth, require_role
@@ -90,6 +92,8 @@ def detalhe_documento_view(request, documento_id):
         )
     except Documento.DoesNotExist:
         return _erro("Documento não encontrado.", 404)
+    except acesso_negado.AcessoNaoAutorizado:
+        return JsonResponse(acesso_negado.corpo(), status=403)
     # Visualização vai para LogAcesso; o log de auditoria cobre as demais
     # ações (AKA-31).
     registrar_visualizacao(documento_id, usuario_id)

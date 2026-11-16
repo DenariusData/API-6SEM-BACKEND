@@ -1,6 +1,7 @@
 """
 Testes da exportação dos dados pessoais (AKA-75, US-27, LGPD art. 18):
-GET /api/auth/me/exportar/?formato=json|pdf.
+GET /api/auth/me/exportar/?formato=json|pdf. SemDocumentoTests (AKA-77) garante
+que nenhum documento vai junto na exportação.
 
 TransactionTestCase e os dois bancos pelo mesmo motivo de test_log_auditoria:
 o documento tem triggers deferrable que só disparam no COMMIT, e a identidade
@@ -24,6 +25,7 @@ from core_api.models import (
     AcaoValidacao,
     Area,
     Categoria,
+    Chunk,
     Documento,
     DocumentoArea,
     HistoricoValidacao,
@@ -333,3 +335,163 @@ class AuditoriaELimiteTests(ExportacaoBase):
     def test_formato_invalido_nao_conta_para_o_limite(self):
         self.assertEqual(self.exportar("csv").status_code, 400)
         self.assertEqual(self.exportar("json").status_code, 200)
+
+
+class SemDocumentoTests(ExportacaoBase):
+    """
+    AKA-77: a exportação não leva nenhum documento junto. Não vai o arquivo
+    nem o conteúdo (texto extraído, trechos/chunks, caminho ou URL do
+    arquivo). Só a lista dos documentos ligados ao usuário, com dados de
+    cadastro, porque o vínculo da pessoa com o documento é dado dela.
+    """
+
+    CAMPOS_DE_CADASTRO = {
+        "id",
+        "identificador",
+        "revisao",
+        "titulo",
+        "criado_em",
+        "validado_em",
+        "vinculo",
+    }
+
+    def setUp(self):
+        super().setUp()
+        # Ana envia o DOC-ENVIADO; é só responsável pelo DOC-RESPONSAVEL
+        # (enviado pela Bia); só validou o DOC-VALIDADO (da Bia). O
+        # DOC-DA-BIA não tem nenhum vínculo com a Ana.
+        self.docs = {
+            "DOC-ENVIADO": self.documento_com_conteudo(
+                "DOC-ENVIADO", upload=self.ana, responsavel=self.bia
+            ),
+            "DOC-RESPONSAVEL": self.documento_com_conteudo(
+                "DOC-RESPONSAVEL", upload=self.bia, responsavel=self.ana
+            ),
+            "DOC-VALIDADO": self.documento_com_conteudo(
+                "DOC-VALIDADO",
+                upload=self.bia,
+                responsavel=self.bia,
+                validador=self.ana,
+            ),
+            "DOC-DA-BIA": self.documento_com_conteudo(
+                "DOC-DA-BIA", upload=self.bia, responsavel=self.bia
+            ),
+        }
+
+    def documento_com_conteudo(self, ident, upload, responsavel, validador=None):
+        """Documento com texto extraído, chunks e caminho do arquivo marcados
+        com o identificador, para procurar depois nos arquivos exportados."""
+        dono = PerfilOperacional.objects.get(pk=upload["id"])
+        with com_usuario(dono.pk), transaction.atomic():
+            doc = Documento.objects.create(
+                titulo=f"Manual {ident}",
+                identificador_codigo=ident,
+                tipo_documento=self.tipo,
+                numero_revisao="Rev. A",
+                data_emissao="2026-03-10",
+                subcategoria=self.subcategoria,
+                status=StatusDocumentoChoices.VIGENTE,
+                nivel_sigilo=self.nivel,
+                nivel_sigilo_sugerido=self.nivel,
+                origem_fonte="Biblioteca técnica",
+                responsavel=PerfilOperacional.objects.get(pk=responsavel["id"]),
+                idioma=self.idioma,
+                arquivo_original_url=f"uploads/ARQUIVO-{ident}.pdf",
+                usuario_upload=dono,
+                conteudo=f"TEXTO-EXTRAIDO-{ident}",
+            )
+            DocumentoArea.objects.create(
+                documento=doc, area=self.area, is_principal=True
+            )
+            for ordem in range(2):
+                Chunk.objects.create(
+                    documento=doc, ordem=ordem, texto=f"TRECHO-CHUNK-{ident}-{ordem}"
+                )
+        if validador:
+            with com_usuario(validador["id"]), transaction.atomic():
+                Documento.objects.filter(pk=doc.pk).update(
+                    validado_por_id=validador["id"], validado_em=timezone.now()
+                )
+        return doc
+
+    def marcas_de_conteudo(self):
+        """Tudo o que é conteúdo de documento e não pode sair na exportação."""
+        marcas = []
+        for doc in Documento.objects.all():
+            marcas += [doc.conteudo, doc.arquivo_original_url]
+            marcas += [c.texto for c in Chunk.objects.filter(documento=doc)]
+        return marcas
+
+    def exportar_pdf(self):
+        # O JSON é exportado antes em cada teste: o PDF vem depois do limite
+        # de 1 exportação por minuto.
+        with self.depois_de_2_minutos():
+            resposta = self.exportar("pdf")
+        self.assertEqual(resposta.status_code, 200, resposta.content[:200])
+        return resposta.content
+
+    def texto_do_pdf(self, conteudo):
+        with pymupdf.open("pdf", conteudo) as pdf:
+            texto = "".join(pagina.get_text() for pagina in pdf)
+        return unicodedata.normalize("NFKC", texto)
+
+    def test_json_e_pdf_nao_trazem_conteudo_dos_documentos(self):
+        marcas = self.marcas_de_conteudo()
+        # Controle: as marcas existem no banco (16 = 4 docs x texto, caminho
+        # e 2 chunks), então a ausência nos arquivos não é falta de dado.
+        self.assertEqual(len([m for m in marcas if m]), 16)
+
+        texto_json = self.exportar("json").content.decode("utf-8")
+        texto_pdf = self.texto_do_pdf(self.exportar_pdf())
+
+        for formato, texto in (("json", texto_json), ("pdf", texto_pdf)):
+            for marca in marcas:
+                with self.subTest(formato=formato, marca=marca):
+                    self.assertNotIn(marca, texto)
+            for campo in ("conteudo", "arquivo_original_url", "chunk", "uploads/"):
+                with self.subTest(formato=formato, campo=campo):
+                    self.assertNotIn(campo, texto.lower())
+
+    def test_documentos_vem_so_com_dados_de_cadastro(self):
+        for doc in self.exportar_json()["documentos"]:
+            with self.subTest(documento=doc["identificador"]):
+                self.assertEqual(set(doc), self.CAMPOS_DE_CADASTRO)
+
+    def test_pdf_nao_tem_arquivo_anexado_nem_embutido(self):
+        self.exportar("json")
+        with pymupdf.open("pdf", self.exportar_pdf()) as pdf:
+            self.assertEqual(pdf.embfile_count(), 0)
+            for pagina in pdf:
+                with self.subTest(pagina=pagina.number + 1):
+                    anexos = [
+                        a
+                        for a in pagina.annots()
+                        if a.type[0] == pymupdf.PDF_ANNOT_FILE_ATTACHMENT
+                    ]
+                    self.assertEqual(anexos, [])
+                    links = [
+                        lk
+                        for lk in pagina.get_links()
+                        if lk["kind"] in (pymupdf.LINK_URI, pymupdf.LINK_LAUNCH)
+                    ]
+                    self.assertEqual(links, [])
+                    self.assertEqual(pagina.get_images(), [])
+
+    def test_so_aparecem_documentos_ligados_ao_usuario(self):
+        documentos = self.exportar_json()["documentos"]
+
+        vinculos = {d["identificador"]: d["vinculo"] for d in documentos}
+        self.assertEqual(
+            vinculos,
+            {
+                "DOC-ENVIADO": ["ENVIOU"],
+                "DOC-RESPONSAVEL": ["RESPONSAVEL"],
+                "DOC-VALIDADO": ["VALIDOU"],
+            },
+        )
+        texto_pdf = self.texto_do_pdf(self.exportar_pdf())
+        for ident in ("DOC-ENVIADO", "DOC-RESPONSAVEL", "DOC-VALIDADO"):
+            with self.subTest(pdf=ident):
+                self.assertIn(ident, texto_pdf)
+        self.assertNotIn("DOC-DA-BIA", texto_pdf)
+        self.assertNotIn(str(self.docs["DOC-DA-BIA"].pk), texto_pdf)

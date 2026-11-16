@@ -203,7 +203,7 @@ O estado fica no próprio documento, em `status_processamento` (`PENDENTE`, `PRO
 
     python manage.py reprocessar_documento <id do documento>
 
-Não há chamada externa: o processamento recusa um `OLLAMA_URL` que não seja a própria máquina (mesma regra do teste do bge-m3, AKA-95) e nunca baixa arquivo de URL. Para aprovar sem processar (por exemplo, numa máquina sem Ollama), use `PROCESSAMENTO_AUTOMATICO=false` e rode o comando depois.
+Não há chamada externa: o processamento recusa um `OLLAMA_URL` que não seja a própria máquina ou um IP da rede interna, onde fica a VM da IA (AKA-103) e nunca baixa arquivo de URL. Para aprovar sem processar (por exemplo, numa máquina sem Ollama), use `PROCESSAMENTO_AUTOMATICO=false` e rode o comando depois.
 
 | Variável | Padrão | O que faz |
 |---|---|---|

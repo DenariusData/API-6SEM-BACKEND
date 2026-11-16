@@ -19,6 +19,14 @@ Regras:
     login, bloqueio) NÃO são exportados. A lista do que ficou de fora, e por
     quê, vai no próprio arquivo (`nao_incluidos`);
   - no máximo 1 exportação por minuto por usuário (MuitosPedidos, HTTP 429);
+  - no máximo 5 exportações por dia por usuário, somando JSON e PDF
+    (LimiteDiario, HTTP 429 com Retry-After até a meia-noite). O dia é o de
+    Brasília e a contagem vem do próprio log de auditoria
+    (DADOS_PESSOAIS_EXPORTADOS), então só conta exportação que deu certo:
+    pedido recusado (formato inválido, limite) não gera registro (AKA-76);
+  - as checagens e o registro rodam com uma trava por usuário
+    (pg_advisory_xact_lock): dois pedidos ao mesmo tempo não passam juntos
+    pelo limite;
   - cada exportação vai para o log de auditoria como DADOS_PESSOAIS_EXPORTADOS,
     só com o id do usuário e a data, nunca com os dados exportados.
 """
@@ -32,6 +40,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 import pymupdf
+from django.db import connection, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -51,6 +60,7 @@ from credenciais.models import Usuario
 BANCO_CREDENCIAIS = "credenciais_db"
 FORMATOS = ("json", "pdf")
 INTERVALO_EXPORTACAO = timedelta(minutes=1)
+LIMITE_DIARIO = 5
 VERSAO_FORMATO = "1.0"
 # O servidor guarda tudo em UTC. O JSON mantém o horário ISO com fuso; o PDF,
 # que é para a pessoa ler, mostra no horário de Brasília.
@@ -102,6 +112,11 @@ class MuitosPedidos(Exception):
     def __init__(self, mensagem, segundos):
         super().__init__(mensagem)
         self.segundos = segundos
+
+
+class LimiteDiario(MuitosPedidos):
+    """Mais de LIMITE_DIARIO exportações no dia (HTTP 429). `segundos` vai
+    até a meia-noite de Brasília."""
 
 
 @dataclass(frozen=True)
@@ -465,13 +480,42 @@ def para_pdf(dados) -> bytes:
 
 
 # -- operação ---------------------------------------------------------------
+def _exportacoes(usuario_uuid):
+    return LogAuditoria.objects.filter(
+        usuario_id=usuario_uuid, acao=AcaoAuditoria.DADOS_PESSOAIS_EXPORTADOS
+    )
+
+
+def _travar(usuario_uuid) -> None:
+    """Trava as exportações deste usuário até o fim da transação. Sem ela,
+    dois pedidos simultâneos leriam a mesma contagem e passariam juntos."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+            [f"exportacao_dados:{usuario_uuid}"],
+        )
+
+
+def _exigir_limite_diario(usuario_uuid) -> None:
+    """No máximo LIMITE_DIARIO exportações por dia de Brasília (zera às 00:00)."""
+    agora = timezone.now()
+    hoje = timezone.localtime(agora, FUSO_LEITURA).date()
+    inicio_do_dia = datetime.combine(hoje, datetime.min.time(), tzinfo=FUSO_LEITURA)
+    meia_noite = inicio_do_dia + timedelta(days=1)
+    feitas = _exportacoes(usuario_uuid).filter(criado_em__gte=inicio_do_dia).count()
+    if feitas >= LIMITE_DIARIO:
+        segundos = max(int((meia_noite - agora).total_seconds()) + 1, 1)
+        raise LimiteDiario(
+            f"Você atingiu o limite de {LIMITE_DIARIO} exportações por dia. "
+            "Tente novamente amanhã.",
+            segundos,
+        )
+
+
 def _exigir_intervalo(usuario_uuid) -> None:
     ultima = (
-        LogAuditoria.objects.filter(
-            usuario_id=usuario_uuid,
-            acao=AcaoAuditoria.DADOS_PESSOAIS_EXPORTADOS,
-            criado_em__gt=timezone.now() - INTERVALO_EXPORTACAO,
-        )
+        _exportacoes(usuario_uuid)
+        .filter(criado_em__gt=timezone.now() - INTERVALO_EXPORTACAO)
         .order_by("-criado_em")
         .values_list("criado_em", flat=True)
         .first()
@@ -487,27 +531,33 @@ def _exigir_intervalo(usuario_uuid) -> None:
 def exportar(usuario_id, formato) -> Arquivo:
     """
     Gera o arquivo de exportação do usuário `usuario_id` (o `sub` do JWT).
-    Levanta FormatoInvalido, MuitosPedidos, Usuario.DoesNotExist ou
-    ValueError (id inválido).
+    Levanta FormatoInvalido, MuitosPedidos (LimiteDiario no limite do dia),
+    Usuario.DoesNotExist ou ValueError (id inválido).
     """
     formato = formato.strip().lower() if isinstance(formato, str) else ""
     if formato not in FORMATOS:
         raise FormatoInvalido("Formato inválido. Use 'json' ou 'pdf'.")
 
     usuario_uuid = UUID(str(usuario_id))
-    _exigir_intervalo(usuario_uuid)
-    dados = coletar(usuario_uuid)
+    with transaction.atomic():
+        _travar(usuario_uuid)
+        # O do dia primeiro: quem já esgotou o dia recebe a mensagem que vale
+        # até amanhã, não um "aguarde 60 segundos" que não resolveria.
+        _exigir_limite_diario(usuario_uuid)
+        _exigir_intervalo(usuario_uuid)
+        dados = coletar(usuario_uuid)
 
-    if formato == "json":
-        conteudo, content_type = para_json(dados), "application/json; charset=utf-8"
-    else:
-        conteudo, content_type = para_pdf(dados), "application/pdf"
+        if formato == "json":
+            conteudo = para_json(dados)
+            content_type = "application/json; charset=utf-8"
+        else:
+            conteudo, content_type = para_pdf(dados), "application/pdf"
 
-    registrar_acao(
-        usuario_uuid,
-        AcaoAuditoria.DADOS_PESSOAIS_EXPORTADOS,
-        EntidadeAuditoria.USUARIO,
-        usuario_uuid,
-    )
+        registrar_acao(
+            usuario_uuid,
+            AcaoAuditoria.DADOS_PESSOAIS_EXPORTADOS,
+            EntidadeAuditoria.USUARIO,
+            usuario_uuid,
+        )
     hoje = timezone.localdate(timezone=FUSO_LEITURA).isoformat()
     return Arquivo(conteudo, content_type, f"meus-dados-{hoje}.{formato}")

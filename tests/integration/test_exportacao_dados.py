@@ -10,8 +10,9 @@ vive em `credenciais_db`.
 import json
 import unicodedata
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 from unittest import mock
+from zoneinfo import ZoneInfo
 
 import pymupdf
 from django.db import transaction
@@ -43,6 +44,10 @@ from core_api.utils.usuario_atual import com_usuario
 from credenciais.models import Usuario
 
 URL = "/api/auth/me/exportar/"
+BRASILIA = ZoneInfo("America/Sao_Paulo")
+MENSAGEM_LIMITE_DIARIO = (
+    "Você atingiu o limite de 5 exportações por dia. Tente novamente amanhã."
+)
 CAMPOS_PROIBIDOS = [
     "senha_hash",
     "token_confirmacao_hash",
@@ -333,3 +338,92 @@ class AuditoriaELimiteTests(ExportacaoBase):
     def test_formato_invalido_nao_conta_para_o_limite(self):
         self.assertEqual(self.exportar("csv").status_code, 400)
         self.assertEqual(self.exportar("json").status_code, 200)
+
+
+class LimiteDiarioTests(ExportacaoBase):
+    """AKA-76: no máximo 5 exportações por dia (de Brasília) por usuário,
+    somando JSON e PDF, além do limite de 1 por minuto.
+
+    O relógio é simulado com mock em `timezone.now` (o mesmo que grava o
+    `criado_em` do log), sem editar o log de auditoria. O token JWT usa o
+    relógio real, então continua válido.
+    """
+
+    def em(self, horario):
+        """Executa como se fosse `horario` ("AAAA-MM-DD HH:MM[:SS]") em Brasília."""
+        momento = datetime.fromisoformat(horario).replace(tzinfo=BRASILIA)
+        return mock.patch("django.utils.timezone.now", return_value=momento)
+
+    def exportar_em(self, horario, formato="json", token="padrao"):
+        with self.em(horario):
+            return self.exportar(formato, token)
+
+    def exportar_cinco(self, dia, hora=10, token="padrao"):
+        """5 exportações (JSON e PDF alternados), 2 minutos uma da outra."""
+        for i, formato in enumerate(["json", "pdf", "json", "pdf", "json"]):
+            resposta = self.exportar_em(f"{dia} {hora:02d}:{2 * i:02d}", formato, token)
+            self.assertEqual(resposta.status_code, 200, resposta.content)
+
+    def exportacoes(self, usuario):
+        return LogAuditoria.objects.filter(
+            acao=AcaoAuditoria.DADOS_PESSOAIS_EXPORTADOS, usuario_id=usuario["id"]
+        ).count()
+
+    def test_quinta_exportacao_e_aceita_e_a_sexta_recusada(self):
+        self.exportar_cinco("2026-03-10")
+
+        resposta = self.exportar_em("2026-03-10 10:10", "pdf")
+
+        self.assertEqual(resposta.status_code, 429)
+        self.assertEqual(json.loads(resposta.content)["detail"], MENSAGEM_LIMITE_DIARIO)
+        # Retry-After até a meia-noite de Brasília: 13 h 50 min a partir das 10:10.
+        self.assertIn(int(resposta["Retry-After"]), (49800, 49801))
+        # JSON e PDF somam no mesmo limite, e a recusada não conta.
+        self.assertEqual(self.exportacoes(self.ana), 5)
+
+    def test_limite_diario_e_por_usuario(self):
+        self.exportar_cinco("2026-03-10")
+
+        self.assertEqual(self.exportar_em("2026-03-10 10:20").status_code, 429)
+        resposta = self.exportar_em("2026-03-10 10:20", token=self.token_bia)
+
+        self.assertEqual(resposta.status_code, 200)
+
+    def test_libera_no_dia_seguinte_pelo_horario_de_brasilia(self):
+        # 21:00 em Brasília já é o dia seguinte em UTC (00:00 UTC): se o dia
+        # fosse contado em UTC, as 00:01 de Brasília ainda estariam bloqueadas.
+        self.exportar_cinco("2026-03-10", hora=21)
+
+        bloqueada = self.exportar_em("2026-03-10 23:59")
+        liberada = self.exportar_em("2026-03-11 00:01")
+
+        self.assertEqual(bloqueada.status_code, 429)
+        self.assertEqual(int(bloqueada["Retry-After"]), 61)
+        self.assertEqual(liberada.status_code, 200, liberada.content)
+
+    def test_limite_por_minuto_continua_valendo(self):
+        self.assertEqual(self.exportar_em("2026-03-10 10:00").status_code, 200)
+
+        resposta = self.exportar_em("2026-03-10 10:00:30", "pdf")
+
+        self.assertEqual(resposta.status_code, 429)
+        self.assertIn("segundos", json.loads(resposta.content)["detail"])
+        self.assertLessEqual(int(resposta["Retry-After"]), 60)
+
+    def test_no_limite_do_dia_a_mensagem_e_a_do_dia_e_nao_a_do_minuto(self):
+        self.exportar_cinco("2026-03-10")
+
+        # 30 s depois da 5ª: os dois limites valem, o do dia é o que importa.
+        resposta = self.exportar_em("2026-03-10 10:08:30")
+
+        self.assertEqual(json.loads(resposta.content)["detail"], MENSAGEM_LIMITE_DIARIO)
+
+    def test_formato_invalido_nao_conta_para_o_limite_diario(self):
+        for minuto in range(4):
+            self.assertEqual(
+                self.exportar_em(f"2026-03-10 09:0{minuto}", "csv").status_code, 400
+            )
+
+        self.exportar_cinco("2026-03-10")
+
+        self.assertEqual(self.exportacoes(self.ana), 5)

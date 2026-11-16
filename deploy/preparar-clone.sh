@@ -3,15 +3,16 @@
 # identidade novos e sem o que veio copiado da original e não é do papel dele.
 #
 # Rodar UMA vez no clone, ainda na rede host-only do VirtualBox (sem
-# internet), antes de ligar o clone na rede da casa:
+# internet), antes de ligar o clone na rede das VMs (deploy/README.md):
 #   sudo bash preparar-clone.sh --nome akavision-ia --papel ia --mac 08:00:27:aa:bb:cc
 #
 # --mac é a trava de segurança: o script só roda na VM que tem esse MAC (o
 # do clone, que o VirtualBox mostra), para nunca apagar nada da original.
-# No fim a VM desliga, pronta para trocar a placa de rede para "bridge".
+# No fim a VM desliga, pronta para ligar a placa de rede na Rede NAT
+# "akavision-net" (deploy/README.md).
 #
 # O que faz:
-# - nome da máquina, machine-id e chaves SSH novos: sem isso, o roteador e o
+# - nome da máquina, machine-id e chaves SSH novos: sem isso, o DHCP e o
 #   SSH enxergam o clone como se fosse a original (mesmo IP, mesma chave);
 # - tira o runner do GitHub copiado da original. Só apaga os arquivos aqui:
 #   o registro no GitHub é o da original e continua valendo para ela;
@@ -50,7 +51,7 @@ else
   echo "127.0.1.1 $NOME" >> /etc/hosts
 fi
 
-passo "machine-id novo (o roteador passa a ver outra máquina)"
+passo "machine-id novo (o DHCP passa a ver outra máquina)"
 rm -f /etc/machine-id /var/lib/dbus/machine-id
 systemd-machine-id-setup
 if [ -d /var/lib/dbus ]; then ln -sf /etc/machine-id /var/lib/dbus/machine-id; fi
@@ -97,6 +98,6 @@ if [ "$PAPEL" = ia ]; then
   fi
 fi
 
-passo "Pronto. Desligando: troque a placa de rede para bridge e ligue de novo."
+passo "Pronto. Desligando: ligue a placa de rede na Rede NAT akavision-net e ligue de novo."
 sync
 systemctl poweroff

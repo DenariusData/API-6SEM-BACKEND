@@ -9,13 +9,17 @@
 #   back   Django (gunicorn) e os bancos; a IA fica na VM da IA     --ip-front --ip-ia
 #   ia     só o Ollama (bge-m3 e llama3.2), aberto só para o back   --ip-back
 #
+# --url-site (opcional, papel back): endereço que o navegador usa para abrir
+# o site, para os links dos e-mails (ex.: http://192.168.15.10 quando o site
+# chega por redirecionamento de porta do VirtualBox). Padrão: http://<ip-front>.
+#
 # Pré-requisitos já instalados (ver deploy/README.md):
 #   tudo: git, nginx, Docker, Node 22 e Ollama com os modelos
 #   front: git, nginx e Node 22 | back: git e Docker | ia: Ollama
 #
 # Rodar como root, desligado do terminal (o SSH pode cair sem parar o script):
 #   sudo systemd-run --unit=instalar-akavision --collect --setenv=HOME=/root \
-#     bash instalar-vm.sh back --ip-front 192.168.15.6 --ip-ia 192.168.15.7
+#     bash instalar-vm.sh back --ip-front 10.10.10.6 --ip-ia 10.10.10.7
 #   journalctl -u instalar-akavision -f
 #
 # Pode ser rodado de novo: pula o que já existe. As senhas do .env são
@@ -27,13 +31,17 @@ erro() { echo "ERRO: $*" >&2; exit 1; }
 
 PAPEL=${1:-tudo}
 [ $# -gt 0 ] && shift
-IP_FRONT="" IP_BACK="" IP_IA=""
+IP_FRONT="" IP_BACK="" IP_IA="" URL_SITE=""
 while [ $# -gt 0 ]; do
-  [ $# -ge 2 ] || erro "$1 precisa de um IP depois dele."
+  [ $# -ge 2 ] || erro "$1 precisa de um valor depois dele."
   case "$1" in
     --ip-front) IP_FRONT=$2 ;;
     --ip-back) IP_BACK=$2 ;;
     --ip-ia) IP_IA=$2 ;;
+    --url-site)
+      [[ $2 =~ ^https?://[A-Za-z0-9.:-]+/?$ ]] || erro "--url-site: '$2' não é um endereço como http://192.168.15.10"
+      URL_SITE=${2%/}
+      ;;
     *) erro "opção desconhecida: $1" ;;
   esac
   shift 2
@@ -116,9 +124,10 @@ ENV
     fi
   }
   if [ "$PAPEL" = back ]; then
-    # O nginx do front repassa o Host que o navegador usou (o IP do front).
-    definir_env ALLOWED_HOSTS "$IP_FRONT,$IP,localhost,127.0.0.1"
-    definir_env FRONTEND_URL "http://$IP_FRONT"
+    # O nginx do front chama o back com o Host "<IP do back>:8000", seja
+    # qual for o endereço que o navegador usou (IP do front ou do PC).
+    definir_env ALLOWED_HOSTS "$IP,localhost,127.0.0.1"
+    definir_env FRONTEND_URL "${URL_SITE:-http://$IP_FRONT}"
     definir_env OLLAMA_URL "http://$IP_IA:11434"
     definir_env GUNICORN_BIND "0.0.0.0:8000"
   else
@@ -169,7 +178,13 @@ if tem front; then
   passo "Site no nginx"
   install -m 644 "$BACK/deploy/nginx-akavision.conf" /etc/nginx/sites-available/akavision
   if [ "$PAPEL" = front ]; then
-    sed -i "s#http://127.0.0.1:8000#http://$IP_BACK:8000#" /etc/nginx/sites-available/akavision
+    # /api/ vai para a VM do back, com o Host fixo "<IP do back>:8000": o
+    # ALLOWED_HOSTS do back não depende de como o navegador chegou ao site.
+    sed -i -e "s#http://127.0.0.1:8000#http://$IP_BACK:8000#" \
+      -e 's#proxy_set_header Host $host;#proxy_set_header Host $proxy_host;#' \
+      /etc/nginx/sites-available/akavision
+    grep -q 'Host $proxy_host;' /etc/nginx/sites-available/akavision \
+      || erro "nginx-akavision.conf mudou: ajuste o sed do papel front."
   fi
   ln -sf /etc/nginx/sites-available/akavision /etc/nginx/sites-enabled/akavision
   rm -f /etc/nginx/sites-enabled/default
@@ -254,7 +269,8 @@ if tem ia; then
 fi
 echo
 case "$PAPEL" in
-  front | tudo) echo "PRONTO. Abra http://$IP no navegador de qualquer PC da rede." ;;
-  back) echo "PRONTO. O site fica no front: http://$IP_FRONT" ;;
+  tudo) echo "PRONTO. Abra http://$IP no navegador de qualquer PC da rede." ;;
+  front) echo "PRONTO. Site em http://$IP (na Rede NAT do VirtualBox, pelo IP do PC: deploy/README.md)." ;;
+  back) echo "PRONTO. O site fica no front: ${URL_SITE:-http://$IP_FRONT}" ;;
   ia) echo "PRONTO. Ollama em http://$IP:11434, aberto só para o back ($IP_BACK)." ;;
 esac

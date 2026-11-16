@@ -172,13 +172,13 @@ class MesmaPerguntaDoisPerfisTests(PermissaoBase):
         sem = self.client.get(url, HTTP_AUTHORIZATION=f"Bearer {self.token_qual}")
 
         self.assertEqual(com.status_code, 200, com.content)
-        self.assertEqual(sem.status_code, 404)
+        self.assertEqual(sem.status_code, 403)
         pagina = f"/api/documents/{fonte['documento_id']}/paginas/1/"
         self.assertEqual(
             self.client.get(
                 pagina, HTTP_AUTHORIZATION=f"Bearer {self.token_qual}"
             ).status_code,
-            404,
+            403,
         )
 
 

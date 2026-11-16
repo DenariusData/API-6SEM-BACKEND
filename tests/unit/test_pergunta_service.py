@@ -180,15 +180,28 @@ def test_citacao_de_varios_trechos_juntos():
     assert citadas == [True, False, True]
 
 
-def test_ollama_fora_da_maquina_local_e_recusado():
+def test_ollama_fora_da_rede_interna_e_recusado():
     with (
-        patch.object(pergunta, "OLLAMA_URL", "http://10.0.0.5:11434"),
+        patch.object(pergunta, "OLLAMA_URL", "http://8.8.8.8:11434"),
         patch.object(pergunta.requests, "post") as post,
     ):
-        with pytest.raises(ErroIA, match="não é a máquina local"):
+        with pytest.raises(ErroIA, match="nem um IP da rede interna"):
             pergunta._ollama("/api/chat", {})
 
     post.assert_not_called()
+
+
+def test_ollama_na_vm_da_ia_da_rede_interna_e_chamado(monkeypatch):
+    """AKA-103: o Ollama pode ficar numa VM própria, na mesma rede."""
+    monkeypatch.setenv("NO_PROXY", "")
+    resposta = Mock(status_code=200, json=lambda: {"message": {"content": "Ok"}})
+    with (
+        patch.object(pergunta, "OLLAMA_URL", "http://192.168.15.7:11434"),
+        patch.object(pergunta.requests, "post", return_value=resposta) as post,
+    ):
+        assert pergunta._ollama("/api/chat", {}) == {"message": {"content": "Ok"}}
+
+    assert post.call_args.args[0] == "http://192.168.15.7:11434/api/chat"
 
 
 @pytest.mark.parametrize("idioma", ["pt-BR", "en"])

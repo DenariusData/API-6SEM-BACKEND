@@ -18,7 +18,8 @@ Resposta só com base nos trechos (AKA-22):
       encontrei" quando os trechos não têm a resposta;
     - resposta que começa com essa frase, ou que não cita nenhum trecho
       enviado ([1], [2]...), vira o aviso de "não encontrei", sem fontes;
-    - a geração roda só no Ollama local (mesma checagem da D1 do bge-m3).
+    - a geração roda só no nosso Ollama, na própria máquina ou na VM da IA
+      da rede interna (mesma checagem da D1 do bge-m3).
 
 Origem de cada resposta (AKA-24), em campos separados:
     - `trechos_extraidos`: o texto de cada trecho enviado à IA, literal, como
@@ -88,7 +89,8 @@ class ErroIA(Exception):
 
 
 def _ollama(caminho, dados):
-    # D1: embedding e geração rodam só no Ollama da própria máquina.
+    # D1: embedding e geração rodam só no nosso Ollama (própria máquina ou
+    # VM da IA na rede interna, AKA-103), nunca num serviço externo.
     try:
         validar_ollama_local(OLLAMA_URL)
     except ValueError as e:

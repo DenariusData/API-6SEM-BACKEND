@@ -23,6 +23,7 @@ Não usa o PostgreSQL e não grava nada no banco.
 """
 
 import argparse
+import ipaddress
 import json
 import os
 import platform
@@ -52,6 +53,20 @@ except ImportError:  # importado como módulo (ex.: descoberta do manage.py test
 
 SIMILARIDADE_MINIMA = 0.98
 HOSTS_LOCAIS = {"localhost", "127.0.0.1", "::1"}  # só loopback
+# Onde o Ollama pode estar (D1, AKA-103): a própria máquina ou a rede interna
+# (RFC 1918 e IPv6 de uso local). Fica de fora todo IP público e também o
+# link-local 169.254.0.0/16, onde as nuvens expõem os metadados da máquina.
+REDES_INTERNAS = tuple(
+    ipaddress.ip_network(rede)
+    for rede in (
+        "127.0.0.0/8",
+        "::1/128",
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "fc00::/7",
+    )
+)
 
 try:
     import psutil
@@ -150,32 +165,64 @@ class MedidorRam:
 # ---------- Ollama ----------
 
 
-def validar_ollama_local(ollama_url=OLLAMA_URL):
-    """Devolve o host se a URL do Ollama for a própria máquina; senão levanta
-    ValueError. Também usada pelo processamento automático (AKA-62)."""
+def host_da_rede_interna(host):
+    """True se o host for a própria máquina ou um IP da rede interna.
+
+    Só IP escrito na URL: um nome (fora "localhost") é recusado, porque o DNS
+    pode apontar para qualquer lugar, inclusive para fora da rede."""
+    if host == "localhost":
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    if ip.version == 6 and ip.ipv4_mapped:  # "::ffff:192.168.0.5"
+        ip = ip.ipv4_mapped
+    return any(ip in rede for rede in REDES_INTERNAS)
+
+
+def validar_ollama_local(ollama_url=OLLAMA_URL, so_esta_maquina=False):
+    """Devolve o host se o Ollama estiver na nossa infraestrutura; senão
+    levanta ValueError. Usada pela pergunta à IA e pelo processamento
+    automático (AKA-62).
+
+    Aceita a própria máquina ou um IP da rede interna, onde fica a VM da IA
+    (AKA-103). A D1 continua valendo: nada de serviço externo ou de nuvem.
+    Com `so_esta_maquina`, só a própria máquina (o teste de desempenho mede
+    a CPU e a RAM de onde roda)."""
     url = urlparse(ollama_url)
     host = (url.hostname or "").lower()
-    if host not in HOSTS_LOCAIS:
+    if so_esta_maquina and host not in HOSTS_LOCAIS:
         raise ValueError(
             f"OLLAMA_URL aponta para '{host}', que não é a máquina local.\n"
-            "A D1 exige que o embedding rode sem chamada externa. "
-            "Use OLLAMA_URL=http://localhost:11434"
+            "Este teste mede o desempenho da máquina onde roda: rode-o na "
+            "máquina do Ollama, com OLLAMA_URL=http://localhost:11434"
+        )
+    if not host_da_rede_interna(host):
+        raise ValueError(
+            f"OLLAMA_URL aponta para '{host}', que não é a máquina local "
+            "nem um IP da rede interna.\n"
+            "A D1 exige que a IA rode sem chamada externa. Use "
+            "http://localhost:11434 ou o IP da VM da IA na rede interna "
+            "(ex.: http://192.168.15.7:11434)."
         )
     if url.username or url.password:
         raise ValueError(
-            "OLLAMA_URL não pode ter usuário ou senha. Use http://localhost:11434"
+            "OLLAMA_URL não pode ter usuário ou senha. Use só o endereço, "
+            "ex.: http://localhost:11434"
         )
-    # Garante que nenhum proxy configurado no ambiente intercepte as chamadas locais
-    # (o requests ignora proxies para os hosts listados em NO_PROXY).
+    # Garante que nenhum proxy configurado no ambiente intercepte as chamadas
+    # ao Ollama: elas não saem da rede (o requests ignora proxies para os hosts
+    # listados em NO_PROXY).
     sem_proxy = {h for h in os.environ.get("NO_PROXY", "").split(",") if h}
-    os.environ["NO_PROXY"] = ",".join(sorted(sem_proxy | HOSTS_LOCAIS))
+    os.environ["NO_PROXY"] = ",".join(sorted(sem_proxy | HOSTS_LOCAIS | {host}))
     os.environ["no_proxy"] = os.environ["NO_PROXY"]
     return host
 
 
-def conferir_ollama_local():
+def conferir_ollama_local(ollama_url=OLLAMA_URL):
     try:
-        return validar_ollama_local()
+        return validar_ollama_local(ollama_url, so_esta_maquina=True)
     except ValueError as e:
         sys.exit(str(e))
 

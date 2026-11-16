@@ -23,8 +23,8 @@ transação: um reprocessamento que falha não apaga o que já existia. Para
 reprocessar: `python manage.py reprocessar_documento <id>`.
 
 Nenhuma chamada externa (D1): o Ollama precisa estar na própria máquina
-(mesma checagem do teste do bge-m3, AKA-95), e o arquivo é lido da pasta
-privada do upload, nunca baixado de uma URL.
+ou num IP da rede interna, a VM da IA (AKA-103), e o arquivo é lido da
+pasta privada do upload, nunca baixado de uma URL.
 
 Limite conhecido: a thread vive no processo do servidor. Se o servidor
 parar no meio, o documento fica PROCESSANDO; o comando de reprocessar

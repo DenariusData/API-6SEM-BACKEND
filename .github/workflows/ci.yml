@@ -32,14 +32,28 @@ jobs:
   test:
     runs-on: ubuntu-latest
     needs: lint
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # o SonarQube Cloud usa o histórico do git para saber o que é código novo
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install -r requirements-dev.txt
       - name: Run unit tests
-        run: pytest tests/unit --cov --cov-report=term
+        run: >-
+          pytest tests/unit --cov --cov-report=term
+          --cov-report=xml:coverage.xml --junitxml=test-results.xml
+
+      # Guarda o histórico de resultados e cobertura no SonarQube Cloud.
+      # Roda mesmo com teste falhando, para a falha também ficar no histórico.
+      # Fica desligado até o secret SONAR_TOKEN ser cadastrado no repositório.
+      - name: SonarQube Cloud scan
+        if: ${{ !cancelled() && env.SONAR_TOKEN != '' }}
+        uses: SonarSource/sonarqube-scan-action@v8.5.0
 
   integration-tests:
     runs-on: ubuntu-latest

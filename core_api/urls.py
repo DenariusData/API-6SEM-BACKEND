@@ -11,8 +11,10 @@ from core_api.views import (
     detalhe_documento_view,
     devolver_documento_view,
     exportar_dados_view,
+    exportar_logs_auditoria_view,
     idiomas_view,
     login_view,
+    logs_auditoria_view,
     meus_documentos_view,
     niveis_sigilo_view,
     pagina_documento_view,
@@ -61,6 +63,19 @@ urlpatterns = [
         "auth/users/",
         user_management_view,
         name="user_management",
+    ),
+    # =====================================================
+    # AUDITORIA (AKA-81, só ADMINISTRADOR)
+    # =====================================================
+    path(
+        "auditoria/logs/",
+        logs_auditoria_view,
+        name="auditoria_logs",
+    ),
+    path(
+        "auditoria/logs/exportar/",
+        exportar_logs_auditoria_view,
+        name="auditoria_logs_exportar",
     ),
     # =====================================================
     # PERGUNTAS

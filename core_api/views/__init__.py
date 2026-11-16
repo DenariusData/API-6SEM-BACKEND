@@ -1,3 +1,7 @@
+from core_api.views.auditoria_views import (
+    exportar_logs_auditoria_view,
+    logs_auditoria_view,
+)
 from core_api.views.auth_views import (
     confirmar_email_view,
     exportar_dados_view,
@@ -53,4 +57,6 @@ __all__ = [
     "responsaveis_view",
     "pagina_documento_view",
     "visualizar_documento_view",
+    "logs_auditoria_view",
+    "exportar_logs_auditoria_view",
 ]

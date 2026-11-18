@@ -41,3 +41,7 @@ chunks/
 *.npz
 *.dump
 uploads/
+
+# Relatórios dos testes enviados ao SonarQube Cloud (gerados no CI)
+coverage.xml
+test-results.xml

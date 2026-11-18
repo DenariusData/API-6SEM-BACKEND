@@ -12,9 +12,21 @@ Escolhas (VM com 4 vCPU e 8 GB, Ollama na mesma máquina):
   espera o Ollama até 600 s, então o gunicorn espera um pouco mais.
 - max_requests: reinicia cada worker depois de ~1000 requisições, para
   devolver memória que a biblioteca de PDF possa ter acumulado.
+
+Endereço (GUNICORN_BIND no .env):
+- VM única: 127.0.0.1:8000 (padrão), só o nginx da própria VM acessa;
+- VM só do back (front em outra VM): 0.0.0.0:8000, e o firewall (ufw) da VM
+  deixa entrar na porta 8000 só o IP da VM do front.
 """
 
-bind = "127.0.0.1:8000"  # só o nginx (na mesma VM) acessa; a rede não
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
+bind = os.getenv("GUNICORN_BIND", "127.0.0.1:8000")
 workers = 3
 threads = 4
 worker_class = "gthread"

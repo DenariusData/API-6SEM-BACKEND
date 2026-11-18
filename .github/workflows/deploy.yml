@@ -1,8 +1,8 @@
 name: Deploy na VM
 
 # Atualiza o backend na VM a cada push no develop (inclui o merge de PR).
-# Roda no runner self-hosted instalado na própria VM (label "akavision"),
-# como o usuário "deploy". Nunca roda em pull_request: código de PR de fork
+# Roda no runner self-hosted da VM do back (label "akavision"), como o
+# usuário "deploy". Front e IA podem ficar em outras VMs (deploy/README.md). Nunca roda em pull_request: código de PR de fork
 # não chega na VM.
 on:
   push:

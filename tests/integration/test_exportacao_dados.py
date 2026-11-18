@@ -501,8 +501,8 @@ class SemDocumentoTests(ExportacaoBase):
         self.assertNotIn("DOC-DA-BIA", texto_pdf)
         self.assertNotIn(str(self.docs["DOC-DA-BIA"].pk), texto_pdf)
 
-        
-   class LimiteDiarioTests(ExportacaoBase):
+
+class LimiteDiarioTests(ExportacaoBase):
     """AKA-76: no máximo 5 exportações por dia (de Brasília) por usuário,
     somando JSON e PDF, além do limite de 1 por minuto.
 

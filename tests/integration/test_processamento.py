@@ -324,6 +324,35 @@ class SemChamadaExternaTestCase(ProcessamentoBase):
         urls = {chamada.args[0] for chamada in post.call_args_list}
         self.assertEqual(urls, {"http://localhost:11434/api/embed"})
 
+    def test_ollama_na_vm_da_ia_da_rede_interna_processa(self):
+        """AKA-103: com o Ollama numa VM própria da rede, o documento é processado."""
+        doc = self.documento()
+        with (
+            mock.patch.object(
+                gerar_embeddings, "OLLAMA_URL", "http://192.168.15.7:11434"
+            ),
+            mock.patch.object(
+                gerar_embeddings.requests, "post", side_effect=_ollama_falso
+            ) as post,
+        ):
+            processamento.processar_documento(doc.pk)
+        doc.refresh_from_db()
+        self.assertEqual(doc.status_processamento, StatusProcessamento.CONCLUIDO)
+        urls = {chamada.args[0] for chamada in post.call_args_list}
+        self.assertEqual(urls, {"http://192.168.15.7:11434/api/embed"})
+
+    def test_ollama_em_ip_publico_nao_e_chamado(self):
+        doc = self.documento()
+        with (
+            mock.patch.object(
+                gerar_embeddings, "OLLAMA_URL", "http://34.120.1.9:11434"
+            ),
+            mock.patch.object(gerar_embeddings.requests, "post") as post,
+        ):
+            processamento.processar_documento(doc.pk)
+        post.assert_not_called()
+        self.assertErro(doc, "nem um IP da rede interna")
+
 
 class AprovacaoTestCase(ProcessamentoBase):
     def test_documento_aprovado_vira_trechos_sem_comando_manual(self):

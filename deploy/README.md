@@ -55,6 +55,42 @@ O usuário `deploy` só tem permissão de `sudo` para reiniciar o backend. Uma
 mudança em `akavision-backend.service` ou em `nginx-akavision.conf` não é
 aplicada pelo deploy automático: rode de novo o `instalar-vm.sh`.
 
+## Ollama em outra VM
+
+O back aceita o Ollama na própria VM (`localhost`) ou numa VM só da IA, na
+mesma rede interna. O `OLLAMA_URL` precisa ser o **IP** da VM da IA
+(192.168.x.x, 10.x.x.x ou 172.16-31.x.x): nome de domínio e IP público são
+recusados, porque a D1 proíbe chamada externa.
+
+O Ollama não tem senha. Por isso a VM da IA só deixa o back entrar na porta
+11434. Reserve no roteador o IP das duas VMs: se um deles mudar, a ligação
+quebra.
+
+Na VM da IA (troque `IP_DA_IA` e `IP_DO_BACK`):
+
+```bash
+sudo systemctl edit ollama
+# no editor, acrescente e salve:
+#   [Service]
+#   Environment="OLLAMA_HOST=IP_DA_IA:11434"
+sudo systemctl restart ollama
+sudo ufw allow from IP_DO_BACK to any port 11434 proto tcp
+```
+
+Na VM do back, no `/opt/akavision/backend/.env`:
+
+```bash
+OLLAMA_URL=http://IP_DA_IA:11434
+```
+
+```bash
+sudo systemctl restart akavision-backend
+curl -s http://IP_DA_IA:11434/api/version   # deve responder a versão do Ollama
+```
+
+O `testar_bge_m3_local.py` continua exigindo `localhost`: ele mede a CPU e
+a RAM da máquina onde roda, então deve ser rodado na própria VM da IA.
+
 ## Comandos úteis na VM
 
 ```bash

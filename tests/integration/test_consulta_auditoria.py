@@ -270,6 +270,14 @@ class FiltroTests(ConsultaAuditoriaBase):
                 if campo != "page":
                     self.assertEqual(self.get(URL_CSV, **params).status_code, 400)
 
+    def test_consultar_direto_com_acao_desconhecida_recusa(self):
+        # Sem passar por ler_filtros, a ação inválida ainda é recusada.
+        from core_api.services.consulta_auditoria import consultar
+        from core_api.services.consulta_documentos import ParametroInvalido
+
+        with self.assertRaises(ParametroInvalido):
+            consultar({"acao": "APAGAR_TUDO"})
+
 
 class ExportacaoCsvTests(ConsultaAuditoriaBase):
     def test_csv_do_resultado_filtrado_sem_paginacao(self):

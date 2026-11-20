@@ -142,12 +142,16 @@ def consultar(filtros):
             registro_id=Cast("documento_id", CharField()),
         )
 
-    # ler_filtros só aceita ação de uma das duas trilhas, então pelo menos
-    # uma das consultas existe.
-    if auditoria is not None and acessos is not None:
-        consulta = auditoria.union(acessos, all=True)
+    # ler_filtros só aceita ação de uma das duas trilhas; o erro abaixo só
+    # protege quem chamar consultar() sem passar por ele.
+    if auditoria is None and acessos is None:
+        raise ParametroInvalido("Ação inválida.", "acao")
+    if auditoria is None:
+        consulta = acessos
+    elif acessos is None:
+        consulta = auditoria
     else:
-        consulta = auditoria if auditoria is not None else acessos
+        consulta = auditoria.union(acessos, all=True)
     return consulta.order_by("-l_criado_em", "-l_id")
 
 

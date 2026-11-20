@@ -9,7 +9,6 @@ validação APONTA o problema quando o filtro falha, não só que passa quando
 tudo está certo.
 """
 
-import json
 import tempfile
 import uuid
 from io import StringIO
@@ -247,22 +246,17 @@ class CriteriosTests(PermissaoBase):
         self.assertIn("Atenção", terceiro["detalhe"])
         self.assertIn("CMP-001", terceiro["detalhe"])
 
-    def test_relatorio_markdown_csv_e_json(self):
+    def test_relatorio_markdown(self):
         dados = self.coletar()
         with tempfile.TemporaryDirectory() as pasta:
-            caminhos = validacao.gravar(dados, pasta)
-            md = caminhos["md"].read_text(encoding="utf-8")
-            csv_bruto = caminhos["csv"].read_bytes()
-            json_lido = json.loads(caminhos["json"].read_text(encoding="utf-8"))
+            caminho = validacao.gravar(dados, pasta)
+            md = caminho.read_text(encoding="utf-8")
 
+        self.assertEqual(caminho.suffix, ".md")
         self.assertIn("PASSOU", md)
         self.assertNotIn("REPROVOU", md)
         self.assertIn("Bloqueados para Carlos", md)
         self.assertIn("sem permissão em Compliance", md)
-        self.assertTrue(csv_bruto.startswith(b"\xef\xbb\xbf"))  # Excel pt-BR
-        self.assertIn(b"usuario;numero;origem", csv_bruto)
-        self.assertEqual(json_lido["pergunta"], PERGUNTA)
-        self.assertEqual(len(json_lido["usuarios"]), 2)
 
     def test_pipe_no_titulo_nao_quebra_a_tabela(self):
         self.assertEqual(validacao._celula("a | b\nc"), "a \\| b c")
@@ -323,7 +317,7 @@ class ComandoTests(PermissaoBase):
             saida, _ = self.rodar(pasta)
             arquivos = sorted(p.suffix for p in Path(pasta).iterdir())
 
-        self.assertEqual(arquivos, [".csv", ".json", ".md"])
+        self.assertEqual(arquivos, [".md"])
         self.assertIn("[PASSOU]", saida)
         self.assertIn("1 fonte(s) do sistema", saida)
 

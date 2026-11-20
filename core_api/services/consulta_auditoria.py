@@ -124,33 +124,30 @@ def consultar(filtros):
     """Queryset único (UNION) das duas trilhas, já filtrado e ordenado do
     mais recente para o mais antigo. Cada linha é um dict com COLUNAS."""
     acao = filtros.get("acao")
-    partes = []
+    auditoria = acessos = None
 
     if acao is None or acao in AcaoAuditoria.values:
-        auditoria = _filtrar(LogAuditoria.objects.all(), filtros, "usuario_id")
-        partes.append(
-            _colunas(
-                auditoria,
-                origem=Value(ORIGEM_AUDITORIA, CharField()),
-                entidade=F("entidade"),
-                registro_id=F("registro_id"),
-            )
+        auditoria = _colunas(
+            _filtrar(LogAuditoria.objects.all(), filtros, "usuario_id"),
+            origem=Value(ORIGEM_AUDITORIA, CharField()),
+            entidade=F("entidade"),
+            registro_id=F("registro_id"),
         )
 
     if acao is None or acao in AcaoAcesso.values:
-        acessos = _filtrar(LogAcesso.objects.all(), filtros, "usuario_id")
-        partes.append(
-            _colunas(
-                acessos,
-                origem=Value(ORIGEM_ACESSO, CharField()),
-                entidade=Value(EntidadeAuditoria.DOCUMENTO, CharField()),
-                registro_id=Cast("documento_id", CharField()),
-            )
+        acessos = _colunas(
+            _filtrar(LogAcesso.objects.all(), filtros, "usuario_id"),
+            origem=Value(ORIGEM_ACESSO, CharField()),
+            entidade=Value(EntidadeAuditoria.DOCUMENTO, CharField()),
+            registro_id=Cast("documento_id", CharField()),
         )
 
-    consulta = partes[0]
-    if len(partes) > 1:
-        consulta = consulta.union(partes[1], all=True)
+    # ler_filtros só aceita ação de uma das duas trilhas, então pelo menos
+    # uma das consultas existe.
+    if auditoria is not None and acessos is not None:
+        consulta = auditoria.union(acessos, all=True)
+    else:
+        consulta = auditoria if auditoria is not None else acessos
     return consulta.order_by("-l_criado_em", "-l_id")
 
 

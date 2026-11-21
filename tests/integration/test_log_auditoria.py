@@ -19,7 +19,6 @@ from django.db import transaction
 from django.test import Client, TransactionTestCase, override_settings
 
 from core_api.models import (
-    AcaoAcesso,
     AcaoAuditoria,
     AcaoValidacao,
     Area,
@@ -195,11 +194,10 @@ class FluxoCompletoTestCase(AuditoriaBase):
                 (admin, "APROVADO", HISTORICO, str(aprovacao.pk), []),
             ],
         )
-        # Consultar é visualização: vai para LogAcesso, não para a auditoria.
+        # Consultar o detalhe não grava nada: nem auditoria, nem acesso. A
+        # visualização é gravada uma vez só, no /visualizar/ (AKA-61).
         self.assertEqual(LogAuditoria.objects.count(), antes_da_consulta)
-        acesso = LogAcesso.objects.get(documento=doc)
-        self.assertEqual(str(acesso.usuario_id), admin)
-        self.assertEqual(acesso.acao, AcaoAcesso.VISUALIZACAO)
+        self.assertFalse(LogAcesso.objects.filter(documento=doc).exists())
 
     def test_log_guarda_usuario_acao_registro_e_data_hora(self):
         doc, _, _ = self.subir()

@@ -23,7 +23,6 @@ from django.views.decorators.http import require_http_methods
 from core_api.models import Documento
 from core_api.services import acesso_negado
 from core_api.services import consulta_documentos as consulta
-from core_api.services.auditoria import registrar_visualizacao
 from core_api.utils.jwt_auth import require_auth, require_role
 from credenciais.models import Papel
 
@@ -94,7 +93,7 @@ def detalhe_documento_view(request, documento_id):
         return _erro("Documento não encontrado.", 404)
     except acesso_negado.AcessoNaoAutorizado:
         return JsonResponse(acesso_negado.corpo(), status=403)
-    # Visualização vai para LogAcesso; o log de auditoria cobre as demais
-    # ações (AKA-31).
-    registrar_visualizacao(documento_id, usuario_id)
+    # Sem log aqui: o detalhe traz só metadados. A visualização do conteúdo
+    # é gravada uma vez, no /visualizar/ (AKA-61); gravar também aqui
+    # duplicava cada abertura no log de acesso.
     return JsonResponse(corpo, status=200)

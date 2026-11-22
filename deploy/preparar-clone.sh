@@ -21,11 +21,11 @@
 set -euo pipefail
 passo() { echo; echo "==> $*"; }
 erro() { echo "ERRO: $*" >&2; exit 1; }
-[ "$(id -u)" -eq 0 ] || erro "rode como root (sudo)."
+[[ $(id -u) -eq 0 ]] || erro "rode como root (sudo)."
 
 NOME="" PAPEL="" MAC=""
-while [ $# -gt 0 ]; do
-  [ $# -ge 2 ] || erro "$1 precisa de um valor depois dele."
+while [[ $# -gt 0 ]]; do
+  [[ $# -ge 2 ]] || erro "$1 precisa de um valor depois dele."
   case "$1" in
     --nome) NOME=$2 ;;
     --papel) PAPEL=$2 ;;
@@ -54,7 +54,7 @@ fi
 passo "machine-id novo (o DHCP passa a ver outra máquina)"
 rm -f /etc/machine-id /var/lib/dbus/machine-id
 systemd-machine-id-setup
-if [ -d /var/lib/dbus ]; then ln -sf /etc/machine-id /var/lib/dbus/machine-id; fi
+if [[ -d /var/lib/dbus ]]; then ln -sf /etc/machine-id /var/lib/dbus/machine-id; fi
 rm -f /var/lib/systemd/network/*lease* /var/lib/dhcp/*.leases 2>/dev/null || true
 
 passo "Chaves SSH novas desta VM"
@@ -63,11 +63,11 @@ ssh-keygen -A
 
 passo "Runner do GitHub copiado da original (removido só aqui)"
 for unidade in /etc/systemd/system/actions.runner.*.service; do
-  [ -e "$unidade" ] || continue
+  [[ -e $unidade ]] || continue
   pasta=$(sed -n 's/^WorkingDirectory=//p' "$unidade")
   systemctl disable --now "$(basename "$unidade")" >/dev/null 2>&1 || true
   rm -f "$unidade"
-  if [ -n "$pasta" ]; then
+  if [[ -n $pasta ]]; then
     rm -f "$pasta/.runner" "$pasta/.credentials" "$pasta/.credentials_rsaparams" "$pasta/.service"
   fi
   echo "  $(basename "$unidade") removido"
@@ -88,7 +88,7 @@ rm -f "$BACK/.env"
 rm -rf /opt/akavision/uploads
 systemctl daemon-reload
 
-if [ "$PAPEL" = ia ]; then
+if [[ $PAPEL == ia ]]; then
   passo "VM da IA: sem código, site nem usuário deploy"
   rm -rf /opt/akavision /var/www/akavision
   rm -f /etc/nginx/sites-enabled/akavision /etc/nginx/sites-available/akavision

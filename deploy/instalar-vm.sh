@@ -27,19 +27,19 @@
 set -euo pipefail
 passo() { echo; echo "==> $*"; }
 erro() { echo "ERRO: $*" >&2; exit 1; }
-[ "$(id -u)" -eq 0 ] || erro "rode como root (sudo)."
+[[ $(id -u) -eq 0 ]] || erro "rode como root (sudo)."
 
 PAPEL=${1:-tudo}
-[ $# -gt 0 ] && shift
+[[ $# -gt 0 ]] && shift
 IP_FRONT="" IP_BACK="" IP_IA="" URL_SITE=""
-while [ $# -gt 0 ]; do
-  [ $# -ge 2 ] || erro "$1 precisa de um valor depois dele."
+while [[ $# -gt 0 ]]; do
+  [[ $# -ge 2 ]] || erro "$1 precisa de um valor depois dele."
   case "$1" in
     --ip-front) IP_FRONT=$2 ;;
     --ip-back) IP_BACK=$2 ;;
     --ip-ia) IP_IA=$2 ;;
     --url-site)
-      [[ $2 =~ ^https?://[A-Za-z0-9.:-]+/?$ ]] || erro "--url-site: '$2' não é um endereço como http://192.168.15.10"
+      [[ $2 =~ ^https?://[A-Za-z0-9.:-]+/?$ ]] || erro "--url-site: '$2' não é o endereço de um site (protocolo, IP ou nome e porta opcional)."
       URL_SITE=${2%/}
       ;;
     *) erro "opção desconhecida: $1" ;;
@@ -48,8 +48,9 @@ while [ $# -gt 0 ]; do
 done
 
 precisa() {
-  [ -n "$2" ] || erro "o papel '$PAPEL' precisa de --$1 <IP>."
-  [[ $2 =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || erro "--$1: '$2' não é um IP."
+  local opcao=$1 valor=$2
+  [[ -n $valor ]] || erro "o papel '$PAPEL' precisa de --$opcao <IP>."
+  [[ $valor =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || erro "--$opcao: '$valor' não é um IP."
 }
 case "$PAPEL" in
   tudo) ;;
@@ -59,7 +60,10 @@ case "$PAPEL" in
   *) erro "papel '$PAPEL' desconhecido: use tudo, front, back ou ia." ;;
 esac
 # "tem back": esta VM faz o papel do back (sozinha ou junto com tudo).
-tem() { [ "$PAPEL" = tudo ] || [ "$PAPEL" = "$1" ]; }
+tem() {
+  local papel=$1
+  [[ $PAPEL == tudo || $PAPEL == "$papel" ]]
+}
 
 BASE=/opt/akavision
 BACK=$BASE/backend
@@ -81,17 +85,17 @@ if tem front || tem back; then
 
   # O repositório do back também traz os arquivos de deploy (nginx) do front.
   passo "Código do GitHub (branch develop)"
-  [ -d "$BACK/.git" ] || como_deploy "git clone -b develop https://github.com/DenariusData/API-6SEM-BACKEND.git $BACK"
+  [[ -d $BACK/.git ]] || como_deploy "git clone -b develop https://github.com/DenariusData/API-6SEM-BACKEND.git $BACK"
   como_deploy "git -C $BACK pull --ff-only"
   if tem front; then
-    [ -d "$FRONT/.git" ] || como_deploy "git clone -b develop https://github.com/DenariusData/API-6SEM-FRONTEND.git $FRONT"
+    [[ -d $FRONT/.git ]] || como_deploy "git clone -b develop https://github.com/DenariusData/API-6SEM-FRONTEND.git $FRONT"
     como_deploy "git -C $FRONT pull --ff-only"
   fi
 fi
 
 if tem back; then
   passo ".env do backend (senhas geradas aqui, nunca vão para o git)"
-  if [ ! -f "$BACK/.env" ]; then
+  if [[ ! -f $BACK/.env ]]; then
     PW_RAG=$(openssl rand -hex 24)
     PW_CRED=$(openssl rand -hex 24)
     cat > "$BACK/.env" <<ENV
@@ -117,13 +121,17 @@ ENV
   fi
   # Endereços: dependem do papel e são atualizados a cada execução.
   definir_env() {
-    if grep -q "^$1=" "$BACK/.env"; then
-      sed -i "s#^$1=.*#$1=$2#" "$BACK/.env"
+    local chave=$1 valor=$2
+    if grep -q "^$chave=" "$BACK/.env"; then
+      sed -i "s#^$chave=.*#$chave=$valor#" "$BACK/.env"
     else
-      echo "$1=$2" >> "$BACK/.env"
+      echo "$chave=$valor" >> "$BACK/.env"
     fi
   }
-  if [ "$PAPEL" = back ]; then
+  # http entre as VMs: o tráfego fica na rede interna (Rede NAT do
+  # VirtualBox) e o firewall de cada VM só aceita o IP de quem precisa
+  # dela. HTTPS entre VMs fica para quando houver certificado interno.
+  if [[ $PAPEL == back ]]; then
     # O nginx do front chama o back com o Host "<IP do back>:8000", seja
     # qual for o endereço que o navegador usou (IP do front ou do PC).
     definir_env ALLOWED_HOSTS "$IP,localhost,127.0.0.1"
@@ -150,7 +158,7 @@ ENV
   done
 
   passo "Python 3.12 e dependências do backend (uv)"
-  [ -x /home/deploy/.local/bin/uv ] || como_deploy "curl -LsSf https://astral.sh/uv/install.sh | sh"
+  [[ -x /home/deploy/.local/bin/uv ]] || como_deploy "curl -LsSf https://astral.sh/uv/install.sh | sh"
   como_deploy "cd $BACK && { [ -d .venv ] || ~/.local/bin/uv venv --python 3.12 .venv; } && ~/.local/bin/uv pip install --python .venv/bin/python -r requirements.txt"
 
   passo "Migrations e dados iniciais"
@@ -177,7 +185,7 @@ if tem front; then
 
   passo "Site no nginx"
   install -m 644 "$BACK/deploy/nginx-akavision.conf" /etc/nginx/sites-available/akavision
-  if [ "$PAPEL" = front ]; then
+  if [[ $PAPEL == front ]]; then
     # /api/ vai para a VM do back, com o Host fixo "<IP do back>:8000": o
     # ALLOWED_HOSTS do back não depende de como o navegador chegou ao site.
     sed -i -e "s#http://127.0.0.1:8000#http://$IP_BACK:8000#" \
@@ -197,7 +205,7 @@ if tem ia; then
   passo "Ollama"
   command -v ollama >/dev/null || erro "Ollama não instalado (ver deploy/README.md)."
   OVERRIDE=/etc/systemd/system/ollama.service.d/akavision.conf
-  if [ "$PAPEL" = ia ]; then
+  if [[ $PAPEL == ia ]]; then
     # Escuta na rede; o firewall abaixo deixa entrar só o IP do back.
     install -d "$(dirname "$OVERRIDE")"
     printf '[Service]\nEnvironment="OLLAMA_HOST=0.0.0.0:11434"\n' > "$OVERRIDE"
@@ -241,20 +249,23 @@ ufw default deny incoming >/dev/null
 ufw default allow outgoing >/dev/null
 ufw allow 22/tcp >/dev/null
 if tem front; then ufw allow 80/tcp >/dev/null; fi
-if [ "$PAPEL" = back ]; then ufw allow from "$IP_FRONT" to any port 8000 proto tcp >/dev/null; fi
-if [ "$PAPEL" = ia ]; then ufw allow from "$IP_BACK" to any port 11434 proto tcp >/dev/null; fi
+if [[ $PAPEL == back ]]; then ufw allow from "$IP_FRONT" to any port 8000 proto tcp >/dev/null; fi
+if [[ $PAPEL == ia ]]; then ufw allow from "$IP_BACK" to any port 11434 proto tcp >/dev/null; fi
 ufw --force enable >/dev/null
 ufw status | sed 's/^/  /'
 
 passo "Conferência"
 sleep 3
-http() { curl -s -m 10 -o /dev/null -w '%{http_code}' "$1" || true; }
+http() {
+  local url=$1
+  curl -s -m 10 -o /dev/null -w '%{http_code}' "$url" || true
+}
 if tem back; then
   systemctl is-active akavision-backend docker || true
   docker ps --format '{{.Names}}: {{.Status}}' || true
   echo "API: HTTP $(http http://127.0.0.1:8000/api/auth/me/) (401 = no ar)"
 fi
-if [ "$PAPEL" = back ]; then
+if [[ $PAPEL == back ]]; then
   echo "IA em $IP_IA: HTTP $(http "http://$IP_IA:11434/api/version") (200 = alcançável; 000 = VM da IA desligada ou sem liberar este IP)"
 fi
 if tem front; then
@@ -269,8 +280,9 @@ if tem ia; then
 fi
 echo
 case "$PAPEL" in
-  tudo) echo "PRONTO. Abra http://$IP no navegador de qualquer PC da rede." ;;
-  front) echo "PRONTO. Site em http://$IP (na Rede NAT do VirtualBox, pelo IP do PC: deploy/README.md)." ;;
-  back) echo "PRONTO. O site fica no front: ${URL_SITE:-http://$IP_FRONT}" ;;
-  ia) echo "PRONTO. Ollama em http://$IP:11434, aberto só para o back ($IP_BACK)." ;;
+  tudo) echo "PRONTO. Abra o IP $IP (porta 80) no navegador de qualquer PC da rede." ;;
+  front) echo "PRONTO. Site no IP $IP, porta 80 (na Rede NAT do VirtualBox, pelo IP do PC: deploy/README.md)." ;;
+  back) echo "PRONTO. O site fica no front: ${URL_SITE:-IP $IP_FRONT, porta 80}" ;;
+  ia) echo "PRONTO. Ollama no IP $IP, porta 11434, aberto só para o back ($IP_BACK)." ;;
+  *) echo "PRONTO." ;;
 esac

@@ -28,6 +28,7 @@ from core_api.models import (
     LogImutavelError,
     PerfilOperacional,
 )
+from core_api.services import visualizacao
 from core_api.services.auditoria import registrar_acao
 from credenciais.models import Usuario
 from tests.integration.test_log_auditoria import AuditoriaBase
@@ -218,6 +219,9 @@ class LogNaoGuardaDadoPessoalTests(LogImutavelBase):
         doc, _, _ = self.subir(autor=autor, identificador="DOC-LGPD")
         self.assertEqual(self.aprovar(doc).status_code, 200)
         self.assertEqual(self.consultar(doc, token).status_code, 200)
+        # A visualização é gravada pelo /visualizar/ (o detalhe não grava);
+        # aqui sem o PDF processado em disco, então pela mesma função da rota.
+        self.assertTrue(visualizacao.registrar_visualizacao(doc, dados["id"]))
 
         # O fluxo gerou linhas nos dois logs…
         self.assertTrue(

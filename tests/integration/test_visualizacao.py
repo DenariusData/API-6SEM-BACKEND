@@ -332,6 +332,19 @@ class LogDeAcessoTestCase(VisualizacaoBase):
         self.visualizar(self.token_autor)
         self.assertEqual(LogAcesso.objects.filter(documento=self.doc).count(), 2)
 
+    def test_abrir_documento_grava_uma_visualizacao_so(self):
+        # A tela abre o detalhe e o PDF; só o PDF conta como visualização.
+        detalhe = self.client.get(
+            f"/api/documents/{self.doc.id}/",
+            HTTP_AUTHORIZATION=f"Bearer {self.token_autor}",
+        )
+        self.assertEqual(detalhe.status_code, 200)
+        self.assertFalse(LogAcesso.objects.filter(documento=self.doc).exists())
+
+        self.visualizar(self.token_autor)
+
+        self.assertEqual(LogAcesso.objects.filter(documento=self.doc).count(), 1)
+
     def test_sem_permissao_nao_grava_log(self):
         _, token, _ = _usuario(ENG)
         self.visualizar(token)

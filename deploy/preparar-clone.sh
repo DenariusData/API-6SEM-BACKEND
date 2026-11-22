@@ -68,7 +68,12 @@ for unidade in /etc/systemd/system/actions.runner.*.service; do
   systemctl disable --now "$(basename "$unidade")" >/dev/null 2>&1 || true
   rm -f "$unidade"
   if [[ -n $pasta ]]; then
-    rm -f "$pasta/.runner" "$pasta/.credentials" "$pasta/.credentials_rsaparams" "$pasta/.service"
+    # .runner*, .credentials*: as versões novas do runner também guardam o
+    # registro em .runner_migrated e .credentials_migrated.
+    rm -f "$pasta"/.runner* "$pasta"/.credentials* "$pasta/.service"
+    if compgen -G "$pasta/.runner*" >/dev/null || compgen -G "$pasta/.credentials*" >/dev/null; then
+      erro "o registro do runner copiado continua em $pasta. Apague os arquivos .runner* e .credentials* antes de seguir."
+    fi
   fi
   echo "  $(basename "$unidade") removido"
 done

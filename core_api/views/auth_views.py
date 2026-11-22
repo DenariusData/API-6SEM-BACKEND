@@ -158,7 +158,8 @@ def exportar_dados_view(request):
     Baixa a copia dos dados pessoais do proprio usuario. A identidade vem do
     token, nunca da URL: nao ha como pedir os dados de outra pessoa.
     200 arquivo (attachment) · 400 formato invalido · 401 sem token ·
-    404 usuario nao encontrado · 429 mais de 1 exportacao por minuto.
+    404 usuario nao encontrado · 429 mais de 1 exportacao por minuto ou mais
+    de 5 no dia (Retry-After ate a meia-noite de Brasilia, AKA-76).
     """
     try:
         arquivo = exportacao_dados.exportar(

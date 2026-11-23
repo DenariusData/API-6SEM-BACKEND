@@ -27,6 +27,8 @@ segundo plano (services/processamento.py, AKA-62): a aprovação responde na
 hora, sem esperar.
 """
 
+import unicodedata
+
 from django.db import transaction
 from django.utils import timezone
 
@@ -92,7 +94,13 @@ def _exigir_aguardando(doc, verbo) -> None:
 def _resolver_nivel(nome) -> NivelSigilo:
     if not isinstance(nome, str) or not nome.strip():
         raise DadosInvalidos("Informe o nível de sigilo pelo nome.", "nivel_sigilo")
-    nivel = NivelSigilo.objects.filter(nome__iexact=nome.strip()).first()
+    # Aceita o nome com acento, como a tela mostra ("PÚBLICO"); no banco é "PUBLICO".
+    sem_acento = "".join(
+        c
+        for c in unicodedata.normalize("NFKD", nome.strip())
+        if not unicodedata.combining(c)
+    )
+    nivel = NivelSigilo.objects.filter(nome__iexact=sem_acento).first()
     if nivel is None:
         raise DadosInvalidos("Nível de sigilo inexistente.", "nivel_sigilo")
     return nivel

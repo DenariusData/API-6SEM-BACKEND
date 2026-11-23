@@ -28,7 +28,7 @@ PerfilOperacional: não precisa carregar o perfil para consultar.
 """
 
 from django.core.paginator import EmptyPage, Paginator
-from django.db.models import Count, OuterRef, Subquery, TextField
+from django.db.models import Count, F, OuterRef, Q, Subquery, TextField
 from django.db.models.functions import Coalesce
 
 from core_api.models import (
@@ -140,6 +140,25 @@ def meus_documentos(usuario_id, status=None):
                 "status",
             )
         qs = qs.filter(status_validacao=valor)
+    return qs
+
+
+def acervo_disponivel(usuario_id, busca=None):
+    """Acervo que `usuario_id` pode consultar (AKA-108): documentos
+    DISPONIVEIS em que ele tem permissão (área + nível de sigilo, a mesma regra
+    da IA, do detalhe e do visualizador), aprovado mais recente primeiro.
+    `busca` filtra por título ou código, sem diferenciar maiúsculas."""
+    qs = (
+        _base()
+        .disponiveis()
+        .permitidos_para(usuario_id)
+        .order_by(F("validado_em").desc(nulls_last=True), "-criado_em", "-id")
+    )
+    termo = (busca or "").strip()
+    if termo:
+        qs = qs.filter(
+            Q(titulo__icontains=termo) | Q(identificador_codigo__icontains=termo)
+        )
     return qs
 
 

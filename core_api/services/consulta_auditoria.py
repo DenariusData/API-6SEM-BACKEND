@@ -15,8 +15,10 @@ Filtros (todos opcionais e combináveis):
 
 O log guarda só o uuid (AKA-80). O nome é buscado em credenciais_db na hora
 de exibir, numa consulta por página (ou por lote, na exportação). Usuário
-excluído aparece como "Usuário removido"; linha sem usuário (login com
-e-mail inexistente, comando de manutenção) aparece como "Não identificado".
+excluído aparece como "Usuário removido". Linha sem usuário aparece como
+"Não identificado" quando é login com e-mail inexistente (alguém tentou
+entrar) e como "Sistema" nas demais, que são ações automáticas (como o
+processamento do documento para a IA depois da aprovação).
 
 Só leitura: nada aqui altera o log, que de qualquer forma é só de inclusão.
 """
@@ -47,6 +49,7 @@ FUSO_LEITURA = ZoneInfo("America/Sao_Paulo")
 
 USUARIO_REMOVIDO = "Usuário removido"
 SEM_USUARIO = "Não identificado"
+SISTEMA = "Sistema"
 
 # Rótulos das duas trilhas. Os códigos não se repetem entre elas.
 ROTULOS_ACAO = {**dict(AcaoAuditoria.choices), **dict(AcaoAcesso.choices)}
@@ -177,9 +180,9 @@ def _sem_prefixo(linha):
     return {c: linha[f"l_{c}"] for c in COLUNAS}
 
 
-def _nome(usuario_id, nomes):
+def _nome(usuario_id, nomes, acao=None):
     if usuario_id is None:
-        return SEM_USUARIO
+        return SEM_USUARIO if acao == AcaoAuditoria.LOGIN_FALHOU else SISTEMA
     return nomes.get(usuario_id, USUARIO_REMOVIDO)
 
 
@@ -192,7 +195,7 @@ def serializar(linhas):
             "id": f"{linha['origem']}-{linha['id']}",
             "criado_em": linha["criado_em"].isoformat(),
             "usuario_id": str(linha["usuario_id"]) if linha["usuario_id"] else None,
-            "usuario_nome": _nome(linha["usuario_id"], nomes),
+            "usuario_nome": _nome(linha["usuario_id"], nomes, linha["acao"]),
             "acao": linha["acao"],
             "acao_rotulo": ROTULOS_ACAO.get(linha["acao"], linha["acao"]),
             "entidade": linha["entidade"],

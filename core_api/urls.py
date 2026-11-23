@@ -5,6 +5,7 @@ Configuração de URLs para a app core_api.
 from django.urls import path
 
 from core_api.views import (
+    acervo_view,
     aprovar_documento_view,
     areas_view,
     confirmar_email_view,
@@ -130,6 +131,11 @@ urlpatterns = [
         "documents/meus/",
         meus_documentos_view,
         name="document_meus",
+    ),
+    path(
+        "documents/disponiveis/",
+        acervo_view,
+        name="document_acervo",
     ),
     path(
         "documents/<uuid:documento_id>/",

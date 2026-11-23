@@ -64,6 +64,41 @@ def _autenticar(request):
     return payload, None
 
 
+TERMOS_PENDENTES = "TERMOS_PENDENTES"
+
+
+def sem_exigir_termos(view_func):
+    """Marca a view como liberada antes do aceite dos termos obrigatórios
+    (AKA-109): as rotas de termos e as de dados do titular."""
+    view_func.sem_exigir_termos = True
+    return view_func
+
+
+def _bloqueio_por_termos(view_func, payload):
+    """403 enquanto o usuário tiver termo obrigatório sem aceite (AKA-109).
+    Desligável por TERMOS_EXIGIR_ACEITE (os testes que não tratam de termos
+    rodam com ele desligado)."""
+    if not getattr(settings, "TERMOS_EXIGIR_ACEITE", True):
+        return None
+    if getattr(view_func, "sem_exigir_termos", False):
+        return None
+    from core_api.services import termos  # import tardio: evita ciclo com os models
+
+    try:
+        pendente = termos.tem_obrigatorio_pendente(payload.get("sub"))
+    except (ValueError, TypeError):
+        return None
+    if not pendente:
+        return None
+    return JsonResponse(
+        {
+            "detail": "Aceite os termos obrigatórios para continuar.",
+            "codigo": TERMOS_PENDENTES,
+        },
+        status=403,
+    )
+
+
 def require_auth(view_func):
     """
     Exige um JWT válido no header 'Authorization: Bearer <token>'.
@@ -76,6 +111,9 @@ def require_auth(view_func):
         payload, erro = _autenticar(request)
         if erro:
             return erro
+        bloqueio = _bloqueio_por_termos(view_func, payload)
+        if bloqueio:
+            return bloqueio
         request.auth_user = payload
         return view_func(request, *args, **kwargs)
 
@@ -102,6 +140,9 @@ def require_role(*papeis_permitidos):
                     {"detail": "Você não tem permissão para acessar este recurso."},
                     status=403,
                 )
+            bloqueio = _bloqueio_por_termos(view_func, payload)
+            if bloqueio:
+                return bloqueio
             request.auth_user = payload
             return view_func(request, *args, **kwargs)
 

@@ -8,13 +8,19 @@ from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
+from core_api.services import termos
 from core_api.services.auth import dados_pessoais, exclusao_conta, exportacao_dados
 from core_api.services.auth.autenticacao import (
     ERRO_USUARIO_BLOQUEADO,
     AuthService,
     CadastroInvalido,
 )
-from core_api.utils.jwt_auth import generate_token, require_auth, require_role
+from core_api.utils.jwt_auth import (
+    generate_token,
+    require_auth,
+    require_role,
+    sem_exigir_termos,
+)
 from credenciais.models import Usuario
 
 UNIFIED_AUTH_ERROR_MSG = (
@@ -66,12 +72,15 @@ def login_view(request):
         )
 
     token = generate_token(user)
+    # AKA-109: o front só mostra a tela de termos se houver pendência.
+    user["termos_pendentes"] = termos.pendentes(user["id"]).exists()
 
     return JsonResponse(
         {
             "message": "Autenticação efetuada com sucesso!",
             "user": user,
             "token": token,
+            "termos_pendentes": user["termos_pendentes"],
         },
         status=200,
     )
@@ -96,6 +105,7 @@ def _json_objeto(request):
 @csrf_exempt
 @require_http_methods(["GET", "PATCH", "DELETE"])
 @require_auth
+@sem_exigir_termos
 def profile_view(request):
     """
     GET   /api/auth/me/  dados do perfil logado (inclui `email_pendente`).
@@ -192,6 +202,7 @@ def _alterar_dados_pessoais(request):
 @csrf_exempt
 @require_http_methods(["GET"])
 @require_auth
+@sem_exigir_termos
 def exportar_dados_view(request):
     """
     GET /api/auth/me/exportar/?formato=json|pdf  (AKA-75, LGPD art. 18)

@@ -5,6 +5,7 @@ Configuração de URLs para a app core_api.
 from django.urls import path
 
 from core_api.views import (
+    aceite_termos_view,
     acervo_view,
     aprovar_documento_view,
     areas_view,
@@ -17,6 +18,7 @@ from core_api.views import (
     login_view,
     logs_auditoria_view,
     meus_documentos_view,
+    meus_termos_view,
     niveis_sigilo_view,
     pagina_documento_view,
     pendentes_view,
@@ -25,6 +27,8 @@ from core_api.views import (
     reenviar_confirmacao_view,
     reenviar_documento_view,
     responsaveis_view,
+    termos_admin_view,
+    termos_pendentes_view,
     tipos_documento_view,
     upload_document_view,
     user_detail_view,
@@ -61,6 +65,13 @@ urlpatterns = [
         reenviar_confirmacao_view,
         name="auth_reenviar_confirmacao",
     ),
+    # =====================================================
+    # TERMOS E CONSENTIMENTO (AKA-109)
+    # =====================================================
+    path("termos/", termos_admin_view, name="termos_admin"),
+    path("auth/termos/", meus_termos_view, name="auth_termos"),
+    path("auth/termos-pendentes/", termos_pendentes_view, name="auth_termos_pendentes"),
+    path("auth/termos/aceite/", aceite_termos_view, name="auth_termos_aceite"),
     path(
         "auth/users/",
         user_management_view,

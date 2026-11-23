@@ -11,6 +11,7 @@ from core_api.models.historico_validacao import (
     HistoricoImutavelError,
     HistoricoValidacao,
 )
+from core_api.models.integridade_arquivo import IntegridadeArquivo
 from core_api.models.log_acesso import AcaoAcesso, LogAcesso
 from core_api.models.log_auditoria import (
     AcaoAuditoria,
@@ -32,6 +33,7 @@ from core_api.models.taxonomia import (
 )
 
 __all__ = [
+    "IntegridadeArquivo",
     "Area",
     "Categoria",
     "Subcategoria",

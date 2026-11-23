@@ -23,6 +23,7 @@ from django.conf import settings
 from PIL import Image, ImageDraw, ImageFont
 
 from core_api.models import AcaoAcesso, LogAcesso, PerfilOperacional
+from core_api.services import alertas
 
 DPI = 150
 OPACIDADE_MARCA = 51  # ~20% de 255
@@ -170,4 +171,6 @@ def registrar_visualizacao(documento, usuario_id) -> bool:
         usuario=perfil,
         acao=AcaoAcesso.VISUALIZACAO,
     )
+    # Muitos acessos em pouco tempo podem ser download em massa (AKA-78).
+    alertas.verificar_acessos(perfil.pk)
     return True

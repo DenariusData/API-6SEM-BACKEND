@@ -26,6 +26,7 @@ from core_api.models import (
     PerfilOperacional,
     UsuarioPermissaoArea,
 )
+from core_api.services import alertas
 from core_api.services.auditoria import registrar_acao
 from credenciais.models import Papel, Usuario
 
@@ -189,6 +190,9 @@ class AuthService:
         if not usuario.verificar_senha(senha):
             usuario.registrar_falha_login(MAX_TENTATIVAS_LOGIN, MINUTOS_BLOQUEIO)
             if usuario.esta_bloqueado:
+                # Acabou de ser bloqueado (antes desta tentativa não estava):
+                # avisa o administrador (AKA-78).
+                alertas.enviar_alerta(alertas.LOGIN_BLOQUEADO, usuario.id)
                 return usuario, ERRO_USUARIO_BLOQUEADO
             return usuario, ERRO_CREDENCIAIS_INVALIDAS
 

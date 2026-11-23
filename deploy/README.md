@@ -165,6 +165,19 @@ Ollama.
 O `testar_bge_m3_local.py` continua exigindo `localhost`: ele mede a CPU e
 a RAM da máquina onde roda, então deve ser rodado na própria VM da IA.
 
+## Verificação de integridade dos arquivos (AKA-78)
+
+Na VM do back, agende o comando que confere o hash dos PDFs e avisa o
+administrador por e-mail se muitos arquivos mudarem ou sumirem de uma vez
+(possível ransomware). `crontab -e` com o usuário do serviço:
+
+```
+0 * * * * cd /opt/akavision/backend && .venv/bin/python manage.py verificar_integridade_arquivos >> /var/log/akavision-integridade.log 2>&1
+```
+
+Ajuste o caminho para onde o back está instalado. Para o e-mail sair de
+verdade, configure `EMAIL_BACKEND` e as variáveis `EMAIL_*` no `.env`.
+
 ## Comandos úteis na VM
 
 ```bash

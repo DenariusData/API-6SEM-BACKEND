@@ -28,6 +28,12 @@ from core_api.views.opcoes_upload_views import (
 from core_api.views.pergunta_views import (
     pergunta_view,
 )
+from core_api.views.termos_views import (
+    aceite_termos_view,
+    meus_termos_view,
+    termos_admin_view,
+    termos_pendentes_view,
+)
 from core_api.views.validacao_views import (
     aprovar_documento_view,
     devolver_documento_view,
@@ -38,6 +44,10 @@ from core_api.views.visualizacao_views import (
 )
 
 __all__ = [
+    "aceite_termos_view",
+    "meus_termos_view",
+    "termos_admin_view",
+    "termos_pendentes_view",
     "user_detail_view",
     "login_view",
     "profile_view",

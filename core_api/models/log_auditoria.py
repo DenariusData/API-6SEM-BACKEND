@@ -49,6 +49,9 @@ class AcaoAuditoria(models.TextChoices):
     )
     # AKA-78: atividade suspeita detectada e avisada ao administrador.
     ALERTA_SEGURANCA = "ALERTA_SEGURANCA", "Alerta de segurança"
+    # AKA-109: resposta do usuário a um termo (aceite, recusa ou revogação).
+    TERMO_ACEITO = "TERMO_ACEITO", "Termo aceito"
+    TERMO_RECUSADO = "TERMO_RECUSADO", "Termo recusado ou revogado"
 
 
 class EntidadeAuditoria(models.TextChoices):
@@ -56,6 +59,7 @@ class EntidadeAuditoria(models.TextChoices):
     DOCUMENTO_AREA = "DOCUMENTO_AREA", "Área do documento"
     HISTORICO_VALIDACAO = "HISTORICO_VALIDACAO", "Histórico de validação"
     USUARIO = "USUARIO", "Usuário"
+    TERMO = "TERMO", "Termo"
 
 
 class LogAuditoria(LogImutavelMixin):

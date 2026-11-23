@@ -31,8 +31,11 @@ from core_api.models.taxonomia import (
     Subcategoria,
     TipoDocumento,
 )
+from core_api.models.termo import AceiteTermo, Termo
 
 __all__ = [
+    "AceiteTermo",
+    "Termo",
     "IntegridadeArquivo",
     "Area",
     "Categoria",

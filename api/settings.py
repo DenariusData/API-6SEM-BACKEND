@@ -240,3 +240,12 @@ ALERTA_ACESSOS_LIMITE = int(os.getenv("ALERTA_ACESSOS_LIMITE", "30"))
 ALERTA_ACESSOS_JANELA_MIN = int(os.getenv("ALERTA_ACESSOS_JANELA_MIN", "10"))
 # Mais de Y% dos arquivos alterados ou sumidos desde a última checagem = alerta.
 ALERTA_INTEGRIDADE_PERCENTUAL = float(os.getenv("ALERTA_INTEGRIDADE_PERCENTUAL", "20"))
+
+# -- Termos (AKA-109) -----------------------------------------------------
+# Enquanto houver termo obrigatório sem aceite, as rotas protegidas
+# respondem 403 (codigo TERMOS_PENDENTES).
+TERMOS_EXIGIR_ACEITE = os.getenv("TERMOS_EXIGIR_ACEITE", "True").lower() in (
+    "1",
+    "true",
+    "yes",
+)

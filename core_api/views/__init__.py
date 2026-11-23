@@ -11,6 +11,7 @@ from core_api.views.auth_views import (
     user_management_view,
 )
 from core_api.views.consulta_views import (
+    acervo_view,
     detalhe_documento_view,
     meus_documentos_view,
     pendentes_view,
@@ -49,6 +50,7 @@ __all__ = [
     "devolver_documento_view",
     "pendentes_view",
     "meus_documentos_view",
+    "acervo_view",
     "detalhe_documento_view",
     "tipos_documento_view",
     "areas_view",

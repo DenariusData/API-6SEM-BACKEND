@@ -5,14 +5,15 @@ chama a IA e devolve a resposta com as fontes.
 
 import json
 import logging
+import uuid
 
 from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from core_api.models import RegistroPergunta
 from core_api.services.rag.pergunta import ErroIA, responder_pergunta
+from core_api.services.rag.registro import registrar_pergunta
 from core_api.utils.jwt_auth import require_auth
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,12 @@ def pergunta_view(request):
         data = json.loads(request.body.decode("utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError):
         return JsonResponse({"detail": "Dados de requisição inválidos."}, status=400)
+
+    # Quem pergunta define o que a IA pode usar: o id vem só do token.
+    try:
+        usuario_id = uuid.UUID(str(request.auth_user["sub"]))
+    except (KeyError, ValueError):
+        return JsonResponse({"detail": "Token inválido."}, status=401)
 
     pergunta = str(data.get("pergunta", "")).strip()
     if not pergunta:
@@ -56,7 +63,7 @@ def pergunta_view(request):
         return JsonResponse({"detail": detalhe}, status=400)
 
     try:
-        resultado = responder_pergunta(pergunta, idioma=idioma)
+        resultado = responder_pergunta(pergunta, idioma=idioma, usuario_id=usuario_id)
     except ErroIA:
         logger.exception("Falha ao responder a pergunta")
         return JsonResponse(
@@ -68,16 +75,8 @@ def pergunta_view(request):
         )
 
     tempos = resultado["tempos_ms"]
-    RegistroPergunta.objects.create(
-        usuario_id=request.auth_user.get("sub"),
-        pergunta=pergunta,
-        idioma=idioma,
-        encontrou=resultado["encontrou"],
-        quantidade_fontes=len(resultado["fontes"]),
-        tempo_busca_ms=tempos["busca"],
-        tempo_ia_ms=tempos["ia"],
-        tempo_total_ms=tempos["total"],
-    )
+    # Pergunta + origem da resposta (trechos, interpretação, modelos): AKA-24
+    registrar_pergunta(request.auth_user.get("sub"), pergunta, idioma, resultado)
     logger.info(
         "Pergunta [%s] respondida em %d ms (busca %d ms, IA %d ms, encontrou=%s)",
         idioma,

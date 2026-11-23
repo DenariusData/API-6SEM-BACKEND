@@ -9,10 +9,12 @@ Regras (todas aqui, no backend):
     de devolução; filtro opcional por status_validacao. A resposta traz
     também `contagens` por status (sem o filtro), numa consulta só, para a
     tela não precisar de uma chamada por filtro (AKA-63);
-  - detalhe: documento DISPONIVEL é visto por qualquer usuário autenticado;
-    documento em outro estado só pelo autor e pelos validadores
-    (ADMINISTRADOR). Para os demais é como se não existisse (404, nunca 403,
-    para não confirmar que o id existe);
+  - detalhe (e visualizador): documento DISPONIVEL só por quem tem permissão
+    de acesso a ele (S2-26: alguma área do documento com nível de sigilo
+    máximo igual ou acima do sigilo do documento) e pelo autor, que já tem o
+    arquivo; documento em outro estado só pelo autor e pelos validadores
+    (ADMINISTRADOR). Os demais recebem só "acesso não autorizado" (403, D11:
+    existência mínima, ver services/acesso_negado.py); id inexistente é 404;
   - listas paginadas, 20 por página;
   - pessoas aparecem só pelo NOME, nunca com e-mail.
 
@@ -35,6 +37,7 @@ from core_api.models import (
     HistoricoValidacao,
     StatusValidacao,
 )
+from core_api.services.acesso_negado import AcessoNaoAutorizado
 from credenciais.models import Papel, Usuario
 
 TAMANHO_PAGINA = 20
@@ -182,16 +185,22 @@ def serializar_lista(documentos, com_ultimo_comentario=False):
 
 # -- detalhe ------------------------------------------------------------
 def pode_ver(documento, usuario_id, papel_codigo) -> bool:
+    if usuario_id is not None and documento.usuario_upload_id == usuario_id:
+        return True
     if documento.status_validacao == StatusValidacao.DISPONIVEL:
-        return True
-    if papel_codigo == Papel.ADMINISTRADOR:
-        return True
-    return usuario_id is not None and documento.usuario_upload_id == usuario_id
+        # Papel não conta: permissão é por usuário + área + sigilo, sem herança.
+        return (
+            Documento.objects.filter(pk=documento.pk)
+            .permitidos_para(usuario_id)
+            .exists()
+        )
+    return papel_codigo == Papel.ADMINISTRADOR
 
 
 def detalhe(documento_id, usuario_id, papel_codigo) -> dict:
     """Metadados + histórico (por data). Levanta Documento.DoesNotExist se o
-    documento não existe OU se o usuário não pode vê-lo (mesmo 404)."""
+    documento não existe e AcessoNaoAutorizado se existe mas o usuário não
+    pode vê-lo. Nada do documento sai antes dessa checagem."""
     doc = Documento.objects.select_related(
         "tipo_documento",
         "nivel_sigilo",
@@ -200,7 +209,7 @@ def detalhe(documento_id, usuario_id, papel_codigo) -> dict:
         "subcategoria",
     ).get(pk=documento_id)
     if not pode_ver(doc, usuario_id, papel_codigo):
-        raise Documento.DoesNotExist
+        raise AcessoNaoAutorizado
 
     historico = list(
         HistoricoValidacao.objects.filter(documento=doc)

@@ -19,7 +19,6 @@ from django.db import transaction
 from django.test import Client, TransactionTestCase, override_settings
 
 from core_api.models import (
-    AcaoAcesso,
     AcaoAuditoria,
     AcaoValidacao,
     Area,
@@ -41,6 +40,7 @@ from core_api.services.auditoria import registrar_acao
 from core_api.services.auth.autenticacao import AuthService
 from core_api.utils.jwt_auth import generate_token
 from core_api.utils.usuario_atual import com_usuario, get_usuario_atual
+from tests.integration.permissao import liberar
 
 ADMIN = "ADMINISTRADOR"
 DOC = EntidadeAuditoria.DOCUMENTO
@@ -172,6 +172,9 @@ class FluxoCompletoTestCase(AuditoriaBase):
             documento=doc, acao=AcaoValidacao.APROVADO
         )
         antes_da_consulta = LogAuditoria.objects.count()
+        # Disponível: consultar exige permissão (S2-26). Conceder não gera
+        # linha de auditoria (só documento, área e histórico geram).
+        liberar(PerfilOperacional.objects.get(pk=self.admin["id"]), doc)
         self.assertEqual(self.consultar(doc, self.token_admin).status_code, 200)
 
         autor, admin = self.autor["id"], self.admin["id"]
@@ -191,11 +194,10 @@ class FluxoCompletoTestCase(AuditoriaBase):
                 (admin, "APROVADO", HISTORICO, str(aprovacao.pk), []),
             ],
         )
-        # Consultar é visualização: vai para LogAcesso, não para a auditoria.
+        # Consultar o detalhe não grava nada: nem auditoria, nem acesso. A
+        # visualização é gravada uma vez só, no /visualizar/ (AKA-61).
         self.assertEqual(LogAuditoria.objects.count(), antes_da_consulta)
-        acesso = LogAcesso.objects.get(documento=doc)
-        self.assertEqual(str(acesso.usuario_id), admin)
-        self.assertEqual(acesso.acao, AcaoAcesso.VISUALIZACAO)
+        self.assertFalse(LogAcesso.objects.filter(documento=doc).exists())
 
     def test_log_guarda_usuario_acao_registro_e_data_hora(self):
         doc, _, _ = self.subir()

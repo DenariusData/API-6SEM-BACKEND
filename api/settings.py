@@ -29,7 +29,11 @@ load_dotenv(BASE_DIR / ".env")
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-(f%8_n)c8yhv_3s0n*ex6+#l1xy@sv3l+f5y%hs^y(g%sa(-!b"
+# Em produção (VM) a chave vem do .env; o valor abaixo só vale para dev.
+SECRET_KEY = os.getenv(
+    "SECRET_KEY",
+    "django-insecure-(f%8_n)c8yhv_3s0n*ex6+#l1xy@sv3l+f5y%hs^y(g%sa(-!b",
+)
 
 # JWT usado para autenticar as chamadas da API (core_api.utils.jwt_auth).
 # Em produção, JWT_SECRET DEVE vir de variável de ambiente própria,
@@ -39,9 +43,15 @@ JWT_SECRET = os.getenv("JWT_SECRET", SECRET_KEY)
 JWT_EXP_MINUTES = int(os.getenv("JWT_EXP_MINUTES", "60"))
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Padrão True para o dev continuar igual; na VM o .env define DEBUG=False.
+DEBUG = os.getenv("DEBUG", "True").strip().lower() in ("1", "true", "yes")
 
-ALLOWED_HOSTS = []
+# Endereços pelos quais o sistema pode ser acessado, separados por vírgula
+# (ex.: ALLOWED_HOSTS=192.168.15.5,localhost). Vazio com DEBUG=True aceita
+# localhost, como antes.
+ALLOWED_HOSTS = [
+    host.strip() for host in os.getenv("ALLOWED_HOSTS", "").split(",") if host.strip()
+]
 
 
 # Application definition

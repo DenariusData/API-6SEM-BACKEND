@@ -4,36 +4,40 @@ Backend do **AkaVision** — Classificador de Documentos Técnicos, projeto inte
 
 ## Stack
 
-- **Linguagem:** Python
+- **Linguagem:** Python 3.12
+- **Framework web:** Django 5.2 (API REST com JSON e autenticação JWT)
+- **Bancos de dados:** dois PostgreSQL via Docker Compose: o de documentos com **pgvector** (busca vetorial) e o de credenciais, separado por LGPD
 - **Modelos de IA:** locais via Ollama (bge-m3 para embeddings, Llama 3.2 para respostas), sem chamadas a serviços externos (restrição do projeto)
-- **Banco de dados:** PostgreSQL com pgvector, via Docker Compose
-- _Framework web a confirmar com o time e documentar aqui assim que definido_
+- **Qualidade:** pytest (testes unitários e de integração), Ruff (lint e formatação), pre-commit, GitHub Actions e SonarQube Cloud
 
 ## Como rodar localmente
 
+Resumo abaixo. O passo a passo completo, com o frontend, a IA local e os problemas comuns, está no [Manual de Instalação](https://github.com/DenariusData/API-6SEM/blob/develop/docs/manual-instalacao.md).
+
 ```bash
-# 1. Clone o repositório (ou entre na pasta, se já estiver como submódulo do API-6SEM)
-git clone https://github.com/DenariusData/API-6SEM-BACKEND.git
-cd API-6SEM-BACKEND
+# 1. Ambiente virtual e dependências
+python -m venv venv
+.\venv\Scripts\Activate.ps1      # Windows (PowerShell)
+source venv/bin/activate          # Linux/Mac
+pip install -r requirements-dev.txt
 
-# 2. Crie e ative um ambiente virtual
-python -m venv .venv
-source .venv/bin/activate      # Linux/Mac
-.venv\Scripts\activate         # Windows
+# 2. Variáveis de ambiente: copie e preencha (bancos, JWT, Ollama)
+cp .env.example .env              # Windows: copy .env.example .env
 
-# 3. Instale as dependências
-pip install -r requirements.txt
-
-# 4. Configure as variáveis de ambiente
-cp .env.example .env
-# edite o .env com os valores da sua máquina
-
-# 5. Suba o banco de dados
+# 3. Bancos (com o Docker Desktop aberto)
 docker compose up -d
 
-# 6. Rode a aplicação
-# (comando a definir assim que o framework for escolhido)
+# 4. Tabelas e dados iniciais
+python manage.py migrate
+python manage.py migrate --database credenciais_db
+python manage.py seed_taxonomia
+python manage.py seed_usuarios_demo
+
+# 5. Rodar
+python manage.py runserver        # http://localhost:8000
 ```
+
+Testes: `pytest tests` (com os bancos no ar). Rotas da API: [Documentação da API](https://github.com/DenariusData/API-6SEM/blob/develop/docs/api.md).
 
 ## Pipeline RAG (EverySpec)
 
@@ -55,14 +59,21 @@ PDFs, textos extraídos, trechos e o arquivo `.npz` ficam fora do Git. O `.npz` 
 
 ## Fluxo de contribuição
 
-1. Crie uma branch a partir de `develop`: `feature/nome-da-tarefa`
-2. Commits e título do PR seguem [Conventional Commits](https://www.conventionalcommits.org), em inglês: `feat:`, `fix:`, `docs:`, `chore:`, `test:`
-3. Abra o PR contra `develop` — exige 1 aprovação, CI verde e título validado
-4. Merge sempre via **Squash and merge**
+1. Instale os hooks uma vez por clone (validam nome da branch, mensagem de commit e lint):
+   ```bash
+   pip install pre-commit
+   pre-commit install --hook-type pre-commit --hook-type commit-msg
+   ```
+2. Crie a branch a partir de `develop` com o código da task do Jira: `<tipo>/AKA-<número>-descricao-curta` (ex.: `feature/AKA-55-ai-response-language-support`)
+3. Commits em inglês no formato `<tipo>: AKA-<número> <descrição>` (ex.: `feat: AKA-95 add script to test bge-m3 locally`)
+4. Abra o PR contra `develop` com o título no mesmo formato, descrição começando com maiúscula (ex.: `feat: AKA-55 Add language support for AI response`), e preencha o template
+5. Para o merge: CI verde, 1 aprovação e título validado. Merge sempre via **Squash and merge**
+
+Padrão completo (tipos aceitos, exemplos e regras): [Project Guidelines no API-6SEM](https://github.com/DenariusData/API-6SEM#project-guidelines).
 
 ## CI
 
-O workflow `Backend CI` roda em todo PR/push para `main` e `develop`: instala dependências e executa lint (`ruff`).
+O workflow `Backend CI` roda em todo PR e push para `main` e `develop`: lint (`ruff`), testes unitários, testes de integração com PostgreSQL e análise no SonarQube Cloud (cobertura e qualidade).
 
 ## Links
 

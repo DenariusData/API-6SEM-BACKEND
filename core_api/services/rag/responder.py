@@ -18,6 +18,7 @@ import json
 import os
 import sys
 import textwrap
+import uuid
 from pathlib import Path
 
 import requests
@@ -34,28 +35,45 @@ FRASES_NAO_ENCONTROU = {
     "en": "I did not find this information in the consulted documents.",
 }
 
+# AKA-22: a resposta se apoia só nos trechos recuperados. Sem evidência, o
+# modelo devolve apenas a frase de "não encontrei" (pergunta.py reconhece a
+# frase no início da resposta); com evidência parcial, responde a parte que
+# está nos trechos e diz o que não consta, sem usar a frase. Toda afirmação
+# cita o trecho: resposta sem citação válida é tratada como sem base.
 PROMPTS_SISTEMA = {
-    "pt-BR": """Você é um assistente técnico que responde perguntas sobre normas e especificações técnicas.
+    "pt-BR": """Você é um assistente técnico que responde perguntas sobre normas e especificações técnicas usando apenas os trechos de documentos enviados na mensagem.
 
 Regras:
 - Responda sempre em português do Brasil, mesmo que os trechos estejam em inglês.
 - Use SOMENTE as informações dos trechos fornecidos. Não use conhecimento próprio.
-- Se os trechos não tiverem a resposta, diga: "Não encontrei essa informação nos documentos consultados."
-- Indique a fonte de cada informação com o número do trecho entre colchetes, por exemplo [1] ou [2].
+- Não complete lacunas nem faça suposições, estimativas, generalizações ou cálculos que não estejam escritos nos trechos.
+- Se os trechos não tiverem a resposta, responda apenas: "Não encontrei essa informação nos documentos consultados." e não escreva mais nada.
+- Se os trechos responderem só parte da pergunta, responda essa parte e diga claramente o que os trechos não informam.
+- Comece pela conclusão objetiva, em uma ou duas frases; depois, se necessário, liste os pontos que a sustentam.
+- Indique a fonte de cada informação com o número do trecho entre colchetes, por exemplo [1] ou [2]. Toda afirmação precisa de pelo menos uma fonte.
 - Mantenha siglas, códigos e números exatamente como no original (ex.: CA0532-PO, ASTM D3039, 144 horas).
 - Trechos citados devem permanecer no idioma original do documento.
 - Seja objetivo.""",
-    "en": """You are a technical assistant that answers questions about technical standards and specifications.
+    "en": """You are a technical assistant that answers questions about technical standards and specifications using only the document excerpts sent in the message.
 
 Rules:
 - Answer always in English, even if the excerpts or question are in Portuguese or another language.
 - Use ONLY the information from the provided excerpts. Do not use your own knowledge.
-- If the excerpts do not have the answer, say: "I did not find this information in the consulted documents."
-- Indicate the source of each information with the excerpt number in brackets, for example [1] or [2].
+- Do not fill gaps or make assumptions, estimates, generalizations or calculations that are not written in the excerpts.
+- If the excerpts do not have the answer, reply only: "I did not find this information in the consulted documents." and write nothing else.
+- If the excerpts answer only part of the question, answer that part and state clearly what the excerpts do not say.
+- Start with the objective conclusion, in one or two sentences; then, if needed, list the points that support it.
+- Indicate the source of each information with the excerpt number in brackets, for example [1] or [2]. Every statement needs at least one source.
 - Keep acronyms, codes and numbers exactly as in the original (e.g.: CA0532-PO, ASTM D3039, 144 hours).
 - Cited excerpts must remain in the original language of the document.
 - Be objective.""",
 }
+
+
+# Temperatura 0: o modelo escolhe sempre a palavra mais provável, sem
+# variação criativa. Menos chance de inventar e mesma resposta para a mesma
+# pergunta e os mesmos trechos.
+OPCOES_LLM = {"temperature": 0, "num_ctx": 4096}
 
 
 def montar_prompt_sistema(idioma="pt-BR"):
@@ -81,9 +99,10 @@ def ollama(caminho, dados, **kwargs):
     return r
 
 
-def buscar_trechos(pergunta, k, modelo_embedding):
+def buscar_trechos(pergunta, k, modelo_embedding, usuario_id=None):
     """Sobe o Django (o script roda fora do manage.py) e usa a busca da API.
-    O import fica aqui dentro porque a API importa este módulo (prompts)."""
+    O import fica aqui dentro porque a API importa este módulo (prompts).
+    Sem `usuario_id` só a base pública aparece (nenhum documento do sistema)."""
     import django
 
     resposta = ollama("/api/embed", {"model": modelo_embedding, "input": [pergunta]})
@@ -92,7 +111,9 @@ def buscar_trechos(pergunta, k, modelo_embedding):
     django.setup()
     from core_api.services.rag.busca_vetorial import buscar_por_vetor
 
-    return buscar_por_vetor(resposta.json()["embeddings"][0], k, modelo_embedding)
+    return buscar_por_vetor(
+        resposta.json()["embeddings"][0], k, modelo_embedding, usuario_id
+    )
 
 
 def formatar_paginas(p1, p2):
@@ -123,9 +144,15 @@ def main():
         choices=["pt-BR", "en"],
         help="idioma da resposta (pt-BR ou en)",
     )
+    ap.add_argument(
+        "--usuario",
+        type=uuid.UUID,
+        help="uuid do usuário (PerfilOperacional) cuja permissão vale na busca; "
+        "sem ele só a base pública aparece",
+    )
     args = ap.parse_args()
 
-    trechos = buscar_trechos(args.pergunta, args.k, args.modelo_embedding)
+    trechos = buscar_trechos(args.pergunta, args.k, args.modelo_embedding, args.usuario)
     if not trechos:
         sys.exit(
             "Nenhum trecho encontrado. Aprove um documento ou rode o gerar_embeddings.py"
@@ -169,7 +196,7 @@ def main():
             "model": args.modelo,
             "messages": mensagens,
             "stream": True,
-            "options": {"temperature": 0.1, "num_ctx": 4096},
+            "options": OPCOES_LLM,
         },
         stream=True,
     )

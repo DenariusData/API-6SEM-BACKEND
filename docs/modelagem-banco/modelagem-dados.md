@@ -1,4 +1,6 @@
 # AKA-45 — Modelagem de Dados: Banco de Documentos (AKAER)
+
+> Última atualização: 22/11/2026 (Sprint 3: AKA-24, AKA-26, AKA-75, AKA-80, AKA-81).
 ## 1. Modelagem lógica
 
 ### 1.1 Cadastro e taxonomia
@@ -69,8 +71,10 @@ Isso é só a política **padrão**. Para documentos cuja política é `REQUER_A
 
 Regra confirmada pelo cliente: **nunca herança automática por setor**. Acesso é o cruzamento de usuário + área + nível de sigilo máximo:
 
-- `usuario_permissao_area` — regra geral: usuário X pode acessar, na área Y, documentos até o sigilo Z.
-- `documento_restricao_especifica` — exceção pontual (`PERMITIR`/`NEGAR`) por usuário e documento, que sobrepõe a regra geral.
+- `usuario_permissao_area` — regra geral: usuário X pode acessar, na área Y, documentos até o sigilo Z. Colunas: `id`, `usuario_id` (FK `perfil_operacional`, cuja PK é o uuid do JWT), `area_id`, `nivel_sigilo_maximo_id`; única por (`usuario_id`, `area_id`).
+- `documento_restricao_especifica` — exceção pontual (`PERMITIR`/`NEGAR`) por usuário e documento, que sobrepõe a regra geral. **Ainda não implementada.**
+
+**Como a regra é aplicada** (`Documento.objects.permitidos_para(usuario_id)`, único lugar): o documento é acessível se **alguma** das suas áreas (principal ou secundária) tem permissão para o usuário e `nivel_sigilo.ordinal` do documento é **menor ou igual** ao máximo concedido **naquela mesma área** (o máximo de uma área não vale para outra). Falha fechado: sem usuário, ou sem nenhuma permissão, não acessa nenhum documento. O papel (ENGENHARIA, QUALIDADE, ADMINISTRADOR) não concede acesso. Vale para a busca da IA (antes do prompt), para o detalhe e para o visualizador; a exceção é o **autor**, que continua vendo o próprio documento. Documento que ainda não está `DISPONIVEL` segue a regra do fluxo de validação (autor e validadores). A base pública do EverySpec não tem sigilo e não passa por essa regra.
 
 ### 1.6 Relações entre documentos (R2P2)
 
@@ -105,7 +109,7 @@ O `Usuario` real já inclui hash de senha (`set_senha`/`verificar_senha`, via `d
 - `usuario_upload_id` vem do token, nunca do formulário; o documento nasce `AGUARDANDO_VALIDACAO`, com `nivel_sigilo` igual ao `nivel_sigilo_sugerido`;
 - identificador + revisão repetidos devolvem 409 (checagem prévia + `uq_documento_identificador_revisao`).
 
-Os selects do formulário vêm de `GET /api/tipos-documento/`, `/api/areas/`, `/api/niveis-sigilo/`, `/api/idiomas/` e `/api/responsaveis/?area=` (só id e nome, por LGPD). Ainda não existe ligação entre usuário e área (`usuario_permissao_area`, 1.5), então `?area=` é validado mas não filtra a lista.
+Os selects do formulário vêm de `GET /api/tipos-documento/`, `/api/areas/`, `/api/niveis-sigilo/`, `/api/idiomas/` e `/api/responsaveis/?area=` (só id e nome, por LGPD). A tabela `usuario_permissao_area` (1.5) é de acesso a documento, não de vínculo de responsável com área, então `?area=` continua validado mas sem filtrar a lista.
 
 ### 1.9 Fluxo de validação do documento (S2-33)
 
@@ -144,7 +148,7 @@ AGUARDANDO_VALIDACAO --aprovar---> DISPONIVEL
 | Campo | Tipo | Observação |
 |---|---|---|
 | `usuario_id` | uuid, nulo | Só o id do `PerfilOperacional`, sem FK. Nulo em login com e-mail inexistente ou ação fora de requisição |
-| `acao` | lista fixa | `CRIADO`, `ATUALIZADO`, `EXCLUIDO`, `ENVIADO`, `DEVOLVIDO`, `REENVIADO`, `APROVADO`, `LOGIN`, `LOGIN_FALHOU`, `DADOS_PESSOAIS_ALTERADOS` |
+| `acao` | lista fixa | `CRIADO`, `ATUALIZADO`, `EXCLUIDO`, `ENVIADO`, `DEVOLVIDO`, `REENVIADO`, `APROVADO`, `LOGIN`, `LOGIN_FALHOU`, `DADOS_PESSOAIS_ALTERADOS`, `DADOS_PESSOAIS_EXPORTADOS` (AKA-75, migration `0009_log_auditoria_dados_exportados`) |
 | `entidade` | lista fixa | `DOCUMENTO`, `DOCUMENTO_AREA`, `HISTORICO_VALIDACAO`, `USUARIO` |
 | `registro_id` | texto, nulo | Id do registro afetado (uuid ou inteiro, por isso texto) |
 | `campos_alterados` | lista JSON | Só os **nomes** dos campos que mudaram, nunca os valores |
@@ -158,7 +162,28 @@ AGUARDANDO_VALIDACAO --aprovar---> DISPONIVEL
 
 **Limite.** `QuerySet.update()`, `bulk_update()` e `delete()` em massa não disparam signals; o código da aplicação muda estado com `save()`.
 
-`log_acesso` continua sendo só o registro de visualização de documento (o detalhe `GET /api/documents/<id>/` grava `VISUALIZACAO`).
+`log_acesso` continua sendo só o registro de visualização de documento (`VISUALIZACAO`). Colunas: `documento_id`, `usuario_id`, `acao`, `criado_em`. Quem grava é só o visualizador (`GET /api/documents/<id>/visualizar/`), uma linha por abertura do documento. O detalhe (`GET /api/documents/<id>/`) não grava: antes gravava também, e cada abertura virava duas linhas na Auditoria (corrigido em `fix: AKA-81 Log each document view once`).
+
+### 1.11 Log só de inclusão e sem dado pessoal (AKA-80)
+
+Migration `0010_log_imutavel`:
+
+- **Imutável:** `log_auditoria` e `log_acesso` aceitam só `INSERT`. Os triggers `trg_log_auditoria_imutavel` e `trg_log_acesso_imutavel` (`BEFORE UPDATE OR DELETE`, função `fn_log_imutavel()`) recusam alteração e exclusão venha de onde vier: ORM, admin, shell ou SQL direto. O model também recusa antes de chegar no banco (`LogImutavelMixin`, `LogImutavelError`), e o admin mostra os dois logs só para leitura. Mesmo padrão do `trg_historico_validacao_imutavel`.
+- **Sem IP:** a coluna `log_acesso.ip_origem` foi **removida** (decisão de 11/11: IP é dado pessoal e o RF21 pede auditoria sem dado pessoal). Ver o registro de descaracterização em [LGPD no AkaVision](https://github.com/DenariusData/API-6SEM/blob/develop/docs/lgpd.md).
+- **Sem cascata:** `log_acesso.documento_id` e `log_acesso.usuario_id` passaram de `CASCADE` para `DO_NOTHING` sem constraint no banco (`db_constraint=False`). Apagar um rascunho ou excluir um usuário não apaga o log (que o trigger recusaria); a linha guarda só os ids.
+- **TRUNCATE** não é bloqueado de propósito: o `TransactionTestCase` limpa as tabelas com `TRUNCATE` entre os testes. Em produção, o usuário do banco da aplicação não deve ser dono das tabelas.
+
+A consulta do log pelo administrador (filtros por usuário, período e ação, e exportação em CSV) é a AKA-81: junta as duas tabelas com `UNION ALL` e busca o nome do usuário no `credenciais_db` só na hora de exibir.
+
+### 1.12 Registro das perguntas e origem da resposta (AKA-24)
+
+Migrations `0004_registro_pergunta`, `0006_registropergunta_idioma` e `0011_origem_da_resposta`:
+
+- `registro_pergunta`: uma linha por pergunta à IA. `usuario_id` (uuid, sem FK), `pergunta`, `idioma`, `encontrou`, `quantidade_fontes`, `resposta`, `modelo_llm`, `modelo_embedding` e os tempos de busca, IA e total (`tempo_*_ms`).
+- `registro_pergunta_fonte`: cada trecho que embasou a resposta, com `numero`, `citada`, `documento_id`, `trecho_id`, `documento`, `revisao`, `titulo`, `pagina_inicio`/`pagina_fim`, `secao`, `similaridade` e a **cópia literal** do `texto` (decisão D2: toda resposta rastreável até documento, revisão, página e seção).
+- `chunk.secao`: seção do documento onde o trecho começa, preenchida no processamento.
+
+**LGPD:** a pergunta é guardada como foi digitada e pode conter dado pessoal (ver limitações em [LGPD no AkaVision](https://github.com/DenariusData/API-6SEM/blob/develop/docs/lgpd.md)).
 
 ## 2. Modelagem física (PostgreSQL)
 
@@ -176,10 +201,13 @@ Ver `../postgres/migrations/`. O schema foi dividido em 7 migrations numeradas p
 - **`ck_documento_validacao_completa`** (`CHECK`, migration `0005_validacao_documento`): `validado_por` e `validado_em` são os dois nulos ou os dois preenchidos. Registro de quem validou sem quando (ou o contrário) é auditoria incompleta.
 - **`trg_documento_confidencial_validado`**: documento `CONFIDENCIAL` só pode ficar `DISPONIVEL` com `validado_por` e `validado_em` preenchidos. **É trigger, não `CHECK`**, porque o `CHECK` do Postgres não enxerga outra tabela e "ser confidencial" depende de `nivel_sigilo.nome`; é o mesmo caso e o mesmo padrão de `trg_documento_area_principal`. Dispara em `INSERT` e `UPDATE` de `documento` (inclusive subir o nível de um documento já disponível para `CONFIDENCIAL`), em qualquer origem: ORM, `psql`, outro serviço. Identifica o nível pelo `nome = 'CONFIDENCIAL'` (o valor do `seed_taxonomia`); renomear esse nível desliga a regra.
 - **`trg_historico_validacao_imutavel`**: recusa `UPDATE` e `DELETE` em `historico_validacao`. O model também recusa (`HistoricoImutavelError`), mas só o trigger protege contra SQL direto. `documento_id` é `PROTECT` (não `CASCADE`): apagar um documento não leva o histórico junto. `TRUNCATE` não passa por trigger de linha, o que mantém o flush dos testes funcionando.
+- **`trg_log_auditoria_imutavel` e `trg_log_acesso_imutavel`** (migration `0010_log_imutavel`): recusam `UPDATE` e `DELETE` nos dois logs (ver 1.11).
 - **`ck_historico_nivel_so_na_aprovacao`**: `historico_validacao.nivel_sigilo_id` só pode estar preenchido quando `acao = APROVADO`.
 - **Migration com documentos já existentes.** `nivel_sigilo_sugerido` entra nula, é preenchida com o `nivel_sigilo` atual e só então vira `NOT NULL`. Documentos existentes ficam `DISPONIVEL`, **exceto os `CONFIDENCIAIS`**, que ficam `AGUARDANDO_VALIDACAO` (ver Seção 6). O backfill roda `SET CONSTRAINTS ALL IMMEDIATE` logo depois do `UPDATE`: sem isso, os triggers deferred de área principal (0003) deixam eventos pendentes e o Postgres recusa o `ALTER TABLE` seguinte na mesma transação (`cannot ALTER TABLE "documento" because it has pending trigger events`). Em banco vazio o erro não aparece, só com documentos.
 
 ## 3. Modelagem NoSQL (MongoDB) — logs
+
+> **Situação (22/11/2026): modelado, não implementado.** A coleção abaixo é a proposta de modelagem. O MongoDB não está no `docker-compose.yml` nem no código, e os logs que existem hoje ficaram todos relacionais (Seções 1.10 a 1.12). O arquivo `mongo-schemas.js` citado abaixo não está no repositório.
 
 A IA roda **em CPU** (modelo leve), o que reforça um log barato de escrever, sem infraestrutura dedicada.
 
@@ -305,6 +333,7 @@ Estes pontos aparecem na modelagem de forma que **não impede** o funcionamento 
 | Documentos `CONFIDENCIAL` que já existiam quando a validação foi criada | A migration os deixa `AGUARDANDO_VALIDACAO`, não `DISPONIVEL`: a regra do banco exige validador para confidencial disponível, e documento antigo não tem um (inventar seria forjar auditoria) | Confirmar com o PO. Se a intenção era mesmo deixá-los disponíveis, é preciso decidir quem consta como `validado_por` (ex.: um perfil de sistema) |
 | `status_processamento` dos documentos antigos | Ficam `PENDENTE` (o padrão pedido), mesmo os que já têm chunks/embeddings | Definir se AKA-52/62/65 reprocessam tudo ou se o backfill deve marcar `CONCLUIDO` quem já tem embedding vigente |
 
+> **Resolvido na Sprint 3:** logs só de inclusão, sem IP e sem cascata (AKA-80, Seção 1.11).
 > **Resolvido nesta rodada:** `log_acesso` — a equipe decidiu que fica relacional (Postgres), não duplicado no Mongo. Ver Seção 3.
 > **Confirmado nesta rodada:** o nome do model é `PerfilOperacional`/`perfil_operacional` mesmo (não `perfil_usuario`).
 
@@ -325,6 +354,6 @@ Estes pontos aparecem na modelagem de forma que **não impede** o funcionamento 
 | Documento novo começa como Aguardando validação | default de `status_validacao`; `test_documento_novo_comeca_aguardando_validacao` |
 | Documentos antigos ficam Disponíveis depois da migration | backfill da 0005 (exceto `CONFIDENCIAL`, ver Seção 6); `test_documentos_antigos_ficam_disponiveis` |
 | Histórico grava cada ação com quem fez e quando | `historico_validacao` (`usuario_id`, `criado_em`, `acao`); `HistoricoValidacaoTestCase` |
-| Testes do model passam e a modelagem está atualizada | `core_api/tests/test_validacao.py`; Seções 1.9, 2, 4.1 e 6 deste documento |
+| Testes do model passam e a modelagem está atualizada | `tests/integration/test_validacao.py`; Seções 1.9, 2, 4.1 e 6 deste documento |
 | Banco recusa documento Confidencial Disponível sem validador | `trg_documento_confidencial_validado` (trigger, ver Seção 2); `RegraConfidencialNoBancoTestCase`, inclusive por SQL direto |
 | Só usuário ADMINISTRADOR consegue mudar o estado do documento | Não é regra de banco (o papel está em `credenciais_db`). Fica registrada na Seção 1.9 e é aplicada nos endpoints da AKA-53 com `require_role("ADMINISTRADOR")`; os testes dessa regra são da AKA-53 |

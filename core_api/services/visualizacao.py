@@ -158,15 +158,10 @@ def pagina_com_marca(caminho: Path, numero: int, texto: str) -> bytes:
 
 
 # -- log ------------------------------------------------------------------
-def ip_de(request):
-    """IP de origem. Usa REMOTE_ADDR: X-Forwarded-For pode ser forjado pelo
-    cliente e não há proxy reverso configurado no projeto."""
-    return request.META.get("REMOTE_ADDR") or None
-
-
-def registrar_visualizacao(documento, usuario_id, ip) -> bool:
-    """Grava VISUALIZACAO no LogAcesso. Devolve False se o usuário não tem
-    PerfilOperacional (aí a view responde 403, como nos endpoints de validação)."""
+def registrar_visualizacao(documento, usuario_id) -> bool:
+    """Grava VISUALIZACAO no LogAcesso, sem IP (AKA-80: o log não guarda dado
+    pessoal). Devolve False se o usuário não tem PerfilOperacional (aí a view
+    responde 403, como nos endpoints de validação)."""
     perfil = PerfilOperacional.objects.filter(pk=usuario_id).first()
     if perfil is None:
         return False
@@ -174,6 +169,5 @@ def registrar_visualizacao(documento, usuario_id, ip) -> bool:
         documento=documento,
         usuario=perfil,
         acao=AcaoAcesso.VISUALIZACAO,
-        ip_origem=ip,
     )
     return True

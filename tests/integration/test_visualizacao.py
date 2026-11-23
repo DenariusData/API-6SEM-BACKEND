@@ -23,13 +23,15 @@ from core_api.models import (
     AcaoAcesso,
     Documento,
     LogAcesso,
+    NivelSigilo,
     PerfilOperacional,
     StatusValidacao,
 )
 from core_api.services import visualizacao
-from core_api.tests.test_documento import _documento_valido
 from core_api.utils.jwt_auth import generate_token
 from credenciais.models import Papel, Usuario
+from tests.integration.permissao import liberar
+from tests.integration.test_documento import _documento_valido
 
 ADMIN = Papel.ADMINISTRADOR
 ENG = Papel.ENGENHARIA
@@ -143,16 +145,17 @@ class PaginaChegaComoImagemTestCase(VisualizacaoBase):
 
 
 class PermissaoTestCase(VisualizacaoBase):
-    """Sem token recebe 401; sem permissão recebe 404."""
+    """Sem token recebe 401; sem permissão recebe 403 (D11: só a mensagem de
+    acesso não autorizado, ver test_existencia_minima.py)."""
 
     def test_sem_token_401(self):
         self.assertEqual(self.visualizar(None).status_code, 401)
         self.assertEqual(self.pagina(None).status_code, 401)
 
-    def test_pendente_outro_usuario_comum_404(self):
+    def test_pendente_outro_usuario_comum_403(self):
         _, token, _ = _usuario(ENG)
-        self.assertEqual(self.visualizar(token).status_code, 404)
-        self.assertEqual(self.pagina(token).status_code, 404)
+        self.assertEqual(self.visualizar(token).status_code, 403)
+        self.assertEqual(self.pagina(token).status_code, 403)
 
     def test_pendente_autor_e_validador_podem_ver(self):
         _, token_admin, _ = _usuario(ADMIN)
@@ -160,11 +163,41 @@ class PermissaoTestCase(VisualizacaoBase):
         self.assertEqual(self.visualizar(token_admin).status_code, 200)
         self.assertEqual(self.pagina(token_admin).status_code, 200)
 
-    def test_disponivel_qualquer_usuario_logado_ve(self):
+    def test_disponivel_com_permissao_na_area_ve(self):
         self.tornar_disponivel()
-        _, token, _ = _usuario(Papel.QUALIDADE)
+        perfil, token, _ = _usuario(Papel.QUALIDADE)
+        liberar(perfil, self.doc)
         self.assertEqual(self.visualizar(token).status_code, 200)
         self.assertEqual(self.pagina(token).status_code, 200)
+
+    def test_disponivel_sem_permissao_403_mesmo_logado(self):
+        self.tornar_disponivel()
+        _, token, _ = _usuario(Papel.QUALIDADE)
+        self.assertEqual(self.visualizar(token).status_code, 403)
+        self.assertEqual(self.pagina(token).status_code, 403)
+
+    def test_disponivel_sem_permissao_nao_grava_log_de_acesso(self):
+        self.tornar_disponivel()
+        _, token, _ = _usuario(Papel.QUALIDADE)
+        self.visualizar(token)
+        self.assertEqual(LogAcesso.objects.filter(documento=self.doc).count(), 0)
+
+    def test_disponivel_com_nivel_maximo_abaixo_do_sigilo_do_documento_403(self):
+        self.tornar_disponivel()
+        perfil, token, _ = _usuario(Papel.QUALIDADE)
+        abaixo = NivelSigilo.objects.create(nome="MENOR", ordinal=0)
+        liberar(perfil, self.doc, nivel=abaixo)
+        self.assertEqual(self.visualizar(token).status_code, 403)
+
+    def test_disponivel_administrador_sem_permissao_tambem_403(self):
+        """Papel não herda acesso: administrador também precisa da permissão."""
+        self.tornar_disponivel()
+        _, token_admin, _ = _usuario(ADMIN)
+        self.assertEqual(self.visualizar(token_admin).status_code, 403)
+
+    def test_disponivel_autor_continua_vendo_o_proprio_documento(self):
+        self.tornar_disponivel()
+        self.assertEqual(self.visualizar(self.token_autor).status_code, 200)
 
     def test_documento_inexistente_404(self):
         r = self.get(f"/api/documents/{uuid.uuid4()}/visualizar/", self.token_autor)
@@ -207,8 +240,10 @@ class MarcaDaguaTestCase(VisualizacaoBase):
 
     def test_dois_usuarios_veem_cada_um_o_proprio_nome(self):
         self.tornar_disponivel()
-        _, token_ana, email_ana = _usuario(ENG, nome="Ana Souza")
-        _, token_rui, email_rui = _usuario(Papel.QUALIDADE, nome="Rui Lima")
+        perfil_ana, token_ana, email_ana = _usuario(ENG, nome="Ana Souza")
+        perfil_rui, token_rui, email_rui = _usuario(Papel.QUALIDADE, nome="Rui Lima")
+        liberar(perfil_ana, self.doc)
+        liberar(perfil_rui, self.doc)
 
         texto_ana = self._texto_usado_por(token_ana)
         texto_rui = self._texto_usado_por(token_rui)
@@ -224,7 +259,8 @@ class MarcaDaguaTestCase(VisualizacaoBase):
 
     def test_nome_e_email_nao_vem_do_front(self):
         self.tornar_disponivel()
-        _, token, email = _usuario(ENG, nome="Ana Souza")
+        perfil, token, email = _usuario(ENG, nome="Ana Souza")
+        liberar(perfil, self.doc)
         with mock.patch.object(
             visualizacao, "aplicar_marca_dagua", side_effect=lambda img, txt: img
         ) as marca:
@@ -270,21 +306,44 @@ class MarcaDaguaTestCase(VisualizacaoBase):
 
 
 class LogDeAcessoTestCase(VisualizacaoBase):
-    """Toda abertura grava log com usuário, documento, data e IP."""
+    """Toda abertura grava log com usuário, documento, data; sem IP (AKA-80)."""
 
-    def test_visualizar_grava_log_com_ip(self):
+    def test_visualizar_grava_log_sem_ip(self):
         r = self.visualizar(self.token_autor)
         self.assertEqual(r.status_code, 200)
         log = LogAcesso.objects.get(documento=self.doc)
         self.assertEqual(log.usuario, self.autor)
         self.assertEqual(log.acao, AcaoAcesso.VISUALIZACAO)
-        self.assertEqual(log.ip_origem, "10.1.2.3")
         self.assertIsNotNone(log.criado_em)
+        self.assertFalse(hasattr(log, "ip_origem"))
+
+    def test_ip_nao_vai_para_o_log(self):
+        self.client.get(
+            f"/api/documents/{self.doc.id}/visualizar/",
+            HTTP_AUTHORIZATION=f"Bearer {self.token_autor}",
+            HTTP_X_FORWARDED_FOR="1.1.1.1",
+        )
+        valores = str(list(LogAcesso.objects.values()))
+        self.assertNotIn("10.1.2.3", valores)
+        self.assertNotIn("1.1.1.1", valores)
 
     def test_cada_abertura_grava_um_log(self):
         self.visualizar(self.token_autor)
         self.visualizar(self.token_autor)
         self.assertEqual(LogAcesso.objects.filter(documento=self.doc).count(), 2)
+
+    def test_abrir_documento_grava_uma_visualizacao_so(self):
+        # A tela abre o detalhe e o PDF; só o PDF conta como visualização.
+        detalhe = self.client.get(
+            f"/api/documents/{self.doc.id}/",
+            HTTP_AUTHORIZATION=f"Bearer {self.token_autor}",
+        )
+        self.assertEqual(detalhe.status_code, 200)
+        self.assertFalse(LogAcesso.objects.filter(documento=self.doc).exists())
+
+        self.visualizar(self.token_autor)
+
+        self.assertEqual(LogAcesso.objects.filter(documento=self.doc).count(), 1)
 
     def test_sem_permissao_nao_grava_log(self):
         _, token, _ = _usuario(ENG)
@@ -297,7 +356,6 @@ class LogDeAcessoTestCase(VisualizacaoBase):
             HTTP_AUTHORIZATION=f"Bearer {self.token_autor}",
             HTTP_X_FORWARDED_FOR="1.1.1.1",
         )
-        self.assertEqual(LogAcesso.objects.get().ip_origem, "10.1.2.3")
 
 
 class FormatoTestCase(VisualizacaoBase):

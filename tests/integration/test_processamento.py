@@ -12,6 +12,7 @@ documento só disparam no COMMIT) e porque o processamento automático roda
 numa thread, com conexão própria, que só enxerga dados já comitados.
 """
 
+import importlib
 import tempfile
 import threading
 import uuid
@@ -21,6 +22,7 @@ from unittest import mock
 
 import pymupdf
 import requests
+from django.apps import apps
 from django.core.management import CommandError, call_command
 from django.db import transaction
 from django.test import Client, TransactionTestCase, override_settings
@@ -41,7 +43,8 @@ from core_api.models import (
     TipoDocumento,
 )
 from core_api.services import processamento, validacao
-from core_api.tests.test_aprovar_devolver import _usuario
+from tests.integration.permissao import liberar
+from tests.integration.test_aprovar_devolver import _usuario
 
 ADMIN = "ADMINISTRADOR"
 PAGINA_EN = (
@@ -181,6 +184,48 @@ class ProcessarDocumentoTestCase(ProcessamentoBase):
             self.assertEqual(embedding.modelo, "bge-m3")
             self.assertEqual(len(embedding.embedding), 1024)
 
+    def test_trechos_guardam_a_secao_do_documento(self):
+        """AKA-24: a seção vem dos títulos numerados do texto."""
+        paginas = [
+            "1. Scope\n" + PAGINA_EN,
+            PAGINA_EN,
+            "2. Requirements\n" + PAGINA_EN,
+            PAGINA_EN,
+            PAGINA_EN,
+        ]
+        doc = self.processar(self.documento(paginas=paginas))
+
+        secoes = list(
+            Chunk.objects.filter(documento=doc)
+            .order_by("ordem")
+            .values_list("secao", flat=True)
+        )
+        self.assertEqual(secoes[0], "1. Scope")
+        self.assertEqual(secoes[-1], "2. Requirements")
+        # Em ordem: depois que a seção 2 começa, não volta para a 1.
+        primeira_da_2 = secoes.index("2. Requirements")
+        self.assertEqual(set(secoes[:primeira_da_2]), {"1. Scope"})
+        self.assertEqual(set(secoes[primeira_da_2:]), {"2. Requirements"})
+
+    def test_migration_preenche_a_secao_dos_trechos_que_ja_existiam(self):
+        paginas = [
+            "1. Scope\n" + PAGINA_EN,
+            PAGINA_EN,
+            "2. Requirements\n" + PAGINA_EN,
+        ]
+        doc = self.processar(self.documento(paginas=paginas))
+        chunks = Chunk.objects.filter(documento=doc).order_by("ordem")
+        esperado = list(chunks.values_list("secao", flat=True))
+        chunks.update(secao=None)
+
+        migracao = importlib.import_module(
+            "core_api.migrations.0011_origem_da_resposta"
+        )
+        migracao.preencher_secoes(apps, None)
+
+        self.assertEqual(list(chunks.values_list("secao", flat=True)), esperado)
+        self.assertIn("1. Scope", esperado)
+
     def test_reprocessar_substitui_os_trechos_em_vez_de_duplicar(self):
         doc = self.documento()
         self.processar(doc)
@@ -279,6 +324,35 @@ class SemChamadaExternaTestCase(ProcessamentoBase):
         urls = {chamada.args[0] for chamada in post.call_args_list}
         self.assertEqual(urls, {"http://localhost:11434/api/embed"})
 
+    def test_ollama_na_vm_da_ia_da_rede_interna_processa(self):
+        """AKA-103: com o Ollama numa VM própria da rede, o documento é processado."""
+        doc = self.documento()
+        with (
+            mock.patch.object(
+                gerar_embeddings, "OLLAMA_URL", "http://192.168.15.7:11434"
+            ),
+            mock.patch.object(
+                gerar_embeddings.requests, "post", side_effect=_ollama_falso
+            ) as post,
+        ):
+            processamento.processar_documento(doc.pk)
+        doc.refresh_from_db()
+        self.assertEqual(doc.status_processamento, StatusProcessamento.CONCLUIDO)
+        urls = {chamada.args[0] for chamada in post.call_args_list}
+        self.assertEqual(urls, {"http://192.168.15.7:11434/api/embed"})
+
+    def test_ollama_em_ip_publico_nao_e_chamado(self):
+        doc = self.documento()
+        with (
+            mock.patch.object(
+                gerar_embeddings, "OLLAMA_URL", "http://34.120.1.9:11434"
+            ),
+            mock.patch.object(gerar_embeddings.requests, "post") as post,
+        ):
+            processamento.processar_documento(doc.pk)
+        post.assert_not_called()
+        self.assertErro(doc, "nem um IP da rede interna")
+
 
 class AprovacaoTestCase(ProcessamentoBase):
     def test_documento_aprovado_vira_trechos_sem_comando_manual(self):
@@ -345,6 +419,7 @@ class AprovacaoTestCase(ProcessamentoBase):
 
     def test_estado_do_processamento_fica_visivel_no_documento(self):
         doc = self.documento(paginas=None)  # sem arquivo: vai dar erro
+        liberar(self.admin, doc)  # aprovado = disponível: ver exige permissão
         self.assertEqual(self.aprovar(doc).status_code, 200)
         _esperar_processamento(doc.pk)
         r = self.client.get(

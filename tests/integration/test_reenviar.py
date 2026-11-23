@@ -25,8 +25,8 @@ from core_api.models import (
     Subcategoria,
 )
 from core_api.services import validacao
-from core_api.tests import test_upload
-from core_api.tests.test_upload import CONTEUDO_PDF
+from tests.integration import test_upload
+from tests.integration.test_upload import CONTEUDO_PDF
 
 COMENTARIO = "A data de emissão está errada, confira o carimbo."
 OUTRO_PDF = CONTEUDO_PDF + b"% versao corrigida\n"

@@ -1,0 +1,43 @@
+# Bancos de dados na VM. Rodar da raiz do backend (lê as senhas do .env):
+#   docker compose --project-directory . -f deploy/docker-compose.prod.yml up -d
+#
+# Diferenças para o docker-compose.yml de desenvolvimento:
+# - senhas vêm do .env (geradas na instalação), nunca fixas no git;
+# - portas presas em 127.0.0.1: só a própria VM acessa o banco. Porta
+#   publicada pelo Docker passa por fora do ufw, então "0.0.0.0" deixaria o
+#   banco aberto para a rede mesmo com o firewall ligado;
+# - restart: os bancos voltam sozinhos depois de reiniciar a VM.
+name: akavision
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.6-pg17
+    container_name: rag-postgres
+    restart: unless-stopped
+    shm_size: 1gb
+    command: postgres -c shared_buffers=512MB -c maintenance_work_mem=256MB
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: ${DEFAULT_DB_PASSWORD:?defina DEFAULT_DB_PASSWORD no .env}
+      POSTGRES_DB: rag
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - rag_pgdata:/var/lib/postgresql/data
+
+  credenciais-postgres:
+    image: postgres:17
+    container_name: credenciais-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: credenciais
+      POSTGRES_PASSWORD: ${CREDENCIAIS_DB_PASSWORD:?defina CREDENCIAIS_DB_PASSWORD no .env}
+      POSTGRES_DB: credenciais
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - credenciais_pgdata:/var/lib/postgresql/data
+
+volumes:
+  rag_pgdata:
+  credenciais_pgdata:

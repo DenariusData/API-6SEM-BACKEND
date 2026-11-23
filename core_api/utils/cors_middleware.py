@@ -21,4 +21,8 @@ class CorsMiddleware:
         response["Access-Control-Allow-Headers"] = (
             "Content-Type, Authorization, X-Requested-With"
         )
+        # Sem isso o navegador esconde estes cabeçalhos do JavaScript: o front
+        # precisa do nome do arquivo exportado (AKA-75) e do tempo de espera
+        # das respostas 429.
+        response["Access-Control-Expose-Headers"] = "Content-Disposition, Retry-After"
         return response

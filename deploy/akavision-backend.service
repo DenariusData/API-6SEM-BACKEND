@@ -1,0 +1,20 @@
+# Serviço systemd do backend na VM. Instalado pelo script de instalação em
+# /etc/systemd/system/akavision-backend.service.
+#   sudo systemctl status akavision-backend
+#   journalctl -u akavision-backend -f
+[Unit]
+Description=AkaVision backend (Django + gunicorn)
+Wants=network-online.target
+After=network-online.target docker.service ollama.service
+
+[Service]
+User=deploy
+Group=deploy
+WorkingDirectory=/opt/akavision/backend
+ExecStart=/opt/akavision/backend/.venv/bin/gunicorn api.wsgi:application --config deploy/gunicorn.conf.py
+Restart=always
+RestartSec=5
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

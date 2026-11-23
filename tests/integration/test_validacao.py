@@ -1,8 +1,7 @@
 """
 Testes do fluxo de validação (S2-33): campos novos do Documento,
-HistoricoValidacao (só inserção), regra do Confidencial no banco e migration
-com documentos já existentes. As regras de aprovar/devolver (papel, autor, estado)
-são da S2-34: test_aprovar_devolver.py.
+HistoricoValidacao (só inserção), regra do Confidencial no banco, regra do
+ADMINISTRADOR e migration com documentos já existentes.
 
 TransactionTestCase, não TestCase: os triggers deferrable de documento (área
 principal) só disparam no COMMIT, e TestCase padrão nunca comita de verdade.
@@ -26,7 +25,7 @@ from core_api.models import (
     StatusProcessamento,
     StatusValidacao,
 )
-from core_api.tests.test_documento import _documento_valido
+from tests.integration.test_documento import _documento_valido
 
 
 def _nivel(nome, ordinal):

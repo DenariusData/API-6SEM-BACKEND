@@ -5,8 +5,8 @@ Duas fontes, juntadas e ordenadas pela similaridade com a pergunta:
 
     1. Documentos do sistema (upload -> validação -> processamento): tabelas
        `chunk` + `embedding_version`. Só entram documentos de
-       `Documento.objects.disponiveis()`. Esse é o ÚNICO lugar do filtro de
-       documento.
+       `Documento.objects.disponiveis().permitidos_para(usuario)`. Esse é o
+       ÚNICO lugar do filtro de documento.
 
     2. Base pública do EverySpec: tabela `rag_chunks`, gerada pelos comandos
        gerar_embeddings/importar_embeddings. São normas públicas, que não
@@ -30,20 +30,28 @@ vezes k candidatos e a ordem final é refeita aqui, pela similaridade (como o
 pgvector recomenda). `strict_order` também resolve, mas mediu ~10x mais lento
 no p95. Em pgvector antigo, a busca aumenta o `hnsw.ef_search` como paliativo.
 
-Sprint 3 (permissão por usuário): a regra entra em `disponiveis()`, mas a
-busca vai precisar saber quem pergunta, então `buscar_por_vetor` deve ganhar
-um parâmetro `usuario` nessa hora.
+Permissão por usuário: a busca recebe quem pergunta (`usuario_id`, o
+uuid do JWT) e a regra de acesso entra NA QUERY, antes de qualquer trecho
+chegar à IA: documento disponível, com alguma área em que o usuário tem
+permissão e nível de sigilo até o máximo concedido naquela área
+(`Documento.objects.permitidos_para`). O parâmetro é obrigatório, de
+propósito: esquecer de passá-lo é erro, não acesso liberado. `usuario_id=None`
+(ou usuário sem permissão nenhuma) não enxerga NENHUM documento do sistema;
+a base pública não tem sigilo e segue visível.
 
 Cada trecho volta como dict:
 
     {
         "documento_id": str | None,  # id do Documento; None na base pública
+        "trecho_id": str,            # chunk.id ou rag_chunks.id (AKA-24)
         "documento": str,            # identificador do documento
         "revisao": str | None,       # só documentos do sistema
         "titulo": str,
         "url_pdf": str | None,       # só base pública
         "pagina_inicio": int | None,
         "pagina_fim": int | None,
+        "secao": str | None,         # seção do documento (AKA-24); None na
+                                     # base pública, que não guarda seção
         "texto": str,
         "similaridade": float,       # 1 - distância de cosseno
     }
@@ -65,7 +73,7 @@ EF_SEARCH_SEM_ITERATIVA = 200
 FATOR_CANDIDATOS = 4
 
 SQL_BASE_PUBLICA = f"""
-    SELECT documento, titulo, url_pdf, pagina_inicio, pagina_fim, texto,
+    SELECT id, documento, titulo, url_pdf, pagina_inicio, pagina_fim, texto,
            1 - (embedding <=> %s::vector) AS similaridade
     FROM {TABELA_BASE_PUBLICA}
     WHERE modelo = %s
@@ -109,12 +117,14 @@ def _configurar_indice():
         pass  # sem índice HNSW, o Postgres faz a busca exata
 
 
-def _trechos_do_sistema(vetor, k, modelo):
+def _trechos_do_sistema(vetor, k, modelo, usuario_id):
     embeddings = (
         EmbeddingVersion.objects.filter(
             vigente=True,
             modelo=modelo,
-            chunk__documento__in=Documento.objects.disponiveis(),
+            chunk__documento__in=Documento.objects.disponiveis().permitidos_para(
+                usuario_id
+            ),
         )
         .select_related("chunk__documento")
         .annotate(distancia=CosineDistance("embedding", vetor))
@@ -126,12 +136,14 @@ def _trechos_do_sistema(vetor, k, modelo):
         trechos.append(
             {
                 "documento_id": str(doc.id),
+                "trecho_id": str(chunk.id),
                 "documento": doc.identificador_codigo,
                 "revisao": doc.numero_revisao or None,
                 "titulo": doc.titulo,
                 "url_pdf": None,
                 "pagina_inicio": chunk.pagina_inicio,
                 "pagina_fim": chunk.pagina_fim,
+                "secao": chunk.secao,
                 "texto": chunk.texto,
                 "similaridade": 1 - float(e.distancia),
             }
@@ -158,29 +170,31 @@ def _trechos_da_base_publica(vetor, k, modelo):
     return [
         {
             "documento_id": None,
+            "trecho_id": str(trecho_id),
             "documento": documento,
             "revisao": None,
             "titulo": titulo,
             "url_pdf": url_pdf or None,
             "pagina_inicio": p1,
             "pagina_fim": p2,
+            "secao": None,
             "texto": texto,
             "similaridade": float(similaridade),
         }
-        for documento, titulo, url_pdf, p1, p2, texto, similaridade in linhas
+        for trecho_id, documento, titulo, url_pdf, p1, p2, texto, similaridade in linhas
     ]
 
 
-def buscar_por_vetor(vetor, k, modelo):
+def buscar_por_vetor(vetor, k, modelo, usuario_id):
     """Os k trechos mais parecidos com `vetor` (lista de floats, gerada pelo
-    `modelo` de embedding), do mais parecido ao menos, entre documentos
-    disponíveis e a base pública. Cada fonte traz os seus melhores candidatos;
+    `modelo` de embedding), do mais parecido ao menos, entre os documentos
+    disponíveis que `usuario_id` pode acessar e a base pública. Cada fonte traz os seus melhores candidatos;
     juntar, ordenar e cortar dá o top-k geral."""
     candidatos = k * FATOR_CANDIDATOS
     with transaction.atomic():
         _configurar_indice()
         trechos = _trechos_do_sistema(
-            vetor, candidatos, modelo
+            vetor, candidatos, modelo, usuario_id
         ) + _trechos_da_base_publica(vetor, candidatos, modelo)
     trechos.sort(key=lambda t: t["similaridade"], reverse=True)
     return trechos[:k]

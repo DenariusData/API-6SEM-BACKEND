@@ -27,6 +27,8 @@ jobs:
       - name: Run pre-commit (Ruff + hooks)
         run: pre-commit run --all-files
 
+  # O nome "test" é o check obrigatório do ruleset "Protect main and develop".
+  # Não renomear sem atualizar o ruleset junto.
   test:
     runs-on: ubuntu-latest
     needs: lint
@@ -35,6 +37,103 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r requirements.txt
-      # - run: python manage.py test
-      #   TODO: descomentar quando os primeiros testes forem escritos (login/RAG)
+      - run: pip install -r requirements-dev.txt
+      - name: Run unit tests
+        run: pytest tests/unit --cov --cov-report=term
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: test
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.6-pg17
+        env:
+          POSTGRES_USER: rag
+          POSTGRES_PASSWORD: rag
+          POSTGRES_DB: rag
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+      credenciais-postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: credenciais
+          POSTGRES_PASSWORD: credenciais
+          POSTGRES_DB: credenciais
+        ports:
+          - 5433:5432
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      DEFAULT_DB_ENGINE: django.db.backends.postgresql
+      DEFAULT_DB_NAME: rag
+      DEFAULT_DB_USER: rag
+      DEFAULT_DB_PASSWORD: rag
+      DEFAULT_DB_HOST: localhost
+      DEFAULT_DB_PORT: "5432"
+      # credenciais_db não tem mais usuário/senha padrão no settings.py
+      CREDENCIAIS_DB_USER: credenciais
+      CREDENCIAIS_DB_PASSWORD: credenciais
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - name: Run integration tests
+        run: pytest tests/integration --cov --cov-report=term
+
+  # Guarda o histórico de resultados e cobertura no SonarQube Cloud.
+  # Roda as duas suítes (unit + integration) com cobertura, para que linha
+  # testada só na integração também conte no quality gate do PR.
+  # Fica desligado até o secret SONAR_TOKEN ser cadastrado no repositório.
+  sonarqube:
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.6-pg17
+        env:
+          POSTGRES_USER: rag
+          POSTGRES_PASSWORD: rag
+          POSTGRES_DB: rag
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+      credenciais-postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: credenciais
+          POSTGRES_PASSWORD: credenciais
+          POSTGRES_DB: credenciais
+        ports:
+          - 5433:5432
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      DEFAULT_DB_ENGINE: django.db.backends.postgresql
+      DEFAULT_DB_NAME: rag
+      DEFAULT_DB_USER: rag
+      DEFAULT_DB_PASSWORD: rag
+      DEFAULT_DB_HOST: localhost
+      DEFAULT_DB_PORT: "5432"
+      # credenciais_db não tem mais usuário/senha padrão no settings.py
+      CREDENCIAIS_DB_USER: credenciais
+      CREDENCIAIS_DB_PASSWORD: credenciais
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # o SonarQube Cloud usa o histórico do git para saber o que é código novo
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - name: Run all tests with coverage
+        run: >-
+          pytest tests --cov --cov-report=term
+          --cov-report=xml:coverage.xml --junitxml=test-results.xml
+
+      # Roda mesmo com teste falhando, para a falha também ficar no histórico.
+      - name: SonarQube Cloud scan
+        if: ${{ !cancelled() && env.SONAR_TOKEN != '' }}
+        uses: SonarSource/sonarqube-scan-action@59202af334b4ba7b5db01b701b8e79f8b3bef0f4 # v8.5.0

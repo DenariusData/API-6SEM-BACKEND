@@ -119,6 +119,13 @@ class AprovarTestCase(EndpointsValidacaoBase):
         self.assertEqual(self.doc.nivel_sigilo, nivel_antes)
         self.assertEqual(self.doc.status_validacao, StatusValidacao.DISPONIVEL)
 
+    def test_aprovar_aceita_o_nivel_com_acento_como_a_tela_mostra(self):
+        publico = _nivel("PUBLICO", 1)
+        r = self.aprovar({"nivel_sigilo": "PÚBLICO"})
+        self.assertEqual(r.status_code, 200, r.content)
+        self.doc.refresh_from_db()
+        self.assertEqual(self.doc.nivel_sigilo, publico)
+
     def test_nivel_inexistente_ou_invalido_e_400(self):
         for valor in ("NAO-EXISTE", "", "   ", 3, ["RESTRITO"]):
             r = self.aprovar({"nivel_sigilo": valor})

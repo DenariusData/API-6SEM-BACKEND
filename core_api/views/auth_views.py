@@ -12,6 +12,7 @@ from core_api.services.auth import dados_pessoais, exportacao_dados
 from core_api.services.auth.autenticacao import (
     ERRO_USUARIO_BLOQUEADO,
     AuthService,
+    CadastroInvalido,
 )
 from core_api.utils.jwt_auth import generate_token, require_auth, require_role
 from credenciais.models import Usuario
@@ -256,7 +257,10 @@ def user_management_view(request):
                 status=400,
             )
 
-        new_user = AuthService.create_user(data)
+        try:
+            new_user = AuthService.create_user(data)
+        except CadastroInvalido as e:
+            return JsonResponse({"detail": str(e)}, status=400)
         return JsonResponse(
             {
                 "message": "Usuário cadastrado com sucesso!",

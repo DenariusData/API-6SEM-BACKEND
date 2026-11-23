@@ -47,6 +47,8 @@ class AcaoAuditoria(models.TextChoices):
         "DADOS_PESSOAIS_EXPORTADOS",
         "Dados pessoais exportados",
     )
+    # AKA-78: atividade suspeita detectada e avisada ao administrador.
+    ALERTA_SEGURANCA = "ALERTA_SEGURANCA", "Alerta de segurança"
 
 
 class EntidadeAuditoria(models.TextChoices):

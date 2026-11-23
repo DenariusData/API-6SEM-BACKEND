@@ -230,3 +230,13 @@ LOGGING = {
         }
     },
 }
+
+
+# -- Alertas de segurança (AKA-78) ---------------------------------------
+# E-mail extra que recebe os alertas, além dos administradores (opcional).
+ALERTA_EMAIL = os.getenv("ALERTA_EMAIL", "")
+# Mais de N visualizações do mesmo usuário em X minutos = alerta (1 por janela).
+ALERTA_ACESSOS_LIMITE = int(os.getenv("ALERTA_ACESSOS_LIMITE", "30"))
+ALERTA_ACESSOS_JANELA_MIN = int(os.getenv("ALERTA_ACESSOS_JANELA_MIN", "10"))
+# Mais de Y% dos arquivos alterados ou sumidos desde a última checagem = alerta.
+ALERTA_INTEGRIDADE_PERCENTUAL = float(os.getenv("ALERTA_INTEGRIDADE_PERCENTUAL", "20"))

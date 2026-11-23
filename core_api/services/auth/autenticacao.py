@@ -14,10 +14,18 @@ contrario, para que rotinas de negocio nao precisem tocar em dados
 pessoais.
 """
 
+import unicodedata
 from typing import Dict, List, Optional, Tuple
 from uuid import UUID
 
-from core_api.models import AcaoAuditoria, EntidadeAuditoria, PerfilOperacional
+from core_api.models import (
+    AcaoAuditoria,
+    Area,
+    EntidadeAuditoria,
+    NivelSigilo,
+    PerfilOperacional,
+    UsuarioPermissaoArea,
+)
 from core_api.services.auditoria import registrar_acao
 from credenciais.models import Papel, Usuario
 
@@ -27,6 +35,48 @@ MINUTOS_BLOQUEIO = 15
 ERRO_CREDENCIAIS_INVALIDAS = "credenciais_invalidas"
 ERRO_USUARIO_INATIVO = "usuario_inativo"
 ERRO_USUARIO_BLOQUEADO = "usuario_bloqueado"
+
+PAPEIS_VALIDOS = (Papel.ENGENHARIA, Papel.QUALIDADE, Papel.ADMINISTRADOR)
+
+# Permissões de área que todo usuário novo recebe pelo papel, iguais às dos
+# usuários de demonstração. Sem isso o usuário cadastrado pela tela não
+# enxerga documento nenhum (acesso é usuário + área + sigilo, sem herança).
+# O administrador ajusta depois, se precisar.
+PERMISSOES_PADRAO_POR_PAPEL = {
+    Papel.ENGENHARIA: [
+        ("Manutenção", "RESTRITO"),
+        ("Operações", "INTERNO"),
+        ("Segurança", "PUBLICO"),
+    ],
+    Papel.QUALIDADE: [
+        ("Compliance", "CONFIDENCIAL"),
+        ("Segurança", "INTERNO"),
+        ("Manutenção", "PUBLICO"),
+    ],
+    Papel.ADMINISTRADOR: [
+        ("Manutenção", "CONFIDENCIAL"),
+        ("Operações", "CONFIDENCIAL"),
+        ("Segurança", "CONFIDENCIAL"),
+        ("Compliance", "CONFIDENCIAL"),
+    ],
+}
+
+
+class CadastroInvalido(ValueError):
+    """Dado de cadastro recusado (papel desconhecido, e-mail repetido)."""
+
+
+def normalizar_papel(valor) -> str:
+    """Aceita o código ("ENGENHARIA") ou o nome mostrado na tela
+    ("Engenharia", "administrador"), sem diferenciar maiúscula nem acento."""
+    texto = unicodedata.normalize("NFKD", str(valor or "")).strip().upper()
+    codigo = "".join(c for c in texto if not unicodedata.combining(c))
+    if codigo not in PAPEIS_VALIDOS:
+        raise CadastroInvalido(
+            "Perfil inválido. Use Engenharia, Qualidade ou Administrador."
+        )
+    return codigo
+
 
 MENUS_PADRAO_POR_PAPEL = {
     Papel.ENGENHARIA: [
@@ -152,32 +202,60 @@ class AuthService:
         Cadastra um novo usuario. Grava:
           - credenciais/identidade em `credenciais_db` (Usuario)
           - dados operacionais em `default` (PerfilOperacional)
+          - permissoes de area padrao do papel (UsuarioPermissaoArea)
+
+        Levanta CadastroInvalido para papel desconhecido ou e-mail ja usado.
         """
-        papel_codigo = user_data.get("role", Papel.ENGENHARIA)
+        papel_codigo = normalizar_papel(user_data.get("role") or Papel.ENGENHARIA)
+        email = (user_data.get("email") or "").strip().lower()
+        if Usuario.objects.using("credenciais_db").filter(email__iexact=email).exists():
+            raise CadastroInvalido("Já existe um usuário com esse e-mail.")
+
         papel, _ = Papel.objects.using("credenciais_db").get_or_create(
             codigo=papel_codigo, defaults={"descricao": papel_codigo.title()}
         )
 
         usuario = Usuario(
             nome=user_data.get("name", "Novo Usuario"),
-            email=user_data.get("email", "").strip().lower(),
+            email=email,
             papel=papel,
         )
         usuario.set_senha(user_data.get("password") or "akaer123")
         usuario.save(using="credenciais_db")
 
         total_usuarios = Usuario.objects.using("credenciais_db").count()
-        PerfilOperacional.objects.using("default").create(
+        perfil = PerfilOperacional.objects.using("default").create(
             usuario_id=usuario.id,
-            matricula=user_data.get("matricula", f"AK-{total_usuarios:05d}"),
+            matricula=user_data.get("matricula") or f"AK-{total_usuarios:05d}",
             cargo=user_data.get("cargo", "Colaborador Akaer"),
             avatar=user_data.get("avatar", "/avatars/default.png"),
             allowed_menus=user_data.get(
                 "allowed_menus", MENUS_PADRAO_POR_PAPEL.get(papel_codigo, ["Início"])
             ),
         )
+        cls._conceder_permissoes_padrao(perfil, papel_codigo)
 
         return cls._compor_usuario(usuario)
+
+    @staticmethod
+    def _conceder_permissoes_padrao(perfil, papel_codigo: str) -> None:
+        """Area ou nivel que ainda nao existe (sem seed_taxonomia) fica de fora,
+        sem erro: o cadastro continua valendo e o admin concede depois."""
+        regras = PERMISSOES_PADRAO_POR_PAPEL.get(papel_codigo, [])
+        areas = {
+            a.nome: a for a in Area.objects.filter(nome__in=[r[0] for r in regras])
+        }
+        niveis = {
+            n.nome: n
+            for n in NivelSigilo.objects.filter(nome__in=[r[1] for r in regras])
+        }
+        for nome_area, nome_nivel in regras:
+            if nome_area in areas and nome_nivel in niveis:
+                UsuarioPermissaoArea.objects.get_or_create(
+                    usuario=perfil,
+                    area=areas[nome_area],
+                    defaults={"nivel_sigilo_maximo": niveis[nome_nivel]},
+                )
 
     # -- Composicao entre os dois bancos ---------------------------------
     @classmethod

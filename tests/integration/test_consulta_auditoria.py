@@ -161,12 +161,14 @@ class ListaTests(ConsultaAuditoriaBase):
     def test_nome_vem_das_credenciais_e_removido_ou_sem_usuario(self):
         self.acao(em(2026, 11, 10, 3), self.eng["id"])
         self.acao(em(2026, 11, 10, 2), uuid.uuid4())  # usuário excluído
-        self.acao(em(2026, 11, 10, 1), None)  # e-mail que não existe
+        self.acao(em(2026, 11, 10, 1), None, AcaoAuditoria.LOGIN_FALHOU)
+        self.acao(em(2026, 11, 10, 0), None, AcaoAuditoria.ATUALIZADO)
 
         nomes = [r["usuario_nome"] for r in self.listar()["results"]]
 
         self.assertEqual(
-            nomes, ["Edu Engenharia", "Usuário removido", "Não identificado"]
+            nomes,
+            ["Edu Engenharia", "Usuário removido", "Não identificado", "Sistema"],
         )
 
     def test_resposta_nao_traz_email(self):

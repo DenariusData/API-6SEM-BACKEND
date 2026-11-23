@@ -27,6 +27,7 @@ from core_api.views import (
     responsaveis_view,
     tipos_documento_view,
     upload_document_view,
+    user_detail_view,
     user_management_view,
     visualizar_documento_view,
 )
@@ -64,6 +65,11 @@ urlpatterns = [
         "auth/users/",
         user_management_view,
         name="user_management",
+    ),
+    path(
+        "auth/users/<uuid:usuario_id>/",
+        user_detail_view,
+        name="user_detail",
     ),
     # =====================================================
     # AUDITORIA (AKA-81, só ADMINISTRADOR)

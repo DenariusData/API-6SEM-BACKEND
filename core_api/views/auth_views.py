@@ -8,7 +8,7 @@ from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from core_api.services.auth import dados_pessoais, exportacao_dados
+from core_api.services.auth import dados_pessoais, exclusao_conta, exportacao_dados
 from core_api.services.auth.autenticacao import (
     ERRO_USUARIO_BLOQUEADO,
     AuthService,
@@ -94,7 +94,7 @@ def _json_objeto(request):
 
 
 @csrf_exempt
-@require_http_methods(["GET", "PATCH"])
+@require_http_methods(["GET", "PATCH", "DELETE"])
 @require_auth
 def profile_view(request):
     """
@@ -113,11 +113,51 @@ def profile_view(request):
     """
     if request.method == "PATCH":
         return _alterar_dados_pessoais(request)
+    if request.method == "DELETE":
+        return _excluir_propria_conta(request)
 
     user = AuthService.find_by_id(request.auth_user["sub"])
     if user:
         return JsonResponse({"user": user}, status=200)
     return JsonResponse({"detail": "Usuário não encontrado."}, status=404)
+
+
+def _excluir_propria_conta(request):
+    """DELETE /api/auth/me/ {"senha"} (AKA-110): o titular apaga a própria
+    conta. A senha confirma a intenção. 204 · 400 sem senha · 403 senha errada
+    · 404."""
+    dados = _json_objeto(request) or {}
+    senha = dados.get("senha")
+    if not isinstance(senha, str) or not senha:
+        return _erro("Informe a senha para confirmar a exclusão.", 400, "senha")
+    usuario_id = request.auth_user["sub"]
+    try:
+        exclusao_conta.confirmar_senha(usuario_id, senha)
+        exclusao_conta.excluir_conta(usuario_id, usuario_id)
+    except exclusao_conta.SenhaIncorreta:
+        return _erro("Senha incorreta.", 403, "senha")
+    except (exclusao_conta.UsuarioNaoEncontrado, ValueError):
+        return _erro("Usuário não encontrado.", 404)
+    return HttpResponse(status=204)
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+@require_role("ADMINISTRADOR")
+def user_detail_view(request, usuario_id):
+    """DELETE /api/auth/users/<id>/ (AKA-110): o administrador apaga a conta de
+    outro usuário. 204 · 400 a própria conta · 404."""
+    admin_id = request.auth_user["sub"]
+    if str(usuario_id) == str(admin_id):
+        return _erro(
+            "Use a opção Excluir minha conta em Meus dados para apagar a sua conta.",
+            400,
+        )
+    try:
+        exclusao_conta.excluir_conta(usuario_id, admin_id)
+    except exclusao_conta.UsuarioNaoEncontrado:
+        return _erro("Usuário não encontrado.", 404)
+    return HttpResponse(status=204)
 
 
 def _alterar_dados_pessoais(request):

@@ -8,6 +8,7 @@ from core_api.views.auth_views import (
     login_view,
     profile_view,
     reenviar_confirmacao_view,
+    user_detail_view,
     user_management_view,
 )
 from core_api.views.consulta_views import (
@@ -37,6 +38,7 @@ from core_api.views.visualizacao_views import (
 )
 
 __all__ = [
+    "user_detail_view",
     "login_view",
     "profile_view",
     "user_management_view",

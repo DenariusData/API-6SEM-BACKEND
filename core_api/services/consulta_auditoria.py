@@ -40,6 +40,7 @@ from core_api.models import (
     LogAuditoria,
 )
 from core_api.services.consulta_documentos import (
+    USUARIO_REMOVIDO,
     ParametroInvalido,
     nomes_dos_usuarios,
     paginar,
@@ -47,7 +48,6 @@ from core_api.services.consulta_documentos import (
 
 FUSO_LEITURA = ZoneInfo("America/Sao_Paulo")
 
-USUARIO_REMOVIDO = "Usuário removido"
 SEM_USUARIO = "Não identificado"
 SISTEMA = "Sistema"
 

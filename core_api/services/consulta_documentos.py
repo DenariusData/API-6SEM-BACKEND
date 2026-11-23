@@ -62,6 +62,17 @@ def nomes_dos_usuarios(ids) -> dict:
     return {u.id: u.nome for u in usuarios.only("id", "nome")}
 
 
+USUARIO_REMOVIDO = "Usuário removido"
+
+
+def nome_exibido(nomes, usuario_id):
+    """Nome para a tela. Id sem usuário em credenciais_db = conta excluída
+    (AKA-110): mostra "Usuário removido". Sem id nenhum, None."""
+    if not usuario_id:
+        return None
+    return nomes.get(usuario_id, USUARIO_REMOVIDO)
+
+
 def paginar(queryset, pagina_bruta, serializar):
     """Pagina o queryset (já ordenado). `serializar(itens)` recebe a lista da
     página e devolve a lista de dicts (assim os nomes são buscados 1 vez por
@@ -193,7 +204,7 @@ def serializar_lista(documentos, com_ultimo_comentario=False):
             "nivel_sigilo_sugerido": d.nivel_sigilo_sugerido.nome,
             "status_validacao": d.status_validacao,
             "status_processamento": d.status_processamento,
-            "autor": nomes.get(d.usuario_upload_id),
+            "autor": nome_exibido(nomes, d.usuario_upload_id),
             "criado_em": _iso(d.criado_em),
         }
         if com_ultimo_comentario:
@@ -260,16 +271,16 @@ def detalhe(documento_id, usuario_id, papel_codigo) -> dict:
         "status_processamento": doc.status_processamento,
         "erro_processamento": doc.erro_processamento,
         "comentario_devolucao": doc.comentario_devolucao,
-        "autor": nomes.get(doc.usuario_upload_id),
-        "responsavel": nomes.get(doc.responsavel_id),
-        "validado_por": nomes.get(doc.validado_por_id),
+        "autor": nome_exibido(nomes, doc.usuario_upload_id),
+        "responsavel": nome_exibido(nomes, doc.responsavel_id),
+        "validado_por": nome_exibido(nomes, doc.validado_por_id),
         "validado_em": _iso(doc.validado_em),
         "criado_em": _iso(doc.criado_em),
         "atualizado_em": _iso(doc.atualizado_em),
         "historico": [
             {
                 "acao": h.acao,
-                "usuario": nomes.get(h.usuario_id),
+                "usuario": nome_exibido(nomes, h.usuario_id),
                 "comentario": h.comentario,
                 "nivel_sigilo": h.nivel_sigilo.nome if h.nivel_sigilo else None,
                 "criado_em": _iso(h.criado_em),

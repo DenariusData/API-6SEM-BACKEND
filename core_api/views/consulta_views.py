@@ -4,6 +4,8 @@ Endpoints de consulta do fluxo de validação (S2-35).
     GET /api/documents/pendentes/        fila de validação (só ADMINISTRADOR)
     GET /api/documents/meus/?status=     envios do usuário (qualquer autenticado),
                                          com `contagens` por status
+    GET /api/documents/disponiveis/?busca=  acervo que o usuário pode consultar
+                                         (DISPONIVEL + permissão), AKA-108
     GET /api/documents/<id>/             metadados + histórico
 
 As listas aceitam ?page= (20 por página). Esta camada só faz HTTP; as regras
@@ -77,6 +79,24 @@ def meus_documentos_view(request):
     except consulta.ParametroInvalido as e:
         return _erro(str(e), 400, e.campo)
     corpo["contagens"] = consulta.contagens_por_status(usuario_id)
+    return JsonResponse(corpo, status=200)
+
+
+@require_http_methods(["GET"])
+@require_auth
+def acervo_view(request):
+    """GET /api/documents/disponiveis/?busca=texto&page=1"""
+    usuario_id = _usuario_id(request)
+    if usuario_id is None:
+        return _erro("Token inválido.", 401)
+    try:
+        corpo = consulta.paginar(
+            consulta.acervo_disponivel(usuario_id, request.GET.get("busca")),
+            request.GET.get("page"),
+            consulta.serializar_lista,
+        )
+    except consulta.ParametroInvalido as e:
+        return _erro(str(e), 400, e.campo)
     return JsonResponse(corpo, status=200)
 
 

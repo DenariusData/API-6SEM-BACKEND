@@ -76,6 +76,9 @@ class Subcategoria(models.Model):
 
 class TipoDocumento(models.Model):
     nome = models.CharField(max_length=60, unique=True)
+    # Inativo: some do formulário de upload, mas os documentos que já usam o
+    # tipo continuam com ele (os 9 tipos antigos, desde a migration 0016).
+    ativo = models.BooleanField(default=True)
 
     class Meta:
         app_label = "core_api"

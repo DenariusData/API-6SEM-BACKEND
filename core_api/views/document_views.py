@@ -1,7 +1,9 @@
 """
 Views relacionadas ao gerenciamento e upload de documentos.
 
-    POST /api/documents/upload/   multipart/form-data com os 16 campos
+    POST /api/documents/upload/        multipart/form-data com os 16 campos
+    POST /api/documents/sugerir-tipo/  multipart/form-data só com o arquivo:
+                                       tipo sugerido pelo classificador
 
 Esta camada só faz HTTP: autentica, descobre o perfil de quem chamou pelo
 token e traduz as exceções da service em status. A lista de campos e as
@@ -22,7 +24,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from core_api.models import Documento, PerfilOperacional
-from core_api.services import reenvio_documento, upload_documento
+from core_api.services import classificador_tipo, reenvio_documento, upload_documento
 from core_api.services.validacao import PermissaoNegada, TransicaoInvalida
 from core_api.utils.jwt_auth import require_auth
 
@@ -134,3 +136,31 @@ def reenviar_documento_view(request, documento_id):
             "status_validacao": documento.status_validacao,
         }
     )
+
+
+@csrf_exempt
+@require_auth
+@require_http_methods(["POST"])
+def sugerir_tipo_view(request):
+    """POST /api/documents/sugerir-tipo/
+
+    Recebe só o PDF (campo `arquivo`, mesmas regras do upload) e devolve o
+    tipo que o classificador sugere. Não grava nada.
+
+    200 {"sugestao": {"tipo_documento": {"id", "nome"} | null, "confianca",
+    "probabilidades"}} ou {"sugestao": null, "motivo": "..."} quando não há
+    sugestão (modelo não treinado, PDF sem texto, IA fora do ar): nesses
+    casos o formulário segue normal · 400 arquivo inválido · 401 · 403.
+    """
+    if _perfil_de(request) is None:
+        return _erro("Perfil operacional do usuário não encontrado.", 403)
+    try:
+        arquivo = upload_documento._arquivo(request.FILES.get("arquivo"))
+    except upload_documento.DadosInvalidos as e:
+        return _erro(str(e), 400, e.campo)
+
+    try:
+        sugestao = classificador_tipo.sugerir_tipo(arquivo)
+    except classificador_tipo.SemSugestao as e:
+        return JsonResponse({"sugestao": None, "motivo": str(e)})
+    return JsonResponse({"sugestao": sugestao})

@@ -246,7 +246,7 @@ def _leitores(dados):
             ("tipo_documento",),
             lambda: {
                 "tipo_documento": _opcao(
-                    TipoDocumento.objects.all(),
+                    TipoDocumento.objects.filter(ativo=True),
                     _valor(dados, "tipo_documento"),
                     "tipo_documento",
                     "o tipo de documento",

@@ -27,6 +27,7 @@ from core_api.views import (
     reenviar_confirmacao_view,
     reenviar_documento_view,
     responsaveis_view,
+    sugerir_tipo_view,
     termos_admin_view,
     termos_pendentes_view,
     tipos_documento_view,
@@ -138,6 +139,11 @@ urlpatterns = [
         "documents/upload/",
         upload_document_view,
         name="document_upload",
+    ),
+    path(
+        "documents/sugerir-tipo/",
+        sugerir_tipo_view,
+        name="document_sugerir_tipo",
     ),
     path(
         "documents/pendentes/",

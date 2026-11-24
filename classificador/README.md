@@ -60,8 +60,8 @@ Documento ilegível ou fora do assunto: escreva `descartar`.
 ## Resultado do modelo atual
 
 183 documentos públicos (58 Técnica, 47 Normativa, 43 Jurídica e 35
-Quantitativa), rotulados pelo palpite da fonte e com ajuda de IA. A revisão da
-equipe, documento a documento, ainda não foi feita.
+Quantitativa), rotulados pelo palpite da fonte e com ajuda de IA. Os 13 casos
+duvidosos foram conferidos pela equipe; os demais não foram lidos um a um.
 Documentos repetidos (a mesma norma em várias revisões, a mesma diretriz com
 outra data) saíram antes do treino: cópia no treino e no teste infla a
 acurácia.

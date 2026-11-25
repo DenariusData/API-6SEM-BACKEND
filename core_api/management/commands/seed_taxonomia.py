@@ -35,17 +35,28 @@ ESTRUTURA = {
     },
 }
 
+# Os 4 tipos que o classificador (classificador/) aprende a sugerir no upload.
 TIPOS_DOCUMENTO = [
-    "Norma ou regulamento",
-    "Procedimento interno",
-    "Manual",
-    "Instrução",
-    "Circular",
-    "Boletim",
-    "Relatório",
-    "Documento de fabricante",
-    "Documento complementar ou de referência",
+    "Técnica",
+    "Jurídica",
+    "Normativa",
+    "Quantitativa",
 ]
+
+# Os 9 tipos da lista original do cliente. Desativados na migration 0016
+# (continuam nos documentos antigos). Para voltar a usá-los: descomentar,
+# rodar o seed e marcar ativo=True no admin.
+# TIPOS_DOCUMENTO = [
+#     "Norma ou regulamento",
+#     "Procedimento interno",
+#     "Manual",
+#     "Instrução",
+#     "Circular",
+#     "Boletim",
+#     "Relatório",
+#     "Documento de fabricante",
+#     "Documento complementar ou de referência",
+# ]
 
 NIVEIS_SIGILO = [("PUBLICO", 1), ("INTERNO", 2), ("RESTRITO", 3), ("CONFIDENCIAL", 4)]
 
@@ -81,7 +92,9 @@ class Command(BaseCommand):
                     criados["subcategoria"] += int(foi_criada)
 
         for nome_tipo in TIPOS_DOCUMENTO:
-            _, foi_criada = TipoDocumento.objects.get_or_create(nome=nome_tipo)
+            _, foi_criada = TipoDocumento.objects.update_or_create(
+                nome=nome_tipo, defaults={"ativo": True}
+            )
             criados["tipo"] += int(foi_criada)
 
         for nome_sigilo, ordinal in NIVEIS_SIGILO:

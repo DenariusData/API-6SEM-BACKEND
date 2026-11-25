@@ -17,7 +17,11 @@ from core_api.views.consulta_views import (
     meus_documentos_view,
     pendentes_view,
 )
-from core_api.views.document_views import reenviar_documento_view, upload_document_view
+from core_api.views.document_views import (
+    reenviar_documento_view,
+    sugerir_tipo_view,
+    upload_document_view,
+)
 from core_api.views.opcoes_upload_views import (
     areas_view,
     idiomas_view,
@@ -65,6 +69,7 @@ __all__ = [
     "acervo_view",
     "detalhe_documento_view",
     "tipos_documento_view",
+    "sugerir_tipo_view",
     "areas_view",
     "niveis_sigilo_view",
     "idiomas_view",

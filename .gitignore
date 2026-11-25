@@ -39,9 +39,14 @@ chunks/
 
 # Arquivos grandes de dados (compartilhados pelo Google Drive)
 *.npz
+# O modelo do classificador de tipo é pequeno e vai no repositório.
+!classificador/modelo_tipo_documento.npz
 *.dump
 uploads/
 
 # Relatórios dos testes enviados ao SonarQube Cloud (gerados no CI)
 coverage.xml
 test-results.xml
+
+# Amostras do classificador de tipo (classificador/coletar_amostras.py)
+amostras_tipo/

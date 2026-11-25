@@ -22,7 +22,7 @@ Não são necessariamente 16 colunas: vários viram FK/relacionamento em vez de 
 |---|---|---|
 | Título | `documento.titulo` | Sim |
 | Identificador/código | `documento.identificador_codigo` | Sim |
-| Tipo de documento | FK `tipo_documento_id` (9 tipos definidos pelo cliente) | Sim |
+| Tipo de documento | FK `tipo_documento_id` (4 tipos ativos: Técnica, Jurídica, Normativa e Quantitativa; os 9 anteriores ficam com `ativo=False`, só nos documentos antigos) | Sim |
 | Número/revisão | `documento.numero_revisao` | Sim |
 | Data de emissão | `documento.data_emissao` | Sim |
 | Data de vigência | `documento.data_vigencia` | Quando aplicável |

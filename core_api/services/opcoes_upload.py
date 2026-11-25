@@ -1,7 +1,7 @@
 """
 Opções dos selects do formulário de upload (S2-32).
 
-    tipos_documento()   os 9 tipos do cliente
+    tipos_documento()   os tipos ativos (Técnica, Jurídica, Normativa, Quantitativa)
     areas()             áreas ativas com categorias e subcategorias ativas
     niveis_sigilo()     do menos para o mais restrito (ordinal)
     idiomas()
@@ -34,7 +34,8 @@ from credenciais.models import Usuario
 
 def tipos_documento():
     return [
-        {"id": t.id, "nome": t.nome} for t in TipoDocumento.objects.order_by("nome")
+        {"id": t.id, "nome": t.nome}
+        for t in TipoDocumento.objects.filter(ativo=True).order_by("nome")
     ]
 
 

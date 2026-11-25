@@ -401,9 +401,17 @@ class OpcoesUploadTestCase(UploadBase):
                 self.assertEqual(self.get(url, token=None).status_code, 401)
 
     def test_tipos_documento(self):
+        # Tipo inativo (os 9 antigos, desde a migration 0013) não aparece.
+        TipoDocumento.objects.create(nome="Boletim", ativo=False)
         r = self.get("/api/tipos-documento/")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["results"], [{"id": self.tipo.id, "nome": "Manual"}])
+
+    def test_tipo_inativo_nao_e_aceito_no_upload(self):
+        inativo = TipoDocumento.objects.create(nome="Boletim", ativo=False)
+        r = self.enviar(self.dados(tipo_documento=inativo.id))
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()["field"], "tipo_documento")
 
     def test_areas_trazem_categorias_e_subcategorias_ativas(self):
         Area.objects.create(nome="Inativa", ativo=False)

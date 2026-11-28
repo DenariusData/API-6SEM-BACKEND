@@ -35,8 +35,13 @@ def pct(valores, p):
 def ler_recursos(vm):
     with open(RES / vm / "recursos.csv", encoding="utf-8") as f:
         return [
-            {**r, "ts": float(r["ts"]), "cpu_pct": float(r["cpu_pct"]),
-             "mem_mb": float(r["mem_mb"]), "limite_mb": float(r["limite_mb"])}
+            {
+                **r,
+                "ts": float(r["ts"]),
+                "cpu_pct": float(r["cpu_pct"]),
+                "mem_mb": float(r["mem_mb"]),
+                "limite_mb": float(r["limite_mb"]),
+            }
             for r in csv.DictReader(f)
         ]
 
@@ -51,8 +56,9 @@ def ler_k6(vm):
 
 def serie(vm, marcos, recursos, k6):
     t0 = marcos["base_inicio"]
-    baldes = defaultdict(lambda: {"dur": [], "reqs": 0, "falhas": 0, "vus": 0,
-                                  "cpu": [], "mem": []})
+    baldes = defaultdict(
+        lambda: {"dur": [], "reqs": 0, "falhas": 0, "vus": 0, "cpu": [], "mem": []}
+    )
     for linha in k6:
         try:
             ts, valor = float(linha["timestamp"]), float(linha["metric_value"])
@@ -76,15 +82,17 @@ def serie(vm, marcos, recursos, k6):
     pontos = []
     for i in sorted(baldes):
         b = baldes[i]
-        pontos.append({
-            "t": i * JANELA,
-            "vus": int(b["vus"]),
-            "rps": round(b["reqs"] / JANELA, 2),
-            "p95_ms": round(pct(b["dur"], 95), 1),
-            "erro_pct": round(100 * b["falhas"] / b["reqs"], 2) if b["reqs"] else 0,
-            "cpu_pct": round(max(b["cpu"], default=0), 1),
-            "mem_mb": round(max(b["mem"], default=0), 1),
-        })
+        pontos.append(
+            {
+                "t": i * JANELA,
+                "vus": int(b["vus"]),
+                "rps": round(b["reqs"] / JANELA, 2),
+                "p95_ms": round(pct(b["dur"], 95), 1),
+                "erro_pct": round(100 * b["falhas"] / b["reqs"], 2) if b["reqs"] else 0,
+                "cpu_pct": round(max(b["cpu"], default=0), 1),
+                "mem_mb": round(max(b["mem"], default=0), 1),
+            }
+        )
     return pontos
 
 
@@ -93,8 +101,12 @@ def resumir(vm):
     recursos = ler_recursos(vm)
     k6 = ler_k6(vm)
     minhas = [a for a in recursos if a["vm"] == vm]
-    base = [a for a in minhas if marcos["base_inicio"] <= a["ts"] < marcos["carga_inicio"]]
-    carga = [a for a in minhas if marcos["carga_inicio"] <= a["ts"] <= marcos["carga_fim"]]
+    base = [
+        a for a in minhas if marcos["base_inicio"] <= a["ts"] < marcos["carga_inicio"]
+    ]
+    carga = [
+        a for a in minhas if marcos["carga_inicio"] <= a["ts"] <= marcos["carga_fim"]
+    ]
     pos = [a for a in minhas if marcos["carga_fim"] + 15 <= a["ts"] <= marcos["fim"]]
     limite = max((a["limite_mb"] for a in minhas), default=512)
 
@@ -113,23 +125,33 @@ def resumir(vm):
             "erro_pct": round(100 * m.get("http_req_failed", {}).get("value", 0), 2),
             "por_cenario": {
                 k.split("scenario:")[1].rstrip("}"): {
-                    "p95_ms": round(v.get("p(95)", 0), 1), "media_ms": round(v.get("avg", 0), 1)}
-                for k, v in m.items() if k.startswith("http_req_duration{scenario:")
+                    "p95_ms": round(v.get("p(95)", 0), 1),
+                    "media_ms": round(v.get("avg", 0), 1),
+                }
+                for k, v in m.items()
+                if k.startswith("http_req_duration{scenario:")
             },
         }
 
     pontos = serie(vm, marcos, recursos, k6)
     ini_carga = marcos["carga_inicio"] - marcos["base_inicio"]
     ruptura = next(
-        (p for p in pontos if p["t"] >= ini_carga and p["vus"] > 0
-         and (p["p95_ms"] > LIMITE_P95_MS[vm] or p["erro_pct"] > 1)),
+        (
+            p
+            for p in pontos
+            if p["t"] >= ini_carga
+            and p["vus"] > 0
+            and (p["p95_ms"] > LIMITE_P95_MS[vm] or p["erro_pct"] > 1)
+        ),
         None,
     )
 
     cpu_carga = [a["cpu_pct"] for a in carga]
     mem_carga = [a["mem_mb"] for a in carga]
     mem_pico = max(mem_carga + [a["mem_mb"] for a in pos], default=0)
-    cpu_saturada = 100 * sum(c >= 95 for c in cpu_carga) / len(cpu_carga) if cpu_carga else 0
+    cpu_saturada = (
+        100 * sum(c >= 95 for c in cpu_carga) / len(cpu_carga) if cpu_carga else 0
+    )
     eventos = marcos.get("eventos", [])
     ooms = [e for e in eventos if e["vm"] == vm and e["evento"] == "oom"]
 
@@ -147,8 +169,14 @@ def resumir(vm):
     return {
         "vm": vm,
         "limite_mb": limite,
-        "base": {"mem_mb": round(statistics.mean([a["mem_mb"] for a in base]), 1) if base else 0,
-                 "cpu_pct": round(statistics.mean([a["cpu_pct"] for a in base]), 1) if base else 0},
+        "base": {
+            "mem_mb": round(statistics.mean([a["mem_mb"] for a in base]), 1)
+            if base
+            else 0,
+            "cpu_pct": round(statistics.mean([a["cpu_pct"] for a in base]), 1)
+            if base
+            else 0,
+        },
         "carga": {
             "mem_p50_mb": round(pct(mem_carga, 50), 1),
             "mem_p95_mb": round(pct(mem_carga, 95), 1),
@@ -158,7 +186,9 @@ def resumir(vm):
             "cpu_p95_pct": round(pct(cpu_carga, 95), 1),
             "cpu_tempo_saturada_pct": round(cpu_saturada, 1),
         },
-        "pos_carga_mem_mb": round(statistics.mean([a["mem_mb"] for a in pos]), 1) if pos else 0,
+        "pos_carga_mem_mb": round(statistics.mean([a["mem_mb"] for a in pos]), 1)
+        if pos
+        else 0,
         "k6": resumo_k6,
         "ruptura": ruptura,
         "ooms": len(ooms),
@@ -179,16 +209,22 @@ def main():
         if (RES / vm / "marcos.json").exists():
             resumo[vm] = resumir(vm)
             r = resumo[vm]
-            print(f"{vm:8} base {r['base']['mem_mb']:>6} MB | pico {r['carga']['mem_pico_mb']:>6} MB "
-                  f"({r['carga']['mem_pico_pct']}%) | CPU p95 {r['carga']['cpu_p95_pct']}% "
-                  f"saturada {r['carga']['cpu_tempo_saturada_pct']}% | p95 {r['k6'].get('lat_p95_ms')} ms "
-                  f"erro {r['k6'].get('erro_pct')}% | OOM {r['ooms']} | gargalo {r['gargalo']}"
-                  f" | ruptura {r['ruptura'] and (r['ruptura']['vus'], r['ruptura']['t'])}")
+            base, carga, k6 = r["base"], r["carga"], r["k6"]
+            ruptura = r["ruptura"] and (r["ruptura"]["vus"], r["ruptura"]["t"])
+            print(
+                f"{vm:8} base {base['mem_mb']:>6} MB"
+                f" | pico {carga['mem_pico_mb']:>6} MB ({carga['mem_pico_pct']}%)"
+                f" | CPU p95 {carga['cpu_p95_pct']}%"
+                f" saturada {carga['cpu_tempo_saturada_pct']}%"
+                f" | p95 {k6.get('lat_p95_ms')} ms erro {k6.get('erro_pct')}%"
+                f" | OOM {r['ooms']} | gargalo {r['gargalo']} | ruptura {ruptura}"
+            )
     dim = RES / "ia-dimensionamento.json"
     if dim.exists():
         resumo["ia_dimensionamento"] = json.loads(dim.read_text(encoding="utf-8"))
-    (RES / "resumo.json").write_text(json.dumps(resumo, indent=2, ensure_ascii=False),
-                                     encoding="utf-8")
+    (RES / "resumo.json").write_text(
+        json.dumps(resumo, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
     print("->", RES / "resumo.json")
 
 

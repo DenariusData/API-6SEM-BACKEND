@@ -36,7 +36,15 @@ ORDEM = ["front", "back", "ia", "monitor"]
 BASE_S = 60
 RESFRIAR_S = 30
 
-UNIDADES = {"B": 1, "KiB": 1024, "MiB": 1024**2, "GiB": 1024**3, "kB": 1e3, "MB": 1e6, "GB": 1e9}
+UNIDADES = {
+    "B": 1,
+    "KiB": 1024,
+    "MiB": 1024**2,
+    "GiB": 1024**3,
+    "kB": 1e3,
+    "MB": 1e6,
+    "GB": 1e9,
+}
 
 
 def em_bytes(texto):
@@ -62,7 +70,8 @@ class Coletor:
             ts = agora()
             saida = subprocess.run(
                 ["docker", "stats", "--no-stream", "--format", fmt, *VMS],
-                capture_output=True, text=True,
+                capture_output=True,
+                text=True,
             ).stdout
             for linha in saida.splitlines():
                 try:
@@ -70,20 +79,31 @@ class Coletor:
                 except json.JSONDecodeError:
                     continue
                 uso, limite = (d.get("MemUsage", "0B / 0B").split("/") + ["0B"])[:2]
-                self.amostras.append({
-                    "ts": round(ts, 2),
-                    "vm": d["Name"].replace("vm-", ""),
-                    "cpu_pct": float(d["CPUPerc"].rstrip("%") or 0),
-                    "mem_mb": round(em_bytes(uso) / 1024**2, 1),
-                    "limite_mb": round(em_bytes(limite) / 1024**2, 1),
-                    "pids": int(d.get("PIDs") or 0),
-                })
+                self.amostras.append(
+                    {
+                        "ts": round(ts, 2),
+                        "vm": d["Name"].replace("vm-", ""),
+                        "cpu_pct": float(d["CPUPerc"].rstrip("%") or 0),
+                        "mem_mb": round(em_bytes(uso) / 1024**2, 1),
+                        "limite_mb": round(em_bytes(limite) / 1024**2, 1),
+                        "pids": int(d.get("PIDs") or 0),
+                    }
+                )
 
     def _eventos(self):
         self._proc_ev = subprocess.Popen(
-            ["docker", "events", "--filter", "event=oom", "--filter", "event=die",
-             "--format", "{{json .}}"],
-            stdout=subprocess.PIPE, text=True,
+            [
+                "docker",
+                "events",
+                "--filter",
+                "event=oom",
+                "--filter",
+                "event=die",
+                "--format",
+                "{{json .}}",
+            ],
+            stdout=subprocess.PIPE,
+            text=True,
         )
         for linha in self._proc_ev.stdout:
             try:
@@ -92,8 +112,13 @@ class Coletor:
                 continue
             nome = d.get("Actor", {}).get("Attributes", {}).get("name", "")
             if nome in VMS:
-                self.ooms.append({"ts": d.get("time"), "vm": nome.replace("vm-", ""),
-                                  "evento": d.get("Action")})
+                self.ooms.append(
+                    {
+                        "ts": d.get("time"),
+                        "vm": nome.replace("vm-", ""),
+                        "evento": d.get("Action"),
+                    }
+                )
 
     def iniciar(self):
         threading.Thread(target=self._stats, daemon=True).start()
@@ -108,12 +133,27 @@ class Coletor:
 def esperar(url, codigos=(200, 401), limite_s=180, cabecalhos=None):
     """Espera a URL responder (de dentro da rede, via container curl)."""
     fim = time.time() + limite_s
-    args = ["docker", "run", "--rm", "--network", "akavision-net", "curlimages/curl:8.11.1",
-            "-s", "-o", "/dev/null", "-w", "%{http_code}", "-m", "5"]
+    args = [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "akavision-net",
+        "curlimages/curl:8.11.1",
+        "-s",
+        "-o",
+        "/dev/null",
+        "-w",
+        "%{http_code}",
+        "-m",
+        "5",
+    ]
     for k, v in (cabecalhos or {}).items():
         args += ["-H", f"{k}: {v}"]
     while time.time() < fim:
-        codigo = subprocess.run(args + [url], capture_output=True, text=True).stdout.strip()
+        codigo = subprocess.run(
+            args + [url], capture_output=True, text=True
+        ).stdout.strip()
         if codigo.isdigit() and int(codigo) in codigos:
             return True
         time.sleep(3)
@@ -130,19 +170,36 @@ PRONTO = {
 
 def consultar_alertas(inicio, fim):
     """Alertas que ficaram 'firing' no Prometheus da VM de monitoramento."""
-    q = urllib.request.quote('max by (alertname, severidade, vm) (ALERTS{alertstate="firing"})')
+    q = urllib.request.quote(
+        'max by (alertname, severidade, vm) (ALERTS{alertstate="firing"})'
+    )
     url = f"http://10.10.10.8:9090/api/v1/query_range?query={q}&start={inicio}&end={fim}&step=15"
     saida = subprocess.run(
-        ["docker", "run", "--rm", "--network", "akavision-net", "curlimages/curl:8.11.1",
-         "-s", "-m", "20", url],
-        capture_output=True, text=True,
+        [
+            "docker",
+            "run",
+            "--rm",
+            "--network",
+            "akavision-net",
+            "curlimages/curl:8.11.1",
+            "-s",
+            "-m",
+            "20",
+            url,
+        ],
+        capture_output=True,
+        text=True,
     ).stdout
     try:
         dados = json.loads(saida)["data"]["result"]
     except (json.JSONDecodeError, KeyError):
         return []
     return [
-        {**r["metric"], "primeiro": float(r["values"][0][0]), "ultimo": float(r["values"][-1][0])}
+        {
+            **r["metric"],
+            "primeiro": float(r["values"][0][0]),
+            "ultimo": float(r["values"][-1][0]),
+        }
         for r in dados
     ]
 
@@ -164,11 +221,25 @@ def rodar(vm, coletor):
 
     print(f"=== {vm}: carga (k6/{vm}.js)")
     k6 = subprocess.run(
-        COMPOSE + ["--profile", "carga", "run", "--rm", "k6", "run", "--quiet",
-                   "--summary-export", f"/resultados/{vm}/k6-resumo.json",
-                   "--out", f"csv=/resultados/{vm}/k6.csv.gz",
-                   f"/scripts/{vm}.js"],
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        COMPOSE
+        + [
+            "--profile",
+            "carga",
+            "run",
+            "--rm",
+            "k6",
+            "run",
+            "--quiet",
+            "--summary-export",
+            f"/resultados/{vm}/k6-resumo.json",
+            "--out",
+            f"csv=/resultados/{vm}/k6.csv.gz",
+            f"/scripts/{vm}.js",
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     marcos["carga_fim"] = agora()
     (pasta / "k6-saida.txt").write_text(k6.stdout + "\n" + k6.stderr, encoding="utf-8")
@@ -180,23 +251,39 @@ def rodar(vm, coletor):
 
     estado = subprocess.run(
         ["docker", "inspect", "-f", "{{json .State}}", f"vm-{vm}"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     ).stdout
     marcos["estado_final"] = json.loads(estado or "{}")
     marcos["alertas"] = consultar_alertas(marcos["base_inicio"], marcos["fim"])
-    log = subprocess.run(["docker", "logs", "--since", "15m", f"vm-{vm}"],
-                         capture_output=True, text=True, encoding="utf-8", errors="replace")
-    (pasta / "vm-log.txt").write_text((log.stdout + log.stderr)[-200_000:], encoding="utf-8")
+    log = subprocess.run(
+        ["docker", "logs", "--since", "15m", f"vm-{vm}"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    (pasta / "vm-log.txt").write_text(
+        (log.stdout + log.stderr)[-200_000:], encoding="utf-8"
+    )
 
-    amostras = [a for a in coletor.amostras if marcos["reiniciada"] <= a["ts"] <= marcos["fim"]]
+    amostras = [
+        a for a in coletor.amostras if marcos["reiniciada"] <= a["ts"] <= marcos["fim"]
+    ]
     with open(pasta / "recursos.csv", "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=["ts", "vm", "cpu_pct", "mem_mb", "limite_mb", "pids"])
+        w = csv.DictWriter(
+            f, fieldnames=["ts", "vm", "cpu_pct", "mem_mb", "limite_mb", "pids"]
+        )
         w.writeheader()
         w.writerows(amostras)
-    marcos["eventos"] = [e for e in coletor.ooms
-                         if marcos["reiniciada"] - 5 <= (e["ts"] or 0) <= marcos["fim"] + 5]
-    (pasta / "marcos.json").write_text(json.dumps(marcos, indent=2, ensure_ascii=False),
-                                       encoding="utf-8")
+    marcos["eventos"] = [
+        e
+        for e in coletor.ooms
+        if marcos["reiniciada"] - 5 <= (e["ts"] or 0) <= marcos["fim"] + 5
+    ]
+    (pasta / "marcos.json").write_text(
+        json.dumps(marcos, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
     # Se a VM morreu no teste, sobe de novo para não atrapalhar a próxima.
     if not marcos["estado_final"].get("Running", True):
         subprocess.run(["docker", "start", f"vm-{vm}"], capture_output=True)

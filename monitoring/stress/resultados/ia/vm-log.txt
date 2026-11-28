@@ -39,7 +39,7 @@ llama_model_loader: - type q4_K:  168 tensors
 llama_model_loader: - type q6_K:   29 tensors
 print_info: file format = GGUF V3 (latest)
 print_info: file type   = Q4_K - Medium
-print_info: file size   = 1.87 GiB (5.01 BPW) 
+print_info: file size   = 1.87 GiB (5.01 BPW)
 load: 0 unused tokens
 load: printing all EOG tokens:
 load:   - 128001 ('<|end_of_text|>')
@@ -120,7 +120,7 @@ cmn  common_param: common_params_print_info: build 1 (631109b34) with GNU 13.3.1
 cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
 cmn  common_param: device_info:
 cmn  common_param:   - CPU     : 12th Gen Intel(R) Core(TM) i5-12450H (11826 MiB, 11826 MiB free)
-cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 |
 srv  init_listene: The UI is disabled
 srv  init_listene: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
 srv          init: using 11 threads for HTTP server
@@ -175,7 +175,7 @@ llama_model_loader: - type q4_K:  168 tensors
 llama_model_loader: - type q6_K:   29 tensors
 print_info: file format = GGUF V3 (latest)
 print_info: file type   = Q4_K - Medium
-print_info: file size   = 1.87 GiB (5.01 BPW) 
+print_info: file size   = 1.87 GiB (5.01 BPW)
 load: 0 unused tokens
 load: printing all EOG tokens:
 load:   - 128001 ('<|end_of_text|>')
@@ -256,7 +256,7 @@ cmn  common_param: common_params_print_info: build 1 (631109b34) with GNU 13.3.1
 cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
 cmn  common_param: device_info:
 cmn  common_param:   - CPU     : 12th Gen Intel(R) Core(TM) i5-12450H (11826 MiB, 11826 MiB free)
-cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 |
 srv  init_listene: The UI is disabled
 srv  init_listene: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
 srv          init: using 11 threads for HTTP server
@@ -311,7 +311,7 @@ llama_model_loader: - type q4_K:  168 tensors
 llama_model_loader: - type q6_K:   29 tensors
 print_info: file format = GGUF V3 (latest)
 print_info: file type   = Q4_K - Medium
-print_info: file size   = 1.87 GiB (5.01 BPW) 
+print_info: file size   = 1.87 GiB (5.01 BPW)
 load: 0 unused tokens
 load: printing all EOG tokens:
 load:   - 128001 ('<|end_of_text|>')
@@ -392,7 +392,7 @@ cmn  common_param: common_params_print_info: build 1 (631109b34) with GNU 13.3.1
 cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
 cmn  common_param: device_info:
 cmn  common_param:   - CPU     : 12th Gen Intel(R) Core(TM) i5-12450H (11826 MiB, 11826 MiB free)
-cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 |
 srv  init_listene: The UI is disabled
 srv  init_listene: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
 srv          init: using 11 threads for HTTP server
@@ -447,7 +447,7 @@ llama_model_loader: - type q4_K:  168 tensors
 llama_model_loader: - type q6_K:   29 tensors
 print_info: file format = GGUF V3 (latest)
 print_info: file type   = Q4_K - Medium
-print_info: file size   = 1.87 GiB (5.01 BPW) 
+print_info: file size   = 1.87 GiB (5.01 BPW)
 load: 0 unused tokens
 load: printing all EOG tokens:
 load:   - 128001 ('<|end_of_text|>')
@@ -529,7 +529,7 @@ cmn  common_param: common_params_print_info: build 1 (631109b34) with GNU 13.3.1
 cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
 cmn  common_param: device_info:
 cmn  common_param:   - CPU     : 12th Gen Intel(R) Core(TM) i5-12450H (11826 MiB, 11826 MiB free)
-cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 |
 srv  init_listene: The UI is disabled
 srv  init_listene: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
 srv          init: using 11 threads for HTTP server
@@ -584,7 +584,7 @@ llama_model_loader: - type q4_K:  168 tensors
 llama_model_loader: - type q6_K:   29 tensors
 print_info: file format = GGUF V3 (latest)
 print_info: file type   = Q4_K - Medium
-print_info: file size   = 1.87 GiB (5.01 BPW) 
+print_info: file size   = 1.87 GiB (5.01 BPW)
 load: 0 unused tokens
 load: printing all EOG tokens:
 load:   - 128001 ('<|end_of_text|>')
@@ -665,7 +665,7 @@ cmn  common_param: common_params_print_info: build 1 (631109b34) with GNU 13.3.1
 cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
 cmn  common_param: device_info:
 cmn  common_param:   - CPU     : 12th Gen Intel(R) Core(TM) i5-12450H (11826 MiB, 11826 MiB free)
-cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 |
 srv  init_listene: The UI is disabled
 srv  init_listene: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
 srv          init: using 11 threads for HTTP server
@@ -720,7 +720,7 @@ llama_model_loader: - type q4_K:  168 tensors
 llama_model_loader: - type q6_K:   29 tensors
 print_info: file format = GGUF V3 (latest)
 print_info: file type   = Q4_K - Medium
-print_info: file size   = 1.87 GiB (5.01 BPW) 
+print_info: file size   = 1.87 GiB (5.01 BPW)
 load: 0 unused tokens
 load: printing all EOG tokens:
 load:   - 128001 ('<|end_of_text|>')
@@ -801,7 +801,7 @@ cmn  common_param: common_params_print_info: build 1 (631109b34) with GNU 13.3.1
 cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
 cmn  common_param: device_info:
 cmn  common_param:   - CPU     : 12th Gen Intel(R) Core(TM) i5-12450H (11826 MiB, 11826 MiB free)
-cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 |
 srv  init_listene: The UI is disabled
 srv  init_listene: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
 srv          init: using 11 threads for HTTP server
@@ -856,7 +856,7 @@ llama_model_loader: - type q4_K:  168 tensors
 llama_model_loader: - type q6_K:   29 tensors
 print_info: file format = GGUF V3 (latest)
 print_info: file type   = Q4_K - Medium
-print_info: file size   = 1.87 GiB (5.01 BPW) 
+print_info: file size   = 1.87 GiB (5.01 BPW)
 load: 0 unused tokens
 load: printing all EOG tokens:
 load:   - 128001 ('<|end_of_text|>')
@@ -937,7 +937,7 @@ cmn  common_param: common_params_print_info: build 1 (631109b34) with GNU 13.3.1
 cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
 cmn  common_param: device_info:
 cmn  common_param:   - CPU     : 12th Gen Intel(R) Core(TM) i5-12450H (11826 MiB, 11826 MiB free)
-cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 |
 srv  init_listene: The UI is disabled
 srv  init_listene: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
 srv          init: using 11 threads for HTTP server
@@ -992,7 +992,7 @@ llama_model_loader: - type q4_K:  168 tensors
 llama_model_loader: - type q6_K:   29 tensors
 print_info: file format = GGUF V3 (latest)
 print_info: file type   = Q4_K - Medium
-print_info: file size   = 1.87 GiB (5.01 BPW) 
+print_info: file size   = 1.87 GiB (5.01 BPW)
 load: 0 unused tokens
 load: printing all EOG tokens:
 load:   - 128001 ('<|end_of_text|>')
@@ -1074,7 +1074,7 @@ cmn  common_param: common_params_print_info: build 1 (631109b34) with GNU 13.3.1
 cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
 cmn  common_param: device_info:
 cmn  common_param:   - CPU     : 12th Gen Intel(R) Core(TM) i5-12450H (11826 MiB, 11826 MiB free)
-cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 |
 srv  init_listene: The UI is disabled
 srv  init_listene: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
 srv          init: using 11 threads for HTTP server
@@ -1129,7 +1129,7 @@ llama_model_loader: - type q4_K:  168 tensors
 llama_model_loader: - type q6_K:   29 tensors
 print_info: file format = GGUF V3 (latest)
 print_info: file type   = Q4_K - Medium
-print_info: file size   = 1.87 GiB (5.01 BPW) 
+print_info: file size   = 1.87 GiB (5.01 BPW)
 load: 0 unused tokens
 load: printing all EOG tokens:
 load:   - 128001 ('<|end_of_text|>')
@@ -1210,7 +1210,7 @@ cmn  common_param: common_params_print_info: build 1 (631109b34) with GNU 13.3.1
 cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
 cmn  common_param: device_info:
 cmn  common_param:   - CPU     : 12th Gen Intel(R) Core(TM) i5-12450H (11826 MiB, 11826 MiB free)
-cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 |
 srv  init_listene: The UI is disabled
 srv  init_listene: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
 srv          init: using 11 threads for HTTP server
@@ -1265,7 +1265,7 @@ llama_model_loader: - type q4_K:  168 tensors
 llama_model_loader: - type q6_K:   29 tensors
 print_info: file format = GGUF V3 (latest)
 print_info: file type   = Q4_K - Medium
-print_info: file size   = 1.87 GiB (5.01 BPW) 
+print_info: file size   = 1.87 GiB (5.01 BPW)
 load: 0 unused tokens
 load: printing all EOG tokens:
 load:   - 128001 ('<|end_of_text|>')
@@ -1346,7 +1346,7 @@ cmn  common_param: common_params_print_info: build 1 (631109b34) with GNU 13.3.1
 cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
 cmn  common_param: device_info:
 cmn  common_param:   - CPU     : 12th Gen Intel(R) Core(TM) i5-12450H (11826 MiB, 11826 MiB free)
-cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 |
 srv  init_listene: The UI is disabled
 srv  init_listene: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
 srv          init: using 11 threads for HTTP server
@@ -1401,7 +1401,7 @@ llama_model_loader: - type q4_K:  168 tensors
 llama_model_loader: - type q6_K:   29 tensors
 print_info: file format = GGUF V3 (latest)
 print_info: file type   = Q4_K - Medium
-print_info: file size   = 1.87 GiB (5.01 BPW) 
+print_info: file size   = 1.87 GiB (5.01 BPW)
 load: 0 unused tokens
 load: printing all EOG tokens:
 load:   - 128001 ('<|end_of_text|>')
@@ -1482,7 +1482,7 @@ cmn  common_param: common_params_print_info: build 1 (631109b34) with GNU 13.3.1
 cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
 cmn  common_param: device_info:
 cmn  common_param:   - CPU     : 12th Gen Intel(R) Core(TM) i5-12450H (11826 MiB, 11826 MiB free)
-cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 |
 srv  init_listene: The UI is disabled
 srv  init_listene: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
 srv          init: using 11 threads for HTTP server
@@ -1537,7 +1537,7 @@ llama_model_loader: - type q4_K:  168 tensors
 llama_model_loader: - type q6_K:   29 tensors
 print_info: file format = GGUF V3 (latest)
 print_info: file type   = Q4_K - Medium
-print_info: file size   = 1.87 GiB (5.01 BPW) 
+print_info: file size   = 1.87 GiB (5.01 BPW)
 load: 0 unused tokens
 load: printing all EOG tokens:
 load:   - 128001 ('<|end_of_text|>')
@@ -1618,7 +1618,7 @@ cmn  common_param: common_params_print_info: build 1 (631109b34) with GNU 13.3.1
 cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
 cmn  common_param: device_info:
 cmn  common_param:   - CPU     : 12th Gen Intel(R) Core(TM) i5-12450H (11826 MiB, 11826 MiB free)
-cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 |
 srv  init_listene: The UI is disabled
 srv  init_listene: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
 srv          init: using 11 threads for HTTP server
@@ -1673,7 +1673,7 @@ llama_model_loader: - type q4_K:  168 tensors
 llama_model_loader: - type q6_K:   29 tensors
 print_info: file format = GGUF V3 (latest)
 print_info: file type   = Q4_K - Medium
-print_info: file size   = 1.87 GiB (5.01 BPW) 
+print_info: file size   = 1.87 GiB (5.01 BPW)
 load: 0 unused tokens
 load: printing all EOG tokens:
 load:   - 128001 ('<|end_of_text|>')
@@ -1754,7 +1754,7 @@ cmn  common_param: common_params_print_info: build 1 (631109b34) with GNU 13.3.1
 cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
 cmn  common_param: device_info:
 cmn  common_param:   - CPU     : 12th Gen Intel(R) Core(TM) i5-12450H (11826 MiB, 11826 MiB free)
-cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 |
 srv  init_listene: The UI is disabled
 srv  init_listene: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
 srv          init: using 11 threads for HTTP server
@@ -1809,7 +1809,7 @@ llama_model_loader: - type q4_K:  168 tensors
 llama_model_loader: - type q6_K:   29 tensors
 print_info: file format = GGUF V3 (latest)
 print_info: file type   = Q4_K - Medium
-print_info: file size   = 1.87 GiB (5.01 BPW) 
+print_info: file size   = 1.87 GiB (5.01 BPW)
 load: 0 unused tokens
 load: printing all EOG tokens:
 load:   - 128001 ('<|end_of_text|>')
@@ -1890,7 +1890,7 @@ cmn  common_param: common_params_print_info: build 1 (631109b34) with GNU 13.3.1
 cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
 cmn  common_param: device_info:
 cmn  common_param:   - CPU     : 12th Gen Intel(R) Core(TM) i5-12450H (11826 MiB, 11826 MiB free)
-cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 |
 srv  init_listene: The UI is disabled
 srv  init_listene: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
 srv          init: using 11 threads for HTTP server
@@ -1945,7 +1945,7 @@ llama_model_loader: - type q4_K:  168 tensors
 llama_model_loader: - type q6_K:   29 tensors
 print_info: file format = GGUF V3 (latest)
 print_info: file type   = Q4_K - Medium
-print_info: file size   = 1.87 GiB (5.01 BPW) 
+print_info: file size   = 1.87 GiB (5.01 BPW)
 load: 0 unused tokens
 load: printing all EOG tokens:
 load:   - 128001 ('<|end_of_text|>')
@@ -2026,7 +2026,7 @@ cmn  common_param: common_params_print_info: build 1 (631109b34) with GNU 13.3.1
 cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
 cmn  common_param: device_info:
 cmn  common_param:   - CPU     : 12th Gen Intel(R) Core(TM) i5-12450H (11826 MiB, 11826 MiB free)
-cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 |
 srv  init_listene: The UI is disabled
 srv  init_listene: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
 srv          init: using 11 threads for HTTP server
@@ -2081,7 +2081,7 @@ llama_model_loader: - type q4_K:  168 tensors
 llama_model_loader: - type q6_K:   29 tensors
 print_info: file format = GGUF V3 (latest)
 print_info: file type   = Q4_K - Medium
-print_info: file size   = 1.87 GiB (5.01 BPW) 
+print_info: file size   = 1.87 GiB (5.01 BPW)
 load: 0 unused tokens
 load: printing all EOG tokens:
 load:   - 128001 ('<|end_of_text|>')
@@ -2162,7 +2162,7 @@ cmn  common_param: common_params_print_info: build 1 (631109b34) with GNU 13.3.1
 cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
 cmn  common_param: device_info:
 cmn  common_param:   - CPU     : 12th Gen Intel(R) Core(TM) i5-12450H (11826 MiB, 11826 MiB free)
-cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 |
 srv  init_listene: The UI is disabled
 srv  init_listene: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
 srv          init: using 11 threads for HTTP server
@@ -2217,7 +2217,7 @@ llama_model_loader: - type q4_K:  168 tensors
 llama_model_loader: - type q6_K:   29 tensors
 print_info: file format = GGUF V3 (latest)
 print_info: file type   = Q4_K - Medium
-print_info: file size   = 1.87 GiB (5.01 BPW) 
+print_info: file size   = 1.87 GiB (5.01 BPW)
 load: 0 unused tokens
 load: printing all EOG tokens:
 load:   - 128001 ('<|end_of_text|>')
@@ -2299,7 +2299,7 @@ cmn  common_param: common_params_print_info: build 1 (631109b34) with GNU 13.3.1
 cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
 cmn  common_param: device_info:
 cmn  common_param:   - CPU     : 12th Gen Intel(R) Core(TM) i5-12450H (11826 MiB, 11826 MiB free)
-cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 |
 srv  init_listene: The UI is disabled
 srv  init_listene: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
 srv          init: using 11 threads for HTTP server
@@ -2354,7 +2354,7 @@ llama_model_loader: - type q4_K:  168 tensors
 llama_model_loader: - type q6_K:   29 tensors
 print_info: file format = GGUF V3 (latest)
 print_info: file type   = Q4_K - Medium
-print_info: file size   = 1.87 GiB (5.01 BPW) 
+print_info: file size   = 1.87 GiB (5.01 BPW)
 load: 0 unused tokens
 load: printing all EOG tokens:
 load:   - 128001 ('<|end_of_text|>')
@@ -2435,7 +2435,7 @@ cmn  common_param: common_params_print_info: build 1 (631109b34) with GNU 13.3.1
 cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
 cmn  common_param: device_info:
 cmn  common_param:   - CPU     : 12th Gen Intel(R) Core(TM) i5-12450H (11826 MiB, 11826 MiB free)
-cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 | 
+cmn  common_param: system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | REPACK = 1 |
 srv  init_listene: The UI is disabled
 srv  init_listene: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
 srv          init: using 11 threads for HTTP server
@@ -2490,7 +2490,7 @@ llama_model_loader: - type q4_K:  168 tensors
 llama_model_loader: - type q6_K:   29 tensors
 print_info: file format = GGUF V3 (latest)
 print_info: file type   = Q4_K - Medium
-print_info: file size   = 1.87 GiB (5.01 BPW) 
+print_info: file size   = 1.87 GiB (5.01 BPW)
 load: 0 unused tokens
 load: printing all EOG tokens:
 load:   - 128001 ('<|end_of_text|>')

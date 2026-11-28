@@ -47,9 +47,15 @@ def entrar():
     # Desde o AKA-109 as telas exigem o aceite dos termos obrigatórios.
     if r.json().get("termos_pendentes"):
         termos = requests.get(f"{API}/auth/termos-pendentes/", headers=cab, timeout=10)
-        respostas = [{"termo_id": t["id"], "aceito": True} for t in termos.json()["termos"]]
-        requests.post(f"{API}/auth/termos/aceite/", json={"respostas": respostas},
-                      headers=cab, timeout=10)
+        respostas = [
+            {"termo_id": t["id"], "aceito": True} for t in termos.json()["termos"]
+        ]
+        requests.post(
+            f"{API}/auth/termos/aceite/",
+            json={"respostas": respostas},
+            headers=cab,
+            timeout=10,
+        )
     return cab
 
 

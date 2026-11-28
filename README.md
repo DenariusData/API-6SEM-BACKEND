@@ -71,6 +71,16 @@ PDFs, textos extraídos, trechos e o arquivo `.npz` ficam fora do Git. O `.npz` 
 
 Padrão completo (tipos aceitos, exemplos e regras): [Project Guidelines no API-6SEM](https://github.com/DenariusData/API-6SEM#project-guidelines).
 
+## Testes
+
+O modelo de testes unitários (o que é a unidade, o que testar, quando, quem confere, templates e mapa dos testes) está no [README do projeto](https://github.com/DenariusData/API-6SEM#tests). Aqui a unidade é a **função Python** com regra de negócio, chamada direto, com banco e IA mockados. Todo PR preenche o **Plano de testes** do template.
+
+| | Comando |
+|---|---|
+| Testes unitários (`tests/unit`) | `pytest tests/unit` |
+| Testes de integração (`tests/integration`, com PostgreSQL) | `pytest tests/integration` |
+| Cobertura dos unitários | `pytest tests/unit --cov --cov-report=term-missing` |
+
 ## CI
 
 O workflow `Backend CI` roda em todo PR e push para `main` e `develop`: lint (`ruff`), testes unitários, testes de integração com PostgreSQL e análise no SonarQube Cloud (cobertura e qualidade).

@@ -1,0 +1,48 @@
+{
+  "vm": "monitor",
+  "reiniciada": 1795803022.831763,
+  "base_inicio": 1795803022.831821,
+  "carga_inicio": 1795803082.832548,
+  "carga_fim": 1795803423.919347,
+  "fim": 1795803453.920504,
+  "estado_final": {
+    "Status": "running",
+    "Running": true,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 27879,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-11-27T18:10:18.427425653Z",
+    "FinishedAt": "2026-11-27T18:10:18.229731129Z"
+  },
+  "alertas": [
+    {
+      "alertname": "ApiLenta",
+      "severidade": "atencao",
+      "primeiro": 1795803022.832,
+      "ultimo": 1795803442.832
+    },
+    {
+      "alertname": "ApiMuitoLenta",
+      "severidade": "critico",
+      "primeiro": 1795803022.832,
+      "ultimo": 1795803442.832
+    },
+    {
+      "alertname": "Watchdog",
+      "severidade": "nenhuma",
+      "primeiro": 1795803022.832,
+      "ultimo": 1795803442.832
+    }
+  ],
+  "eventos": [
+    {
+      "ts": 1795803018,
+      "vm": "monitor",
+      "evento": "die"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+.git
+.venv
+venv
+**/__pycache__
+**/node_modules
+db.sqlite3
+.env
+uploads
+pdfs_everyspec
+textos_extraidos
+chunks
+docs
+monitoring
+!monitoring/stress/vm-back/entrypoint.sh
+tests

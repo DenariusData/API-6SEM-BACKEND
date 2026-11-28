@@ -1,0 +1,37 @@
+{
+  "vm": "back",
+  "reiniciada": 1795801754.07268,
+  "base_inicio": 1795801754.072718,
+  "carga_inicio": 1795801814.073282,
+  "carga_fim": 1795802400.924336,
+  "fim": 1795802430.925552,
+  "estado_final": {
+    "Status": "running",
+    "Running": true,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 7754,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-11-27T17:49:03.933036467Z",
+    "FinishedAt": "2026-11-27T17:49:03.752529365Z"
+  },
+  "alertas": [
+    {
+      "alertname": "ApiForaDoAr",
+      "severidade": "critico",
+      "vm": "back",
+      "primeiro": 1795802399.073,
+      "ultimo": 1795802399.073
+    },
+    {
+      "alertname": "Watchdog",
+      "severidade": "nenhuma",
+      "primeiro": 1795801754.073,
+      "ultimo": 1795802429.073
+    }
+  ],
+  "eventos": []
+}

@@ -1,0 +1,115 @@
+# Monitoramento LOCAL do AkaVision: Prometheus, Grafana, Alertmanager e
+# exporters. Roda ao lado do docker-compose.yml dos bancos e do Django/Ollama
+# na própria máquina. Ver monitoring/README.md.
+#
+#   docker compose -f monitoring/docker-compose.monitoring.yml up -d
+#
+# Portas (só em 127.0.0.1):
+#   Grafana 3000 · Prometheus 9090 · Alertmanager 9093
+
+name: akavision-monitoramento
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: akv-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus:/etc/prometheus:ro
+      - prometheus_dados:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    container_name: akv-alertmanager
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+    volumes:
+      - ./alertmanager:/etc/alertmanager:ro
+    ports:
+      - "127.0.0.1:9093:9093"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    container_name: akv-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      # Local: abre o painel sem login (só leitura); admin/admin para editar.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/akavision.json
+      GF_USERS_DEFAULT_LANGUAGE: pt-BR
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_dados:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # Sondas de fora: o site, a API e o Ollama respondem?
+  blackbox:
+    image: prom/blackbox-exporter:v0.27.0
+    container_name: akv-blackbox
+    command:
+      - --config.file=/etc/blackbox/blackbox.yml
+    volumes:
+      - ./blackbox:/etc/blackbox:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # CPU, RAM e disco. No Windows mede a máquina Linux do Docker Desktop (WSL),
+  # que é onde rodam os bancos; na VM Ubuntu mede a própria VM.
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    container_name: akv-node-exporter
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/host/root
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+)($|/)
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+    pid: host
+    restart: unless-stopped
+
+  # cAdvisor (uso de recursos por container) fica de fora no local: no Docker
+  # Desktop com o image store do containerd ele não consegue ler os
+  # containers. Na VM Ubuntu ele funciona e pode ser adicionado.
+
+  # Um exporter por banco, com as credenciais locais do docker-compose.yml.
+  postgres-exporter-rag:
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    container_name: akv-pg-exporter-rag
+    environment:
+      DATA_SOURCE_NAME: postgresql://rag:rag@host.docker.internal:5434/rag?sslmode=disable
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  postgres-exporter-credenciais:
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    container_name: akv-pg-exporter-credenciais
+    environment:
+      DATA_SOURCE_NAME: postgresql://credenciais:credenciais@host.docker.internal:5433/credenciais?sslmode=disable
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  prometheus_dados:
+  grafana_dados:

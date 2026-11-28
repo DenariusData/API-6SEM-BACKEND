@@ -1,0 +1,67 @@
+# Prometheus do monitoramento local. Os serviços da aplicação (Django, Vite,
+# Ollama) rodam fora do Docker, na própria máquina: o container chega neles
+# por host.docker.internal.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - alertas.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Django (django-prometheus + métricas da IA em core_api/utils/metricas.py)
+  - job_name: django
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:8000"]
+        labels:
+          servico: backend
+
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter-rag:9187"]
+        labels:
+          banco: rag
+      - targets: ["postgres-exporter-credenciais:9187"]
+        labels:
+          banco: credenciais
+
+  # Sondas HTTP: "está no ar?" visto de fora, como o usuário veria.
+  - job_name: sondas
+    metrics_path: /probe
+    params:
+      module: [http_no_ar]
+    static_configs:
+      - targets:
+          - http://host.docker.internal:8000/api/auth/me/
+        labels:
+          alvo: api
+      - targets:
+          - http://host.docker.internal:11434/
+        labels:
+          alvo: ollama
+      - targets:
+          - http://host.docker.internal:5173/
+        labels:
+          alvo: frontend
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115

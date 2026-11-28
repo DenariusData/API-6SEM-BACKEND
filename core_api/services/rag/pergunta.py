@@ -48,6 +48,7 @@ from core_api.services.rag.responder import (
     montar_prompt_sistema,
 )
 from core_api.services.rag.secoes import secao_no_texto
+from core_api.utils.metricas import medir_ollama
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 MODELO_LLM = os.getenv("RAG_MODELO_LLM", "llama3.2")
@@ -95,13 +96,17 @@ def _ollama(caminho, dados):
         validar_ollama_local(OLLAMA_URL)
     except ValueError as e:
         raise ErroIA(str(e)) from e
-    try:
-        r = requests.post(f"{OLLAMA_URL}{caminho}", json=dados, timeout=600)
-    except requests.RequestException as e:
-        raise ErroIA(f"Não consegui conectar ao Ollama em {OLLAMA_URL}.") from e
-    if r.status_code != 200:
-        raise ErroIA(f"Erro do Ollama ({r.status_code}): {r.text[:300]}")
-    return r.json()
+    with medir_ollama(caminho.rsplit("/", 1)[-1]) as metrica:
+        try:
+            r = requests.post(f"{OLLAMA_URL}{caminho}", json=dados, timeout=600)
+        except requests.Timeout as e:
+            metrica["resultado"] = "timeout"
+            raise ErroIA(f"O Ollama em {OLLAMA_URL} demorou demais.") from e
+        except requests.RequestException as e:
+            raise ErroIA(f"Não consegui conectar ao Ollama em {OLLAMA_URL}.") from e
+        if r.status_code != 200:
+            raise ErroIA(f"Erro do Ollama ({r.status_code}): {r.text[:300]}")
+        return r.json()
 
 
 def buscar_trechos(pergunta, usuario_id, k=TOP_K):

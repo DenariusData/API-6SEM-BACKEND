@@ -1,0 +1,653 @@
+{
+  "vm": "ia",
+  "reiniciada": 1795802432.963238,
+  "base_inicio": 1795802432.963274,
+  "carga_inicio": 1795802492.963541,
+  "carga_fim": 1795802987.186207,
+  "fim": 1795803017.192343,
+  "estado_final": {
+    "Status": "running",
+    "Running": true,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": true,
+    "Dead": false,
+    "Pid": 25495,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-11-27T18:00:32.084813876Z",
+    "FinishedAt": "2026-11-27T18:00:31.916150053Z"
+  },
+  "alertas": [
+    {
+      "alertname": "ApiLenta",
+      "severidade": "atencao",
+      "primeiro": 1795802732.963,
+      "ultimo": 1795803002.963
+    },
+    {
+      "alertname": "ApiMuitoLenta",
+      "severidade": "critico",
+      "primeiro": 1795802732.963,
+      "ultimo": 1795803002.963
+    },
+    {
+      "alertname": "Watchdog",
+      "severidade": "nenhuma",
+      "primeiro": 1795802432.963,
+      "ultimo": 1795803002.963
+    }
+  ],
+  "eventos": [
+    {
+      "ts": 1795802432,
+      "vm": "ia",
+      "evento": "die"
+    },
+    {
+      "ts": 1795802495,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802501,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802506,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802511,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802516,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802521,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802526,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802531,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802536,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802542,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802547,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802552,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802557,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802562,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802567,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802572,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802578,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802583,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802588,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802593,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802598,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802603,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802608,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802613,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802616,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802620,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802623,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802626,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802631,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802635,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802638,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802641,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802646,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802649,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802652,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802655,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802658,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802661,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802664,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802667,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802671,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802674,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802677,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802706,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802711,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802716,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802721,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802726,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802731,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802736,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802741,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802746,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802751,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802756,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802761,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802766,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802771,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802776,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802781,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802786,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802791,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802796,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802801,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802806,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802811,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802816,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802822,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802827,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802832,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802837,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802841,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802844,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802847,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802850,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802853,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802856,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802858,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802861,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802864,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802867,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802870,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802873,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802876,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802879,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802882,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802885,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802888,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802891,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802894,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802896,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802899,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802902,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802905,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802908,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802911,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802914,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802916,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802919,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802922,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802925,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802928,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802931,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802933,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802936,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802939,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802942,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802945,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802947,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802950,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802953,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802956,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802959,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802962,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802964,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802967,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802970,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802972,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802975,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802978,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802981,
+      "vm": "ia",
+      "evento": "oom"
+    },
+    {
+      "ts": 1795802984,
+      "vm": "ia",
+      "evento": "oom"
+    }
+  ]
+}

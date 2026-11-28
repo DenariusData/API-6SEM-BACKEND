@@ -1,0 +1,252 @@
+# Alertas POR MÁQUINA (VM) do AkaVision.
+#
+# Cada VM roda um node-exporter (:9100) e o Prometheus da VM de monitoramento
+# coloca o rótulo vm="front|back|ia|monitor" (ver prometheus-vms.yml).
+# Os limites saem do teste de stress com 512 MB / 1 vCPU por VM
+# (monitoring/stress/RELATORIO.md): cada VM tem o recurso que satura primeiro
+# e é nele que o alerta é mais sensível.
+#
+#   front   -> CPU (nginx + gzip) e conexões; memória quase não mexe
+#   back    -> MEMÓRIA (gunicorn + 2 Postgres) e CPU no login (hash da senha)
+#   ia      -> MEMÓRIA para funcionar (>= 4 GB) e CPU para ser rápida
+#   monitor -> MEMÓRIA (Grafana + Prometheus) e DISCO (histórico do TSDB)
+#
+# severidade: "atencao" (olhar no dia) ou "critico" (agir agora).
+
+groups:
+  # ---------------------------------------------------------------- todas
+  - name: vm-todas
+    rules:
+      - record: vm:memoria_uso:proporcao
+        expr: 1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes
+
+      - record: vm:cpu_uso:proporcao_5m
+        expr: 1 - avg by (vm) (rate(node_cpu_seconds_total{mode="idle"}[5m]))
+
+      - record: vm:disco_uso:proporcao
+        expr: |
+          1 - node_filesystem_avail_bytes{mountpoint="/", fstype!~"tmpfs|overlay"}
+            / node_filesystem_size_bytes{mountpoint="/", fstype!~"tmpfs|overlay"}
+
+      - alert: VmForaDoAr
+        expr: up{job="node"} == 0
+        for: 1m
+        labels: {severidade: critico, componente: infra}
+        annotations:
+          resumo: "VM {{ $labels.vm }} não responde ao monitoramento há 1 min"
+          descricao: "O node-exporter da VM parou de responder: VM desligada, travada ou sem rede."
+
+      # O kernel matou um processo por falta de memória. Em 512 MB isso é o
+      # primeiro sinal de que a VM está subdimensionada.
+      - alert: VmMatouProcessoPorFaltaDeMemoria
+        expr: increase(node_vmstat_oom_kill[10m]) > 0
+        labels: {severidade: critico, componente: infra}
+        annotations:
+          resumo: "OOM killer agiu na VM {{ $labels.vm }} nos últimos 10 min"
+          descricao: "Algum processo (gunicorn, Postgres, Ollama, Grafana...) foi morto por falta de RAM."
+
+      # Pressão de memória (PSI): tempo que os processos ficaram parados
+      # esperando memória. Pega o problema antes do OOM.
+      - alert: VmComPressaoDeMemoria
+        expr: rate(node_pressure_memory_waiting_seconds_total[5m]) > 0.10
+        for: 5m
+        labels: {severidade: atencao, componente: infra}
+        annotations:
+          resumo: "VM {{ $labels.vm }} com processos esperando memória ({{ $value | humanizePercentage }} do tempo)"
+
+      - alert: VmUsandoSwap
+        expr: (1 - node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes) > 0.5 and node_memory_SwapTotal_bytes > 0
+        for: 10m
+        labels: {severidade: atencao, componente: infra}
+        annotations:
+          resumo: "VM {{ $labels.vm }} com mais de 50% do swap em uso"
+
+      - alert: VmDiscoQuaseCheio
+        expr: vm:disco_uso:proporcao > 0.80
+        for: 10m
+        labels: {severidade: atencao, componente: infra}
+        annotations:
+          resumo: "Disco da VM {{ $labels.vm }} acima de 80%"
+
+      - alert: VmDiscoCritico
+        expr: vm:disco_uso:proporcao > 0.90
+        for: 5m
+        labels: {severidade: critico, componente: infra}
+        annotations:
+          resumo: "Disco da VM {{ $labels.vm }} acima de 90%"
+
+  # ---------------------------------------------------------------- front
+  # nginx servindo arquivos: o teste mostrou CPU como gargalo (gzip e
+  # conexões) e memória estável abaixo de 10%. Memória alta aqui é anomalia.
+  - name: vm-front
+    rules:
+      - alert: FrontCpuAlta
+        expr: vm:cpu_uso:proporcao_5m{vm="front"} > 0.80
+        for: 5m
+        labels: {severidade: atencao, componente: frontend}
+        annotations:
+          resumo: "CPU da VM do front acima de 80% ({{ $value | humanizePercentage }})"
+          descricao: "O nginx está perto do limite de requisições por segundo da VM."
+
+      - alert: FrontMemoriaAnormal
+        expr: vm:memoria_uso:proporcao{vm="front"} > 0.70
+        for: 10m
+        labels: {severidade: atencao, componente: frontend}
+        annotations:
+          resumo: "Memória da VM do front acima de 70%: o nginx não deveria usar isso"
+
+      # No teste o nginx com 1 vCPU segurou ~550 req/s; a partir de ~300
+      # usuários simultâneos o p95 passou de 500 ms.
+      - alert: FrontMuitasConexoes
+        expr: nginx_connections_active{vm="front"} > 250
+        for: 5m
+        labels: {severidade: atencao, componente: frontend}
+        annotations:
+          resumo: "{{ $value }} conexões ativas no nginx (teste: degradou a partir de ~300)"
+
+      - alert: FrontLento
+        expr: probe_duration_seconds{alvo="frontend"} > 1
+        for: 5m
+        labels: {severidade: atencao, componente: frontend}
+        annotations:
+          resumo: "Página inicial levando mais de 1 s para responder"
+
+  # ---------------------------------------------------------------- back
+  # gunicorn (3 workers) + Postgres rag + Postgres credenciais. Gargalo
+  # principal: MEMÓRIA. O login é o pico de CPU (PBKDF2 de propósito lento).
+  - name: vm-back
+    rules:
+      - alert: BackMemoriaAlta
+        expr: vm:memoria_uso:proporcao{vm="back"} > 0.80
+        for: 5m
+        labels: {severidade: atencao, componente: api}
+        annotations:
+          resumo: "Memória da VM do back acima de 80% ({{ $value | humanizePercentage }})"
+          descricao: "gunicorn e os dois Postgres dividem a RAM; acima disso o OOM killer escolhe um deles."
+
+      - alert: BackMemoriaCritica
+        expr: vm:memoria_uso:proporcao{vm="back"} > 0.92
+        for: 2m
+        labels: {severidade: critico, componente: api}
+        annotations:
+          resumo: "Memória da VM do back acima de 92%: risco de o banco ou a API cair"
+
+      - alert: BackCpuAlta
+        expr: vm:cpu_uso:proporcao_5m{vm="back"} > 0.85
+        for: 5m
+        labels: {severidade: atencao, componente: api}
+        annotations:
+          resumo: "CPU da VM do back acima de 85% ({{ $value | humanizePercentage }})"
+          descricao: "Normalmente é rajada de login (hash da senha) ou consulta pesada."
+
+      # Login: o PBKDF2 custa ~0,25 s de CPU por login. No teste, 3 logins/s
+      # já criavam fila e 6/s deixavam o login com mais de 10 s.
+      - alert: BackLoginLento
+        expr: |
+          histogram_quantile(0.95, sum by (le) (
+            rate(django_http_requests_latency_seconds_by_view_method_bucket{view=~".*login.*"}[5m])
+          )) > 2
+        for: 5m
+        labels: {severidade: atencao, componente: api}
+        annotations:
+          resumo: "p95 do login acima de 2 s ({{ $value | humanizeDuration }}): CPU do back na fila"
+
+      - alert: BackFilaDeCpu
+        expr: node_load5{vm="back"} / count by (vm) (node_cpu_seconds_total{vm="back", mode="idle"}) > 2
+        for: 5m
+        labels: {severidade: critico, componente: api}
+        annotations:
+          resumo: "Load da VM do back acima de 2x o número de vCPUs: requisições na fila"
+
+  # ---------------------------------------------------------------- ia
+  # Só o Ollama. O modelo precisa caber INTEIRO na RAM: com 512 MB nem o
+  # bge-m3 nem o llama3.2 carregam; o mínimo medido foi 4 GB. CPU em 100% durante a resposta é normal,
+  # então o alerta de CPU só vale se ficar muito tempo.
+  - name: vm-ia
+    rules:
+      # Dimensionamento (dimensionar_ia.py): com 512 MB, 1 GB, 1,5 GB, 2 GB e
+      # 3 GB o Ollama é morto por OOM ao carregar o llama3.2 (o bge-m3 fica
+      # carregado junto). Só com 4 GB as duas chamadas funcionaram, com pico
+      # de ~3,5 GB. Na VM real somam-se o contexto de 4096 tokens do
+      # responder.py (o teste usou 2048: ~+0,2 GB) e o Ubuntu (~0,2-0,3 GB):
+      # ~4,1 GB. Recomendado: 6 GB (folga para picos e para o alerta de
+      # memória avisar antes do OOM); 5 GB é o mínimo com pouca folga.
+      - alert: IaVmComMenosDe6GB
+        expr: node_memory_MemTotal_bytes{vm="ia"} < 5.5e9
+        labels: {severidade: atencao, componente: ia}
+        annotations:
+          resumo: "VM da IA com {{ $value | humanize1024 }}B de RAM: abaixo dos 6 GB recomendados"
+          descricao: "Funciona, mas perguntas com trechos longos podem levar o Ollama ao OOM."
+
+      - alert: IaVmSemMemoriaParaOModelo
+        expr: node_memory_MemTotal_bytes{vm="ia"} < 4.5e9
+        labels: {severidade: critico, componente: ia}
+        annotations:
+          resumo: "VM da IA com {{ $value | humanize1024 }}B de RAM: bge-m3 + llama3.2 + SO não cabem"
+
+      - alert: IaMemoriaNoLimite
+        expr: node_memory_MemAvailable_bytes{vm="ia"} / node_memory_MemTotal_bytes{vm="ia"} < 0.08
+        for: 2m
+        labels: {severidade: critico, componente: ia}
+        annotations:
+          resumo: "VM da IA com menos de 8% de memória livre: próximo modelo/contexto vai dar OOM"
+
+      - alert: IaCpuSaturadaMuitoTempo
+        expr: vm:cpu_uso:proporcao_5m{vm="ia"} > 0.95
+        for: 15m
+        labels: {severidade: atencao, componente: ia}
+        annotations:
+          resumo: "CPU da IA em 100% há 15 min: fila de perguntas"
+          descricao: "Picos são normais; 15 min seguidos indicam mais perguntas do que a CPU dá conta."
+
+  # ---------------------------------------------------------------- monitor
+  # Prometheus + Alertmanager + Grafana + blackbox. Gargalo: MEMÓRIA (Grafana
+  # e Prometheus) e, com o tempo, DISCO (15 dias de histórico).
+  - name: vm-monitor
+    rules:
+      - alert: MonitorMemoriaAlta
+        expr: vm:memoria_uso:proporcao{vm="monitor"} > 0.85
+        for: 5m
+        labels: {severidade: atencao, componente: monitoramento}
+        annotations:
+          resumo: "Memória da VM de monitoramento acima de 85%"
+
+      # No teste, com ~80 painéis abertos ao mesmo tempo as consultas passaram
+      # de 2 s e a memória chegou a 95% dos 512 MB.
+      - alert: MonitorConsultasLentas
+        expr: |
+          histogram_quantile(0.95, sum by (le) (
+            rate(prometheus_http_request_duration_seconds_bucket{handler="/api/v1/query_range"}[5m])
+          )) > 2
+        for: 5m
+        labels: {severidade: atencao, componente: monitoramento}
+        annotations:
+          resumo: "Consultas do Grafana ao Prometheus com p95 acima de 2 s"
+
+      - alert: PrometheusAlvoSemResposta
+        expr: up == 0
+        for: 3m
+        labels: {severidade: atencao, componente: monitoramento}
+        annotations:
+          resumo: "Prometheus não consegue ler {{ $labels.job }} ({{ $labels.instance }})"
+
+      - alert: PrometheusFalhaNasRegras
+        expr: increase(prometheus_rule_evaluation_failures_total[10m]) > 0
+        labels: {severidade: critico, componente: monitoramento}
+        annotations:
+          resumo: "Regras de alerta falhando: alertas podem não disparar"
+
+      - alert: AlertmanagerNaoEntrega
+        expr: increase(alertmanager_notifications_failed_total[10m]) > 0
+        labels: {severidade: critico, componente: monitoramento}
+        annotations:
+          resumo: "Alertmanager não conseguiu enviar notificações"
+
+      # "Quem vigia o vigia": alerta que está SEMPRE disparando. Mandado para
+      # um serviço de heartbeat externo; se ele parar de chegar, a VM de
+      # monitoramento caiu.
+      - alert: Watchdog
+        expr: vector(1)
+        labels: {severidade: nenhuma, componente: monitoramento}
+        annotations:
+          resumo: "Monitoramento vivo (heartbeat)"

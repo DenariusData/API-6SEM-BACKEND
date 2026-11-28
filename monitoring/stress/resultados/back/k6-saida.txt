@@ -1,0 +1,58 @@
+
+     ✗ status 200
+      ↳  99% — ✓ 12258 / ✗ 3
+     ✓ auditoria 200
+     ✗ login 200
+      ↳  96% — ✓ 533 / ✗ 21
+
+     checks.........................: 99.82% 13464 out of 13488
+     data_received..................: 16 MB  27 kB/s
+     data_sent......................: 5.5 MB 9.4 kB/s
+     dropped_iterations.............: 438    0.747807/s
+     http_req_blocked...............: avg=35.85µs min=952ns    med=4.61µs   p(90)=8.99µs  p(95)=246.25µs p(99)=806.63µs max=7.43ms  
+     http_req_connecting............: avg=23.87µs min=0s       med=0s       p(90)=0s      p(95)=182.34µs p(99)=634.53µs max=7.31ms  
+     http_req_duration..............: avg=1.81s   min=522.67µs med=600.48ms p(90)=3.4s    p(95)=3.8s     p(99)=37.98s   max=59.99s  
+       { expected_response:true }...: avg=1.72s   min=8.22ms   med=600.32ms p(90)=3.4s    p(95)=3.8s     p(99)=33.44s   max=59.29s  
+     ✗ { scenario:login }...........: avg=18.01s  min=237.69ms med=9.92s    p(90)=45.78s  p(95)=55.93s   p(99)=59.99s   max=59.99s  
+     ✗ { scenario:navegacao }.......: avg=1.12s   min=522.67µs med=599.47ms p(90)=3.3s    p(95)=3.69s    p(99)=3.99s    max=7.89s   
+   ✓ http_req_failed................: 0.17%  24 out of 13491
+     http_req_receiving.............: avg=3.27ms  min=0s       med=106.38µs p(90)=1.39ms  p(95)=3.61ms   p(99)=90.63ms  max=119.41ms
+     http_req_sending...............: avg=2.65ms  min=3.4µs    med=15.34µs  p(90)=49.68µs p(95)=74.33µs  p(99)=169.22µs max=3.99s   
+     http_req_tls_handshaking.......: avg=0s      min=0s       med=0s       p(90)=0s      p(95)=0s       p(99)=0s       max=0s      
+     http_req_waiting...............: avg=1.8s    min=474.86µs med=599.76ms p(90)=3.4s    p(95)=3.8s     p(99)=37.89s   max=59.99s  
+     http_reqs......................: 13491  23.033484/s
+     iteration_duration.............: avg=10.18s  min=238.53ms med=4.92s    p(90)=24.1s   p(95)=38.47s   p(99)=56.39s   max=1m0s    
+     iterations.....................: 2591   4.423672/s
+     vus............................: 44     min=0              max=120
+     vus_max........................: 120    min=120            max=120
+
+
+ Container akavision-stress-k6-run-5a060fb67056 Creating 
+ Container akavision-stress-k6-run-5a060fb67056 Created 
+time="2026-11-27T17:50:52Z" level=warning msg="Request Failed" error="Get \"http://10.10.10.5:8000/api/areas/\": read tcp 10.10.10.129:34014->10.10.10.5:8000: read: connection reset by peer"
+time="2026-11-27T17:51:30Z" level=warning msg="Request Failed" error="Get \"http://10.10.10.5:8000/api/niveis-sigilo/\": read tcp 10.10.10.129:60688->10.10.10.5:8000: read: connection reset by peer"
+time="2026-11-27T17:55:23Z" level=warning msg="Request Failed" error="Get \"http://10.10.10.5:8000/api/tipos-documento/\": read tcp 10.10.10.129:48264->10.10.10.5:8000: read: connection reset by peer"
+time="2026-11-27T17:58:42Z" level=warning msg="Insufficient VUs, reached 120 active VUs and cannot initialize more" executor=ramping-arrival-rate scenario=login
+time="2026-11-27T17:59:39Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T17:59:39Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T17:59:39Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T17:59:40Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T17:59:40Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T17:59:41Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T17:59:42Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T17:59:44Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T17:59:44Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T17:59:44Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T17:59:47Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T17:59:49Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T17:59:49Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T17:59:49Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T17:59:52Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T17:59:54Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T17:59:54Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T17:59:56Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T17:59:57Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T17:59:58Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T18:00:00Z" level=warning msg="Request Failed" error="Post \"http://10.10.10.5:8000/api/auth/login/\": request timeout"
+time="2026-11-27T18:00:00Z" level=error msg="thresholds on metrics 'http_req_duration{scenario:login}, http_req_duration{scenario:navegacao}' have been crossed"
+

@@ -1,0 +1,2 @@
+# Dados brutos do k6 (~8 MB); o resumo fica em resultados/resumo.json
+resultados/**/k6.csv.gz

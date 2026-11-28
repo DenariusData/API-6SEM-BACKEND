@@ -1,0 +1,333 @@
+<title>Stress das VMs AkaVision</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: relatório técnico de uma coluna; cada VM é uma "ficha" com gráfico + números + veredito */
+:root {
+  --bg: #f4f6f9; --surface: #ffffff; --ink: #152033; --muted: #5a6578; --line: #dde2ea;
+  --accent: #2b55c9;
+  --front: #0f8b8d; --back: #4b4fd1; --ia: #d1662b; --monitor: #8a3fb8;
+  --ok: #1f8a4c; --warn: #b7791f; --crit: #c0392b;
+  --ok-bg: #e5f4eb; --warn-bg: #fbf1df; --crit-bg: #fbe6e4;
+  --f-display: "Space Grotesk", "Segoe UI", sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f141d; --surface: #171e2a; --ink: #e6ebf3; --muted: #9aa5b8; --line: #2a3344;
+  --accent: #7c9cff; --front: #3fc1c3; --back: #8c90ff; --ia: #f09358; --monitor: #c287ea;
+  --ok: #5ccf8b; --warn: #e8b04f; --crit: #f07a6c;
+  --ok-bg: #16301f; --warn-bg: #33280f; --crit-bg: #3a1a17; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f141d; --surface: #171e2a; --ink: #e6ebf3; --muted: #9aa5b8; --line: #2a3344;
+  --accent: #7c9cff; --front: #3fc1c3; --back: #8c90ff; --ia: #f09358; --monitor: #c287ea;
+  --ok: #5ccf8b; --warn: #e8b04f; --crit: #f07a6c;
+  --ok-bg: #16301f; --warn-bg: #33280f; --crit-bg: #3a1a17; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 15px/1.6 var(--f-body); }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 48px; }
+h1, h2, h3 { font-family: var(--f-display); line-height: 1.15; text-wrap: balance; margin: 0 }
+h1 { font-size: clamp(28px, 5vw, 42px); }
+h2 { font-size: 24px; } h3 { font-size: 19px; }
+p { margin: 0; max-width: 68ch } .muted { color: var(--muted) }
+.eyebrow { font: 600 12px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent) }
+header { display: grid; gap: 12px }
+.spec { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px }
+.spec span { font: 500 13px var(--f-mono); padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface) }
+section { display: grid; gap: 18px }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface) }
+table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font: 600 12px var(--f-mono); letter-spacing: .04em; text-transform: uppercase; color: var(--muted) }
+tr:last-child td { border-bottom: 0 }
+.vm { font: 600 13px var(--f-mono); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap }
+.vm::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--c) }
+.pill { display: inline-block; font: 600 12px var(--f-mono); padding: 2px 8px; border-radius: 99px; white-space: nowrap }
+.ok { color: var(--ok); background: var(--ok-bg) } .warn { color: var(--warn); background: var(--warn-bg) } .crit { color: var(--crit); background: var(--crit-bg) }
+.why { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px }
+.why div { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 6px; align-content: start }
+.why b { font-family: var(--f-display); font-size: 16px }
+.why p { font-size: 14px }
+.note { border-left: 3px solid var(--accent); padding: 4px 0 4px 14px; font-size: 14px }
+.ficha { background: var(--surface); border: 1px solid var(--line); border-top: 4px solid var(--c); border-radius: 10px; padding: 20px; display: grid; gap: 16px; min-width: 0 }
+.ficha-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: baseline }
+.nums { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px }
+.nums div { display: grid; gap: 2px }
+.nums b { font: 600 20px var(--f-mono) } .nums span { font-size: 12px; color: var(--muted) }
+.graf { position: relative; height: 260px } .graf canvas { max-width: 100% }
+.graf-par { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px }
+.graf-par > div { min-width: 0 }
+.cap { font: 500 12px var(--f-mono); color: var(--muted); margin-bottom: 4px }
+pre.mermaid { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; overflow-x: auto }
+code { font-family: var(--f-mono); font-size: 13px }
+ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important } }
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">AkaVision · DevOps · Monitoramento</div>
+  <h1>Teste de stress das VMs</h1>
+  <p class="muted">Cada máquina do projeto foi recriada com os mesmos processos da VM real e recebeu carga crescente até quebrar. O objetivo: saber do que cada uma mais precisa, definir os alertas certos para cada uma e justificar a VM própria do monitoramento.</p>
+  <div class="spec"><span>512 MB RAM · sem swap</span><span>1 vCPU por VM</span><span>carga: k6</span><span>27/11/2026</span></div>
+</header>
+
+<section>
+  <h2>Resposta curta</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>VM</th><th>O que roda</th><th>Precisa mais de</th><th>Com 512 MB</th><th>Quebra em</th><th>Recomendação</th></tr></thead>
+    <tbody>
+      <tr><td><span class="vm" style="--c:var(--front)">front</span></td><td>nginx + build do Vue</td><td><b>CPU</b></td><td><span class="pill ok">sobra</span><br><span class="muted">pico 25 MB (5%)</span></td><td>~300 usuários<br><span class="muted">~550 req/s</span></td><td>512 MB / 1 vCPU</td></tr>
+      <tr><td><span class="vm" style="--c:var(--back)">back</span></td><td>gunicorn + 2 Postgres</td><td><b>CPU</b>, depois memória</td><td><span class="pill warn">no limite</span><br><span class="muted">pico 338 MB + SO</span></td><td>~26 usuários<br><span class="muted">login: 3/s</span></td><td>1 GB / 2 vCPU</td></tr>
+      <tr><td><span class="vm" style="--c:var(--ia)">ia</span></td><td>Ollama: bge-m3 + llama3.2</td><td><b>Memória</b> (funcionar) e CPU (velocidade)</td><td><span class="pill crit">não funciona</span><br><span class="muted">100% erro, OOM</span></td><td>1ª pergunta</td><td>6 GB / 2+ vCPU</td></tr>
+      <tr><td><span class="vm" style="--c:var(--monitor)">monitor</span></td><td>Prometheus, Alertmanager, Grafana</td><td><b>Memória</b></td><td><span class="pill ok">atende</span><br><span class="muted">157 MB parado</span></td><td>~80 painéis abertos</td><td>512 MB a 1 GB</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>Por que o monitoramento numa VM nova?</h2>
+  <p>A alternativa seria colocar Prometheus, Alertmanager e Grafana dentro de uma das três VMs que já existem. Os testes mostram por que isso é pior:</p>
+  <div class="why">
+    <div><b>Sobreviver à falha que ele avisa</b><p>No stress do back a sonda disparou <code>ApiForaDoAr</code> com a CPU em 100%. Na mesma VM, o Prometheus disputaria a mesma CPU travada e o alerta atrasaria justamente quando importa.</p></div>
+    <div><b>Nenhuma VM tem sobra</b><p>O monitor usa 157 MB parado e até 485 MB sob uso pesado. No back estoura os 512 MB (OOM killer escolhe entre Postgres e gunicorn). Na IA, falta memória até para o modelo.</p></div>
+    <div><b>O front é a VM exposta</b><p>Tem RAM sobrando (25 MB), mas é a única aberta na porta 80. Pôr o Grafana nela aumenta a superfície de ataque, e uma sobrecarga do site derruba o monitoramento junto.</p></div>
+    <div><b>Visão de fora</b><p>A sonda testa pela rede, como o usuário. Na mesma máquina, um teste em <code>localhost</code> passa mesmo com a rede ou o firewall quebrados.</p></div>
+    <div><b>Ciclos separados</b><p>O deploy automático reinicia o back a cada push; o histórico de 15 dias do Prometheus cresce no disco dele, não no disco dos PDFs.</p></div>
+    <div><b>Segurança</b><p>Só 10.10.10.8 é liberada no ufw para ler as portas de métricas de cada VM. Nenhuma porta nova fica aberta para a rede.</p></div>
+  </div>
+  <p class="note">Custo: mais uma VM (512 MB a 1 GB) e um ponto de falha a mais. Para isso existe o alerta <code>Watchdog</code>, sempre disparado e enviado a um heartbeat externo: se ele parar de chegar, o monitoramento caiu. Se faltar memória para a 4ª VM, a alternativa é juntar o monitor ao front, só na rede interna.</p>
+  <pre class="mermaid">
+flowchart LR
+  U[Navegador] -->|:80| F[front 10.10.10.6<br/>nginx]
+  F -->|/api :8000| B[back 10.10.10.5<br/>gunicorn + 2 Postgres]
+  B -->|:11434| I[ia 10.10.10.7<br/>Ollama]
+  M[monitor 10.10.10.8<br/>Prometheus · Alertmanager · Grafana] -.->|node-exporter :9100<br/>sondas| F
+  M -.->|:9100 · /metrics · :9187| B
+  M -.->|:9100 · sonda| I
+  </pre>
+</section>
+
+<section>
+  <h2>Como foi testado</h2>
+  <ul>
+    <li>Cada VM virou <b>um container com todos os processos dela</b>, com 512 MB sem swap e 1 vCPU. No back, o gunicorn e os dois Postgres dividem os mesmos 512 MB, como na VM.</li>
+    <li>As imagens usam os arquivos reais do deploy: <code>gunicorn.conf.py</code> (3 workers × 4 threads), os parâmetros do Postgres de produção, o mesmo nginx e o mesmo build do front. IPs iguais aos da Rede NAT <code>akavision-net</code>.</li>
+    <li>As quatro VMs ficaram ligadas o tempo todo; a VM de monitoramento coletou todas e avaliou os alertas durante os testes.</li>
+    <li>Para cada VM: 60 s parada, carga em degraus (k6), 30 s de resfriamento. CPU e memória gravadas a cada ~1 s e eventos de OOM do Docker.</li>
+  </ul>
+</section>
+
+<section id="fichas">
+  <h2>Resultado por VM</h2>
+  <p class="muted">Nos gráficos, a faixa cinza é o período sem carga. Memória em MB com a linha tracejada no limite de 512 MB; CPU em % de 1 vCPU.</p>
+</section>
+
+<section>
+  <h2>Quanto a IA precisa de verdade</h2>
+  <p>Com 512 MB o Ollama nem carrega o modelo. A VM foi recriada com mais memória até funcionar, e depois com mais CPU.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>RAM</th><th>Embedding (bge-m3)</th><th>Resposta (llama3.2)</th><th>Pico de memória</th></tr></thead>
+    <tbody id="dim-mem"></tbody>
+  </table></div>
+  <div class="graf-par">
+    <div><div class="cap">Tempo da resposta com o modelo já carregado (s)</div><div class="graf"><canvas id="g-cpu-ia"></canvas></div></div>
+    <div><div class="cap">Velocidade de geração (tokens/s)</div><div class="graf"><canvas id="g-tok-ia"></canvas></div></div>
+  </div>
+  <p class="note">Memória decide <b>se</b> a IA funciona: no container o mínimo foi 4 GB, porque cada pergunta usa os dois modelos e eles ficam carregados juntos (~3,5 GB). CPU decide <b>quanto tempo</b> leva: de 1 para 4 vCPU a resposta ficou 5× mais rápida. A meta do cliente (D15) é responder em <b>menos de 10 s</b>: com 1 vCPU (16,4 s) não cumpre; com 2 vCPU (6,9 s) cumpre.</p>
+  <h3>Recomendação para a VM real: 6 GB</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Parte</th><th>Memória</th></tr></thead>
+    <tbody>
+      <tr><td>Pico medido (bge-m3 + llama3.2 juntos)</td><td>~3,55 GB</td></tr>
+      <tr><td>Contexto real: o teste usou <code>num_ctx</code> 2048, o <code>responder.py</code> usa 4096</td><td>+~0,22 GB (estimado)</td></tr>
+      <tr><td>Ubuntu Server + node-exporter (o container não tem)</td><td>+~0,2 a 0,3 GB</td></tr>
+      <tr><td><b>Total esperado na VM</b></td><td><b>~4,0 a 4,1 GB</b></td></tr>
+    </tbody>
+  </table></div>
+  <p>Uma VM de 4 GB ficaria no limite e daria OOM em perguntas com trechos longos. Com <b>6 GB</b> sobra ~1,9 GB para picos e para o alerta de memória avisar antes de quebrar; 5 GB é o mínimo, com pouca folga. Mais memória não acelera a IA: o mínimo é 6 GB e 2 vCPU (meta D15) e o ideal, 6 GB e 4 vCPU. Sem 6 GB disponíveis, dá para usar <code>OLLAMA_MAX_LOADED_MODELS=1</code> (um modelo por vez, +7 a 13 s por pergunta) ou o <code>llama3.2:1b</code> (respostas piores).</p>
+</section>
+
+<section>
+  <h2>Alertas por máquina</h2>
+  <p>Cada VM roda um node-exporter; o Prometheus da VM de monitoramento marca cada uma com o rótulo <code>vm</code>. Os limites vêm do recurso que saturou primeiro no teste. Arquivo: <code>monitoring/prometheus/alertas-vms.yml</code> (28 regras, validadas com promtool).</p>
+  <div class="tbl"><table>
+    <thead><tr><th>VM</th><th>Alerta</th><th>Condição</th><th>Severidade</th><th>Por quê</th></tr></thead>
+    <tbody>
+      <tr><td><span class="vm" style="--c:var(--muted)">todas</span></td><td>VmForaDoAr</td><td>sem resposta por 1 min</td><td><span class="pill crit">crítico</span></td><td>VM desligada, travada ou sem rede</td></tr>
+      <tr><td><span class="vm" style="--c:var(--muted)">todas</span></td><td>VmMatouProcessoPorFaltaDeMemoria</td><td>OOM killer nos últimos 10 min</td><td><span class="pill crit">crítico</span></td><td>foi o que aconteceu com a IA em 512 MB</td></tr>
+      <tr><td><span class="vm" style="--c:var(--muted)">todas</span></td><td>VmComPressaoDeMemoria</td><td>esperando memória &gt; 10% do tempo</td><td><span class="pill warn">atenção</span></td><td>pega o problema antes do OOM</td></tr>
+      <tr><td><span class="vm" style="--c:var(--muted)">todas</span></td><td>VmDiscoQuaseCheio / Critico</td><td>disco &gt; 80% / &gt; 90%</td><td><span class="pill warn">atenção</span> <span class="pill crit">crítico</span></td><td>PDFs no back, histórico no monitor</td></tr>
+      <tr><td><span class="vm" style="--c:var(--front)">front</span></td><td>FrontCpuAlta</td><td>CPU &gt; 80% por 5 min</td><td><span class="pill warn">atenção</span></td><td>CPU chegou a 100% com ~300 usuários</td></tr>
+      <tr><td><span class="vm" style="--c:var(--front)">front</span></td><td>FrontMuitasConexoes</td><td>&gt; 250 conexões no nginx</td><td><span class="pill warn">atenção</span></td><td>p95 passou de 500 ms com ~300</td></tr>
+      <tr><td><span class="vm" style="--c:var(--front)">front</span></td><td>FrontMemoriaAnormal</td><td>memória &gt; 70% por 10 min</td><td><span class="pill warn">atenção</span></td><td>o nginx nunca passou de 5%</td></tr>
+      <tr><td><span class="vm" style="--c:var(--back)">back</span></td><td>BackCpuAlta</td><td>CPU &gt; 85% por 5 min</td><td><span class="pill warn">atenção</span></td><td>CPU 100% com ~26 usuários</td></tr>
+      <tr><td><span class="vm" style="--c:var(--back)">back</span></td><td>BackLoginLento</td><td>p95 do login &gt; 2 s</td><td><span class="pill warn">atenção</span></td><td>6 logins/s levaram o login a 11 s</td></tr>
+      <tr><td><span class="vm" style="--c:var(--back)">back</span></td><td>BackFilaDeCpu</td><td>load5 &gt; 2× vCPUs</td><td><span class="pill crit">crítico</span></td><td>requisições na fila</td></tr>
+      <tr><td><span class="vm" style="--c:var(--back)">back</span></td><td>BackMemoriaAlta / Critica</td><td>memória &gt; 80% / &gt; 92%</td><td><span class="pill warn">atenção</span> <span class="pill crit">crítico</span></td><td>66% sem o SO; ~95% com o Ubuntu</td></tr>
+      <tr><td><span class="vm" style="--c:var(--ia)">ia</span></td><td>IaVmComMenosDe6GB</td><td>RAM total &lt; 6 GB</td><td><span class="pill warn">atenção</span></td><td>abaixo do recomendado: perguntas longas podem dar OOM</td></tr>
+      <tr><td><span class="vm" style="--c:var(--ia)">ia</span></td><td>IaVmSemMemoriaParaOModelo</td><td>RAM total &lt; 4,5 GB</td><td><span class="pill crit">crítico</span></td><td>modelos + contexto + SO (~4,1 GB) não cabem</td></tr>
+      <tr><td><span class="vm" style="--c:var(--ia)">ia</span></td><td>IaMemoriaNoLimite</td><td>memória livre &lt; 8% por 2 min</td><td><span class="pill crit">crítico</span></td><td>aviso antes do OOM que derrubou a IA no teste</td></tr>
+      <tr><td><span class="vm" style="--c:var(--ia)">ia</span></td><td>IaCpuSaturadaMuitoTempo</td><td>CPU &gt; 95% por 15 min</td><td><span class="pill warn">atenção</span></td><td>100% na resposta é normal; 15 min é fila</td></tr>
+      <tr><td><span class="vm" style="--c:var(--monitor)">monitor</span></td><td>MonitorMemoriaAlta</td><td>memória &gt; 85% por 5 min</td><td><span class="pill warn">atenção</span></td><td>chegou a 95% com ~80 painéis</td></tr>
+      <tr><td><span class="vm" style="--c:var(--monitor)">monitor</span></td><td>MonitorConsultasLentas</td><td>p95 das consultas &gt; 2 s</td><td><span class="pill warn">atenção</span></td><td>passou de 2 s com ~80 painéis</td></tr>
+      <tr><td><span class="vm" style="--c:var(--monitor)">monitor</span></td><td>PrometheusFalhaNasRegras / AlertmanagerNaoEntrega</td><td>qualquer falha em 10 min</td><td><span class="pill crit">crítico</span></td><td>alerta que não sai é pior que alerta falso</td></tr>
+      <tr><td><span class="vm" style="--c:var(--monitor)">monitor</span></td><td>Watchdog</td><td>sempre disparado</td><td><span class="pill ok">heartbeat</span></td><td>quem vigia o vigia</td></tr>
+      <tr><td><span class="vm" style="--c:var(--ia)">ia</span></td><td>IaLenta / IaMuitoLenta</td><td>p95 da resposta &gt; 10 s / &gt; 30 s</td><td><span class="pill warn">atenção</span> / <span class="pill crit">crítico</span></td><td>meta D15 do cliente: IA em menos de 10 s</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Os alertas de aplicação já existentes (API e IA fora do ar, latência, 5xx, falhas de login, exportação de dados pessoais) continuam valendo. <code>ApiForaDoAr</code>, <code>ApiLenta</code> e <code>ApiMuitoLenta</code> dispararam de verdade durante o stress do back.</p>
+</section>
+
+<section>
+  <h2>Estimativa: back com 300 usuários simultâneos</h2>
+  <p class="muted">Não foi testado: é uma conta com os números medidos no back com 1 vCPU. Base: ~40 req/s por vCPU nas telas comuns, login com ~0,25 s de CPU. Usando no máximo 70% da CPU, cada vCPU atende <b>~28 req/s</b>.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Cenário</th><th>Comportamento</th><th>Carga</th><th>CPU necessária</th></tr></thead>
+    <tbody>
+      <tr><td><b>A. Realista</b></td><td>300 logados, um clique a cada ~20 s, ~4 chamadas por clique</td><td>~60 req/s + 300 logins em 2 min (~0,6 vCPU)</td><td>~3 vCPU → <b>4 vCPU</b></td></tr>
+      <tr><td><b>B. Pior caso</b></td><td>300 usuários como no k6: 1 requisição/s sem parar</td><td>~300 req/s</td><td><b>~11 vCPU</b> → 3 VMs de 4 vCPU</td></tr>
+    </tbody>
+  </table></div>
+  <div class="tbl"><table>
+    <thead><tr><th>Componente</th><th>Hoje (40 analistas)</th><th>300, cenário A</th><th>300, pior caso</th></tr></thead>
+    <tbody>
+      <tr><td>back (Django)</td><td>1 GB / 2 vCPU</td><td><b>4 GB / 4 vCPU</b></td><td>3 VMs de 2 GB / 4 vCPU, nginx do front repartindo a carga</td></tr>
+      <tr><td>banco (Postgres)</td><td>junto do back</td><td><b>VM própria, 4 GB / 2 vCPU</b>, <code>shared_buffers</code> ~1 GB</td><td>VM própria, 8 GB / 4 vCPU, com PgBouncer</td></tr>
+      <tr><td>gunicorn</td><td>3 workers × 4 threads</td><td>9 workers × 4 threads</td><td>9 × 4 em cada VM</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note"><b>Nessa escala o gargalo passa a ser a IA.</b> Com 4 vCPU ela dá uma resposta a cada ~3,3 s (~18 por minuto); com 1 pergunta por pessoa a cada 10 min são ~30 por minuto, e a meta D15 (&lt; 10 s) é descumprida. Cada pergunta também prende uma thread do gunicorn: com 12 threads, 12 perguntas simultâneas travam as telas comuns. Para 300 usuários a IA precisaria de <b>GPU</b> (ou várias VMs de IA) e a pergunta iria para uma <b>fila assíncrona</b> no back.</p>
+  <p class="muted">Limite: a conta supõe que a capacidade cresce em linha reta com as CPUs; na prática cresce um pouco menos. Para confirmar, basta rodar o mesmo k6 com 300 usuários e pausa de ~20 s entre cliques.</p>
+</section>
+
+<section>
+  <h2>Ligação com o que o cliente pediu</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Requisito do cliente</th><th>O que o teste mostrou</th><th>Alerta que vigia</th></tr></thead>
+    <tbody>
+      <tr><td>D1 / US-01: IA local, sem API externa</td><td>Com 512 MB a IA não funciona (OOM); precisa de 6 GB</td><td><code>IaVmComMenosDe6GB</code>, <code>IaVmSemMemoriaParaOModelo</code>, <code>OllamaForaDoAr</code></td></tr>
+      <tr><td>D15: busca por termo &lt; 2 s</td><td>O back cumpre até ~26 usuários simultâneos com 1 vCPU</td><td><code>ApiMuitoLenta</code> (p95 &gt; 2 s), <code>BackLoginLento</code></td></tr>
+      <tr><td>D15: resposta da IA &lt; 10 s</td><td>1 vCPU: 16,4 s (não cumpre) · 2 vCPU: 6,9 s · 4 vCPU: 3,3 s</td><td><code>IaLenta</code> (&gt; 10 s), <code>IaMuitoLenta</code> (&gt; 30 s)</td></tr>
+      <tr><td>US-28: login anormal e download em massa</td><td>—</td><td><code>MuitasFalhasDeLogin</code>, <code>PossivelForcaBruta</code>, <code>MuitasExportacoesDeDadosPessoais</code></td></tr>
+      <tr><td>D9 / D11 / LGPD: dados protegidos</td><td>Monitor isolado: portas de métricas fora da internet</td><td>firewall só libera o IP do monitor</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">O teste de stress mostra quanto de máquina cada meta exige; os alertas avisam no momento em que alguma deixar de ser cumprida.</p>
+</section>
+
+<section>
+  <h2>Limitações</h2>
+  <ul>
+    <li><b>Container não é VM:</b> não tem os ~150 MB do Ubuntu (systemd, sshd, Docker, runner). Os números de memória são otimistas; as recomendações somam o SO.</li>
+    <li>Sem node-exporter dentro dos containers (ele leria o PC inteiro), os alertas de infraestrutura por VM foram validados com promtool, não disparados. Os de aplicação dispararam de verdade.</li>
+    <li>A rota da pergunta não entrou no stress do back: ela depende da IA, medida direto no Ollama.</li>
+    <li>O gerador de carga roda no mesmo PC (12 núcleos); o limite de 1 vCPU é aplicado pelo Docker.</li>
+  </ul>
+  <p class="muted">Como reproduzir: <code>monitoring/stress/README.md</code> no backend. Dados brutos em <code>monitoring/stress/resultados/</code>.</p>
+</section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const DADOS = /*DADOS*/null;
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const FICHAS = {
+  front: { nome: 'front', tit: 'nginx + build do Vue', gargalo: ['CPU', 'warn'], veredito: ['512 MB sobra', 'ok'],
+    texto: 'A memória quase não se mexe: o nginx serve arquivos prontos. O limite é a CPU (gzip e conexões): 100% a partir de ~300 usuários, com fila mas sem nenhum erro mesmo com 600.' },
+  back: { nome: 'back', tit: 'gunicorn 3×4 + Postgres rag + Postgres credenciais', gargalo: ['CPU, depois memória', 'warn'], veredito: ['no limite', 'warn'],
+    texto: 'A CPU quebra primeiro: p95 acima de 500 ms com ~26 usuários. O login é a rota mais cara (hash PBKDF2, ~0,25 s de CPU cada): 3 logins/s usam 75% da CPU; 6/s levam o login a 11–53 s. A memória chegou a 338 MB sem contar o Ubuntu (~150 MB): numa VM real fica em ~95%. E o Postgres de produção está com shared_buffers=512MB, maior que a VM inteira.' },
+  ia: { nome: 'ia', tit: 'Ollama: bge-m3 (embedding) + llama3.2 (resposta)', gargalo: ['memória', 'crit'], veredito: ['não funciona', 'crit'],
+    texto: '121 de 121 chamadas falharam: “llama-server process has terminated: signal: killed”. Ao carregar o modelo a memória vai a 512 MB e o kernel mata o processo (OOM). Nenhuma pergunta é respondida com 512 MB.' },
+  monitor: { nome: 'monitor', tit: 'Prometheus + Alertmanager + Grafana + blackbox', gargalo: ['memória', 'warn'], veredito: ['atende o uso normal', 'ok'],
+    texto: 'Com a equipe usando (menos de 10 painéis) fica em ~200 MB e responde em menos de 100 ms. Com ~80 painéis abertos ao mesmo tempo a memória chegou a 95% e não voltou toda (cache do Grafana e do Prometheus), e as consultas passaram de 7 s.' },
+};
+const fmt = (v, d = 0) => Number(v).toLocaleString('pt-BR', { maximumFractionDigits: d });
+
+function ficha(vm) {
+  const r = DADOS[vm], f = FICHAS[vm], k = r.k6 || {};
+  const el = document.createElement('article');
+  el.className = 'ficha'; el.style.setProperty('--c', `var(--${vm})`);
+  const cen = k.por_cenario || {};
+  const lat = vm === 'back'
+    ? `<div><b>${fmt(cen.navegacao?.p95_ms)} ms</b><span>p95 telas comuns (geral)</span></div><div><b>${fmt(cen.login?.p95_ms / 1000, 1)} s</b><span>p95 login (geral)</span></div>`
+    : `<div><b>${k.lat_p95_ms >= 10000 ? fmt(k.lat_p95_ms / 1000, 1) + ' s' : fmt(k.lat_p95_ms) + ' ms'}</b><span>latência p95 (teste inteiro)</span></div>`;
+  el.innerHTML = `
+    <div class="ficha-top"><div><span class="vm" style="--c:var(--${vm})">${f.nome}</span><h3>${f.tit}</h3></div>
+      <div><span class="pill ${f.gargalo[1]}">gargalo: ${f.gargalo[0]}</span> <span class="pill ${f.veredito[1]}">${f.veredito[0]}</span></div></div>
+    <div class="nums">
+      <div><b>${fmt(r.base.mem_mb)} MB</b><span>memória parada</span></div>
+      <div><b>${fmt(r.carga.mem_pico_mb)} MB</b><span>pico (${fmt(r.carga.mem_pico_pct)}% de 512)</span></div>
+      <div><b>${fmt(r.carga.cpu_tempo_saturada_pct)}%</b><span>do tempo de carga com CPU ≥ 95%</span></div>
+      <div><b>${fmt(k.requisicoes)}</b><span>requisições · ${fmt(k.erro_pct, 2)}% erro</span></div>
+      ${lat}
+    </div>
+    <div class="graf-par">
+      <div><div class="cap">Carga e latência p95</div><div class="graf"><canvas id="c-${vm}"></canvas></div></div>
+      <div><div class="cap">Recursos da VM</div><div class="graf"><canvas id="r-${vm}"></canvas></div></div>
+    </div>
+    <p>${f.texto}</p>`;
+  document.getElementById('fichas').appendChild(el);
+}
+
+const faixaBase = {
+  id: 'faixaBase',
+  beforeDraw(ch, _a, o) {
+    const { ctx, chartArea: a, scales: { x } } = ch;
+    if (!o.fim) return;
+    ctx.save(); ctx.fillStyle = css('--line') + '88';
+    ctx.fillRect(a.left, a.top, Math.max(0, x.getPixelForValue(o.fim) - a.left), a.bottom - a.top);
+    ctx.restore();
+  },
+};
+
+function eixo(texto, pos, extra = {}) {
+  return { position: pos, title: { display: true, text: texto, color: css('--muted') },
+    ticks: { color: css('--muted') }, grid: { color: css('--line'), drawOnChartArea: pos === 'left' }, ...extra };
+}
+
+function graficos(vm) {
+  const s = DADOS[vm].serie, cor = css(`--${vm}`), fimBase = DADOS[vm].inicio_carga_s;
+  const x = { type: 'linear', title: { display: true, text: 'segundos', color: css('--muted') }, ticks: { color: css('--muted') }, grid: { color: css('--line') } };
+  const comum = { responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { labels: { color: css('--ink'), boxWidth: 12 } }, faixaBase: { fim: fimBase } } };
+  const p = (k, f = (v) => v) => s.map((d) => ({ x: d.t, y: f(d[k]) }));
+  const latS = vm === 'ia' || vm === 'monitor';
+  new Chart(document.getElementById(`c-${vm}`), {
+    type: 'line', plugins: [faixaBase],
+    data: { datasets: [
+      { label: 'usuários simultâneos', data: p('vus'), yAxisID: 'y', borderColor: cor, backgroundColor: cor + '22', fill: true, pointRadius: 0, stepped: true },
+      { label: latS ? 'p95 (s)' : 'p95 (ms)', data: p('p95_ms', (v) => latS ? v / 1000 : v), yAxisID: 'y1', borderColor: css('--crit'), pointRadius: 0, borderWidth: 2 },
+    ] },
+    options: { ...comum, scales: { x, y: eixo('usuários', 'left', { beginAtZero: true }), y1: eixo(latS ? 'p95 (s)' : 'p95 (ms)', 'right', { beginAtZero: true }) } },
+  });
+  new Chart(document.getElementById(`r-${vm}`), {
+    type: 'line', plugins: [faixaBase],
+    data: { datasets: [
+      { label: 'memória (MB)', data: p('mem_mb'), yAxisID: 'y', borderColor: cor, backgroundColor: cor + '22', fill: true, pointRadius: 0 },
+      { label: 'limite 512 MB', data: s.map((d) => ({ x: d.t, y: 512 })), yAxisID: 'y', borderColor: css('--muted'), borderDash: [6, 4], pointRadius: 0, borderWidth: 1 },
+      { label: 'CPU (%)', data: p('cpu_pct'), yAxisID: 'y1', borderColor: css('--warn'), pointRadius: 0, borderWidth: 2 },
+    ] },
+    options: { ...comum, scales: { x, y: eixo('MB', 'left', { min: 0, max: 560 }), y1: eixo('CPU %', 'right', { min: 0, max: 120 }) } },
+  });
+}
+
+function ia() {
+  const d = DADOS.ia_dimensionamento; if (!d) return;
+  const nome = { '512m': '512 MB', '1g': '1 GB', '1536m': '1,5 GB', '2g': '2 GB', '3g': '3 GB', '4g': '4 GB' };
+  const st = (l) => l.every((c) => c.status === 200) ? '<span class="pill ok">ok</span>' : '<span class="pill crit">OOM</span>';
+  document.getElementById('dim-mem').innerHTML = d.memoria.map((m) =>
+    `<tr><td><b>${nome[m.memoria] || m.memoria}</b></td><td>${st(m.chamadas.embed)}</td><td>${st(m.chamadas.chat)}</td><td>${fmt(m.mem_pico_mb)} MB</td></tr>`).join('');
+  const cor = css('--ia'), lab = d.cpu.map((c) => `${c.cpus} vCPU`);
+  const base = { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } },
+    scales: { x: { ticks: { color: css('--muted') }, grid: { display: false } }, y: { beginAtZero: true, ticks: { color: css('--muted') }, grid: { color: css('--line') } } } };
+  new Chart(document.getElementById('g-cpu-ia'), { type: 'bar', data: { labels: lab, datasets: [{ data: d.cpu.map((c) => c.chamadas.chat[1].segundos), backgroundColor: cor }] }, options: base });
+  new Chart(document.getElementById('g-tok-ia'), { type: 'bar', data: { labels: lab, datasets: [{ data: d.cpu.map((c) => c.chamadas.chat[1].tokens_por_s), backgroundColor: cor }] }, options: base });
+}
+
+['front', 'back', 'ia', 'monitor'].forEach(ficha);
+if (window.Chart) { ['front', 'back', 'ia', 'monitor'].forEach(graficos); ia(); }
+</script>

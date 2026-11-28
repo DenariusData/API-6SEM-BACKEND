@@ -1,0 +1,457 @@
+{
+  "memoria": [
+    {
+      "memoria": "512m",
+      "cpus": "1",
+      "chamadas": {
+        "embed": [
+          {
+            "status": 500,
+            "segundos": 4.1,
+            "erro": "llama-server process has terminated: signal: killed"
+          },
+          {
+            "status": 500,
+            "segundos": 3.9,
+            "erro": "llama-server process has terminated: signal: killed"
+          }
+        ],
+        "chat": [
+          {
+            "status": 500,
+            "segundos": 3.6,
+            "erro": "llama-server process has terminated: signal: killed"
+          },
+          {
+            "status": 500,
+            "segundos": 3.6,
+            "erro": "llama-server process has terminated: signal: killed"
+          }
+        ]
+      },
+      "mem_pico_mb": 511.7,
+      "cpu_pico_pct": 73.12,
+      "oom_killed": true,
+      "rodando": true,
+      "avisos_log": [
+        "common_memory_breakdown_print: | memory breakdown [MiB] | total   free    self   model   context   compute    unaccounted |",
+        "common_memory_breakdown_print: |   - Host               |                  916 =   618 +     224 +      74                |",
+        "common_memory_breakdown_print: |   - CPU_REPACK         |                 1299 =  1299 +       0 +       0                |",
+        "common_params_fit_impl: projected to use 916 MiB of host memory vs. 11826 MiB of total host memory",
+        "common_params_fit_impl: will leave 10909 >= 1024 MiB of system memory, no changes needed",
+        "common_fit_params: successfully fit params to free device memory",
+        "common_fit_params: fitting params to free memory took 0.60 seconds",
+        "time=2026-11-27T18:18:12.345Z level=INFO source=sched.go:651 msg=\"Load failed\" model=/root/.ollama/models/blobs/sha256-dde5aa3fc5ffc17176b5e8bdc82f587b24b2678c6c66101bf7da77af9f7ccdff error=\"llama-server process has terminated: signal: killed\""
+      ],
+      "funcionou": false
+    },
+    {
+      "memoria": "1g",
+      "cpus": "1",
+      "chamadas": {
+        "embed": [
+          {
+            "status": 500,
+            "segundos": 8.1,
+            "erro": "llama-server process has terminated: signal: killed"
+          },
+          {
+            "status": 500,
+            "segundos": 5.8,
+            "erro": "llama-server process has terminated: signal: killed"
+          }
+        ],
+        "chat": [
+          {
+            "status": 500,
+            "segundos": 7.2,
+            "erro": "llama-server process has terminated: signal: killed"
+          },
+          {
+            "status": 500,
+            "segundos": 6.1,
+            "erro": "llama-server process has terminated: signal: killed"
+          }
+        ]
+      },
+      "mem_pico_mb": 939.4,
+      "cpu_pico_pct": 72.98,
+      "oom_killed": true,
+      "rodando": true,
+      "avisos_log": [
+        "common_memory_breakdown_print: | memory breakdown [MiB] | total   free    self   model   context   compute    unaccounted |",
+        "common_memory_breakdown_print: |   - Host               |                  916 =   618 +     224 +      74                |",
+        "common_memory_breakdown_print: |   - CPU_REPACK         |                 1299 =  1299 +       0 +       0                |",
+        "common_params_fit_impl: projected to use 916 MiB of host memory vs. 11826 MiB of total host memory",
+        "common_params_fit_impl: will leave 10909 >= 1024 MiB of system memory, no changes needed",
+        "common_fit_params: successfully fit params to free device memory",
+        "common_fit_params: fitting params to free memory took 0.62 seconds",
+        "time=2026-11-27T18:18:41.443Z level=INFO source=sched.go:651 msg=\"Load failed\" model=/root/.ollama/models/blobs/sha256-dde5aa3fc5ffc17176b5e8bdc82f587b24b2678c6c66101bf7da77af9f7ccdff error=\"llama-server process has terminated: signal: killed\""
+      ],
+      "funcionou": false
+    },
+    {
+      "memoria": "1536m",
+      "cpus": "1",
+      "chamadas": {
+        "embed": [
+          {
+            "status": 200,
+            "segundos": 8.6,
+            "load_s": 7.13,
+            "total_s": 8.03
+          },
+          {
+            "status": 200,
+            "segundos": 1.9,
+            "load_s": 0.74,
+            "total_s": 1.28
+          }
+        ],
+        "chat": [
+          {
+            "status": 500,
+            "segundos": 4.2,
+            "erro": "llama-server process has terminated: signal: killed"
+          },
+          {
+            "status": 500,
+            "segundos": 9.4,
+            "erro": "llama-server process has terminated: signal: killed"
+          }
+        ]
+      },
+      "mem_pico_mb": 1536.0,
+      "cpu_pico_pct": 97.18,
+      "oom_killed": true,
+      "rodando": true,
+      "avisos_log": [
+        "common_memory_breakdown_print: | memory breakdown [MiB] | total   free    self   model   context   compute    unaccounted |",
+        "common_memory_breakdown_print: |   - Host               |                  916 =   618 +     224 +      74                |",
+        "common_memory_breakdown_print: |   - CPU_REPACK         |                 1299 =  1299 +       0 +       0                |",
+        "common_params_fit_impl: projected to use 916 MiB of host memory vs. 11826 MiB of total host memory",
+        "common_params_fit_impl: will leave 10909 >= 1024 MiB of system memory, no changes needed",
+        "common_fit_params: successfully fit params to free device memory",
+        "common_fit_params: fitting params to free memory took 0.64 seconds",
+        "time=2026-11-27T18:19:07.327Z level=INFO source=sched.go:651 msg=\"Load failed\" model=/root/.ollama/models/blobs/sha256-dde5aa3fc5ffc17176b5e8bdc82f587b24b2678c6c66101bf7da77af9f7ccdff error=\"llama-server process has terminated: signal: killed\""
+      ],
+      "funcionou": false
+    },
+    {
+      "memoria": "2g",
+      "cpus": "1",
+      "chamadas": {
+        "embed": [
+          {
+            "status": 200,
+            "segundos": 7.6,
+            "load_s": 6.53,
+            "total_s": 7.04
+          },
+          {
+            "status": 200,
+            "segundos": 1.8,
+            "load_s": 0.54,
+            "total_s": 1.24
+          }
+        ],
+        "chat": [
+          {
+            "status": 500,
+            "segundos": 12.9,
+            "erro": "llama-server process has terminated: signal: killed"
+          },
+          {
+            "status": 500,
+            "segundos": 10.8,
+            "erro": "llama-server process has terminated: signal: killed"
+          }
+        ]
+      },
+      "mem_pico_mb": 1996.8,
+      "cpu_pico_pct": 97.51,
+      "oom_killed": true,
+      "rodando": true,
+      "avisos_log": [
+        "common_memory_breakdown_print: |   - Host               |                  916 =   618 +     224 +      74                |",
+        "common_memory_breakdown_print: |   - CPU_REPACK         |                 1299 =  1299 +       0 +       0                |",
+        "common_params_fit_impl: projected to use 916 MiB of host memory vs. 11826 MiB of total host memory",
+        "common_params_fit_impl: will leave 10909 >= 1024 MiB of system memory, no changes needed",
+        "common_fit_params: successfully fit params to free device memory",
+        "common_fit_params: fitting params to free memory took 0.64 seconds",
+        "time=2026-11-27T18:19:42.085Z level=INFO source=llama_server.go:1362 msg=\"waiting for llama-server to become available\" status=\"llm server error\"",
+        "time=2026-11-27T18:19:42.336Z level=INFO source=sched.go:651 msg=\"Load failed\" model=/root/.ollama/models/blobs/sha256-dde5aa3fc5ffc17176b5e8bdc82f587b24b2678c6c66101bf7da77af9f7ccdff error=\"llama-server process has terminated: signal: killed\""
+      ],
+      "funcionou": false
+    },
+    {
+      "memoria": "3g",
+      "cpus": "1",
+      "chamadas": {
+        "embed": [
+          {
+            "status": 200,
+            "segundos": 7.9,
+            "load_s": 6.62,
+            "total_s": 7.33
+          },
+          {
+            "status": 200,
+            "segundos": 1.8,
+            "load_s": 0.64,
+            "total_s": 1.25
+          }
+        ],
+        "chat": [
+          {
+            "status": 500,
+            "segundos": 12.5,
+            "erro": "llama-server process has terminated: signal: killed"
+          },
+          {
+            "status": 500,
+            "segundos": 9.6,
+            "erro": "llama-server process has terminated: signal: killed"
+          }
+        ]
+      },
+      "mem_pico_mb": 3019.8,
+      "cpu_pico_pct": 99.13,
+      "oom_killed": true,
+      "rodando": true,
+      "avisos_log": [
+        "common_memory_breakdown_print: | memory breakdown [MiB] | total   free    self   model   context   compute    unaccounted |",
+        "common_memory_breakdown_print: |   - Host               |                  916 =   618 +     224 +      74                |",
+        "common_memory_breakdown_print: |   - CPU_REPACK         |                 1299 =  1299 +       0 +       0                |",
+        "common_params_fit_impl: projected to use 916 MiB of host memory vs. 11826 MiB of total host memory",
+        "common_params_fit_impl: will leave 10909 >= 1024 MiB of system memory, no changes needed",
+        "common_fit_params: successfully fit params to free device memory",
+        "common_fit_params: fitting params to free memory took 0.60 seconds",
+        "time=2026-11-27T18:20:16.023Z level=INFO source=sched.go:651 msg=\"Load failed\" model=/root/.ollama/models/blobs/sha256-dde5aa3fc5ffc17176b5e8bdc82f587b24b2678c6c66101bf7da77af9f7ccdff error=\"llama-server process has terminated: signal: killed\""
+      ],
+      "funcionou": false
+    },
+    {
+      "memoria": "4g",
+      "cpus": "1",
+      "chamadas": {
+        "embed": [
+          {
+            "status": 200,
+            "segundos": 7.7,
+            "load_s": 6.61,
+            "total_s": 7.12
+          },
+          {
+            "status": 200,
+            "segundos": 1.9,
+            "load_s": 0.76,
+            "total_s": 1.36
+          }
+        ],
+        "chat": [
+          {
+            "status": 200,
+            "segundos": 37.8,
+            "load_s": 13.25,
+            "prompt_eval_s": 9.61,
+            "eval_s": 14.39,
+            "total_s": 37.26,
+            "tokens_por_s": 2.22
+          },
+          {
+            "status": 200,
+            "segundos": 16.4,
+            "load_s": 0.85,
+            "prompt_eval_s": 0.46,
+            "eval_s": 14.5,
+            "total_s": 15.8,
+            "tokens_por_s": 2.21
+          }
+        ]
+      },
+      "mem_pico_mb": 3547.1,
+      "cpu_pico_pct": 105.55,
+      "oom_killed": false,
+      "rodando": true,
+      "avisos_log": [
+        "common_memory_breakdown_print: |   - Host               |                  916 =   618 +     224 +      74                |",
+        "common_memory_breakdown_print: |   - CPU_REPACK         |                 1299 =  1299 +       0 +       0                |",
+        "common_params_fit_impl: projected to use 916 MiB of host memory vs. 11826 MiB of total host memory",
+        "common_params_fit_impl: will leave 10909 >= 1024 MiB of system memory, no changes needed",
+        "common_fit_params: successfully fit params to free device memory",
+        "common_fit_params: fitting params to free memory took 0.51 seconds",
+        "slot   operator(): id  0 | task 0 | cached n_tokens = 0, memory_seq_rm [0, end)",
+        "slot   operator(): id  0 | task 33 | cached n_tokens = 103, memory_seq_rm [103, end)"
+      ],
+      "funcionou": true
+    }
+  ],
+  "cpu": [
+    {
+      "memoria": "4g",
+      "cpus": "1",
+      "chamadas": {
+        "embed": [
+          {
+            "status": 200,
+            "segundos": 7.6,
+            "load_s": 6.37,
+            "total_s": 6.98
+          },
+          {
+            "status": 200,
+            "segundos": 2.0,
+            "load_s": 0.8,
+            "total_s": 1.41
+          }
+        ],
+        "chat": [
+          {
+            "status": 200,
+            "segundos": 36.5,
+            "load_s": 11.39,
+            "prompt_eval_s": 9.99,
+            "eval_s": 14.41,
+            "total_s": 35.89,
+            "tokens_por_s": 2.22
+          },
+          {
+            "status": 200,
+            "segundos": 16.7,
+            "load_s": 0.76,
+            "prompt_eval_s": 0.48,
+            "eval_s": 14.9,
+            "total_s": 16.15,
+            "tokens_por_s": 2.15
+          }
+        ]
+      },
+      "mem_pico_mb": 3560.4,
+      "cpu_pico_pct": 108.32,
+      "oom_killed": false,
+      "rodando": true,
+      "avisos_log": [
+        "common_memory_breakdown_print: |   - Host               |                  916 =   618 +     224 +      74                |",
+        "common_memory_breakdown_print: |   - CPU_REPACK         |                 1299 =  1299 +       0 +       0                |",
+        "common_params_fit_impl: projected to use 916 MiB of host memory vs. 11826 MiB of total host memory",
+        "common_params_fit_impl: will leave 10909 >= 1024 MiB of system memory, no changes needed",
+        "common_fit_params: successfully fit params to free device memory",
+        "common_fit_params: fitting params to free memory took 0.51 seconds",
+        "slot   operator(): id  0 | task 0 | cached n_tokens = 0, memory_seq_rm [0, end)",
+        "slot   operator(): id  0 | task 33 | cached n_tokens = 103, memory_seq_rm [103, end)"
+      ],
+      "funcionou": true
+    },
+    {
+      "memoria": "4g",
+      "cpus": "2",
+      "chamadas": {
+        "embed": [
+          {
+            "status": 200,
+            "segundos": 7.6,
+            "load_s": 6.8,
+            "total_s": 7.01
+          },
+          {
+            "status": 200,
+            "segundos": 0.9,
+            "load_s": 0.2,
+            "total_s": 0.28
+          }
+        ],
+        "chat": [
+          {
+            "status": 200,
+            "segundos": 22.1,
+            "load_s": 11.42,
+            "prompt_eval_s": 4.32,
+            "eval_s": 5.8,
+            "total_s": 21.54,
+            "tokens_por_s": 5.52
+          },
+          {
+            "status": 200,
+            "segundos": 6.9,
+            "load_s": 0.27,
+            "prompt_eval_s": 0.13,
+            "eval_s": 5.9,
+            "total_s": 6.3,
+            "tokens_por_s": 5.42
+          }
+        ]
+      },
+      "mem_pico_mb": 3548.2,
+      "cpu_pico_pct": 203.12,
+      "oom_killed": false,
+      "rodando": true,
+      "avisos_log": [
+        "common_memory_breakdown_print: |   - Host               |                  916 =   618 +     224 +      74                |",
+        "common_memory_breakdown_print: |   - CPU_REPACK         |                 1299 =  1299 +       0 +       0                |",
+        "common_params_fit_impl: projected to use 916 MiB of host memory vs. 11826 MiB of total host memory",
+        "common_params_fit_impl: will leave 10909 >= 1024 MiB of system memory, no changes needed",
+        "common_fit_params: successfully fit params to free device memory",
+        "common_fit_params: fitting params to free memory took 0.58 seconds",
+        "slot   operator(): id  0 | task 0 | cached n_tokens = 0, memory_seq_rm [0, end)",
+        "slot   operator(): id  0 | task 33 | cached n_tokens = 103, memory_seq_rm [103, end)"
+      ],
+      "funcionou": true
+    },
+    {
+      "memoria": "4g",
+      "cpus": "4",
+      "chamadas": {
+        "embed": [
+          {
+            "status": 200,
+            "segundos": 7.2,
+            "load_s": 6.53,
+            "total_s": 6.63
+          },
+          {
+            "status": 200,
+            "segundos": 0.8,
+            "load_s": 0.14,
+            "total_s": 0.2
+          }
+        ],
+        "chat": [
+          {
+            "status": 200,
+            "segundos": 15.7,
+            "load_s": 10.81,
+            "prompt_eval_s": 1.95,
+            "eval_s": 2.35,
+            "total_s": 15.11,
+            "tokens_por_s": 13.6
+          },
+          {
+            "status": 200,
+            "segundos": 3.3,
+            "load_s": 0.17,
+            "prompt_eval_s": 0.06,
+            "eval_s": 2.42,
+            "total_s": 2.65,
+            "tokens_por_s": 13.23
+          }
+        ]
+      },
+      "mem_pico_mb": 3548.2,
+      "cpu_pico_pct": 396.01,
+      "oom_killed": false,
+      "rodando": true,
+      "avisos_log": [
+        "common_memory_breakdown_print: |   - Host               |                  916 =   618 +     224 +      74                |",
+        "common_memory_breakdown_print: |   - CPU_REPACK         |                 1299 =  1299 +       0 +       0                |",
+        "common_params_fit_impl: projected to use 916 MiB of host memory vs. 11826 MiB of total host memory",
+        "common_params_fit_impl: will leave 10909 >= 1024 MiB of system memory, no changes needed",
+        "common_fit_params: successfully fit params to free device memory",
+        "common_fit_params: fitting params to free memory took 0.59 seconds",
+        "slot   operator(): id  0 | task 0 | cached n_tokens = 0, memory_seq_rm [0, end)",
+        "slot   operator(): id  0 | task 33 | cached n_tokens = 103, memory_seq_rm [103, end)"
+      ],
+      "funcionou": true
+    }
+  ]
+}

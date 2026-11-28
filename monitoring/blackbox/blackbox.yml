@@ -1,0 +1,16 @@
+modules:
+  # Considera no ar qualquer resposta HTTP que não seja erro do servidor.
+  # /api/auth/me/ sem token responde 401, que é o esperado (mesmo teste do
+  # deploy.yml).
+  http_no_ar:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      valid_status_codes: [200, 401]
+      preferred_ip_protocol: ip4
+      # O container chega na máquina por host.docker.internal, mas o Vite
+      # recusa (403) hosts que não conhece; a sonda se apresenta como o
+      # navegador local.
+      headers:
+        Host: localhost

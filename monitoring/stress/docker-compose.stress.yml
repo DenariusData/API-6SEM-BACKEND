@@ -1,0 +1,128 @@
+# Laboratório de stress: cada VM do AkaVision vira UM container com os mesmos
+# processos da VM real e o mesmo teto de recursos pedido no trabalho:
+#
+#   512 MB de RAM (sem swap) e 1 vCPU por máquina
+#
+# A rede "akavision-net" repete os IPs fixos da Rede NAT do VirtualBox
+# (deploy/README.md), então o back chega na IA por IP interno como na VM
+# (o pergunta.py recusa nome de domínio).
+#
+#   docker compose -f monitoring/stress/docker-compose.stress.yml up -d --build
+#   python monitoring/stress/executar_stress.py todas
+#
+# Ver monitoring/stress/README.md.
+
+name: akavision-stress
+
+x-vm: &vm
+  mem_limit: ${VM_MEMORIA:-512m}
+  memswap_limit: ${VM_MEMORIA:-512m}   # igual à memória = sem swap
+  cpus: ${VM_CPUS:-1}
+  restart: "no"
+
+services:
+  # VM akavision (back): gunicorn + Django + Postgres rag (pgvector) e
+  # Postgres credenciais, tudo dentro dos mesmos 512 MB.
+  vm-back:
+    <<: *vm
+    build:
+      context: ../..
+      dockerfile: monitoring/stress/vm-back/Dockerfile
+    container_name: vm-back
+    hostname: akavision
+    shm_size: 256m
+    environment:
+      DEBUG: "False"
+      SECRET_KEY: stress-somente-laboratorio-secret-key-nao-usar-em-producao
+      JWT_SECRET: stress-somente-laboratorio-jwt-secret-nao-usar-em-producao
+      ALLOWED_HOSTS: 10.10.10.5,10.10.10.5:8000,localhost,127.0.0.1
+      CORS_ORIGINS: http://10.10.10.6
+      GUNICORN_BIND: 0.0.0.0:8000
+      OLLAMA_URL: http://10.10.10.7:11434
+      PROCESSAMENTO_AUTOMATICO: "false"
+      DEFAULT_DB_ENGINE: django.db.backends.postgresql
+      DEFAULT_DB_NAME: rag
+      DEFAULT_DB_USER: rag
+      DEFAULT_DB_PASSWORD: rag
+      DEFAULT_DB_HOST: 127.0.0.1
+      DEFAULT_DB_PORT: "5434"
+      CREDENCIAIS_DB_NAME: credenciais
+      CREDENCIAIS_DB_USER: credenciais
+      CREDENCIAIS_DB_PASSWORD: credenciais
+      CREDENCIAIS_DB_HOST: 127.0.0.1
+      CREDENCIAIS_DB_PORT: "5433"
+      DOCUMENTOS_UPLOAD_DIR: /dados/uploads
+      # Mesmos parâmetros do deploy/docker-compose.prod.yml
+      PG_RAG_SHARED_BUFFERS: ${PG_RAG_SHARED_BUFFERS:-512MB}
+      PG_RAG_MAINTENANCE_WORK_MEM: ${PG_RAG_MAINTENANCE_WORK_MEM:-256MB}
+    volumes:
+      - back_dados:/dados
+    networks:
+      akavision-net:
+        ipv4_address: 10.10.10.5
+
+  # VM akavision-front: nginx com o build do front e /api/ para o back.
+  vm-front:
+    <<: *vm
+    build:
+      context: ../../../API-6SEM-FRONTEND
+      dockerfile: ../API-6SEM-BACKEND/monitoring/stress/vm-front/Dockerfile
+      additional_contexts:
+        stress: ./vm-front
+    container_name: vm-front
+    hostname: akavision-front
+    networks:
+      akavision-net:
+        ipv4_address: 10.10.10.6
+
+  # VM akavision-ia: só o Ollama (bge-m3 e llama3.2). Os modelos vêm da
+  # pasta do Ollama do PC, para não baixar 3 GB de novo.
+  vm-ia:
+    <<: *vm
+    image: ollama/ollama:0.40.0
+    container_name: vm-ia
+    hostname: akavision-ia
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_KEEP_ALIVE: 10m
+    volumes:
+      - ${OLLAMA_MODELOS:-~/.ollama/models}:/root/.ollama/models
+    networks:
+      akavision-net:
+        ipv4_address: 10.10.10.7
+
+  # VM de monitoramento (proposta): Prometheus + Alertmanager + Grafana +
+  # blackbox numa máquina própria, observando as outras três.
+  vm-monitor:
+    <<: *vm
+    build:
+      context: ..
+      dockerfile: stress/vm-monitor/Dockerfile
+    container_name: vm-monitor
+    hostname: akavision-monitor
+    networks:
+      akavision-net:
+        ipv4_address: 10.10.10.8
+
+  # Gerador de carga (k6). Fica FORA do teto de 512 MB: é o "usuário".
+  k6:
+    image: grafana/k6:0.57.0
+    container_name: akv-k6
+    profiles: [carga]
+    entrypoint: ["k6"]
+    volumes:
+      - ./k6:/scripts:ro
+      - ./resultados:/resultados
+    networks:
+      - akavision-net
+
+volumes:
+  back_dados:
+
+networks:
+  akavision-net:
+    name: akavision-net
+    ipam:
+      config:
+        - subnet: 10.10.10.0/24
+          ip_range: 10.10.10.128/25

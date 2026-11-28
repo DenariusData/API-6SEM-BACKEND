@@ -1,0 +1,203 @@
+# Regras de alerta do AkaVision. Os limites seguem o cenário hipotético do
+# trabalho de DevOps (40 analistas, ~400 perguntas/dia, IA em CPU):
+#
+#   SLO: API disponível 99,5% · p95 rotas comuns < 500 ms ·
+#        p95 resposta da IA < 10 s (decisão D15 do cliente) · erros 5xx < 1%
+#
+# severidade: "atencao" (olhar no dia) ou "critico" (agir agora).
+
+groups:
+  - name: disponibilidade
+    rules:
+      - alert: ApiForaDoAr
+        expr: probe_success{alvo="api"} == 0
+        for: 2m
+        labels: {severidade: critico, componente: api}
+        annotations:
+          resumo: "A API não responde há 2 minutos"
+          descricao: "A sonda em /api/auth/me/ falhou. Verifique o runserver/gunicorn."
+
+      - alert: OllamaForaDoAr
+        expr: probe_success{alvo="ollama"} == 0
+        for: 2m
+        labels: {severidade: critico, componente: ia}
+        annotations:
+          resumo: "O Ollama não responde há 2 minutos"
+          descricao: "Sem Ollama as perguntas e o processamento de documentos falham."
+
+      - alert: FrontendForaDoAr
+        expr: probe_success{alvo="frontend"} == 0
+        for: 2m
+        labels: {severidade: atencao, componente: frontend}
+        annotations:
+          resumo: "O front (Vite) não responde há 2 minutos"
+
+      - alert: PostgresForaDoAr
+        expr: pg_up == 0
+        for: 1m
+        labels: {severidade: critico, componente: banco}
+        annotations:
+          resumo: "Banco {{ $labels.banco }} fora do ar"
+
+      - alert: DjangoSemMetricas
+        expr: up{job="django"} == 0
+        for: 2m
+        labels: {severidade: atencao, componente: api}
+        annotations:
+          resumo: "O Prometheus não consegue ler /metrics do Django"
+
+  - name: api
+    rules:
+      - record: akavision:erros_5xx:proporcao_5m
+        expr: |
+          (sum(rate(django_http_responses_total_by_status_total{status=~"5.."}[5m])) or vector(0))
+          /
+          clamp_min(sum(rate(django_http_responses_total_by_status_total[5m])), 1e-9)
+
+      - alert: ErrosDaApiAltos
+        expr: akavision:erros_5xx:proporcao_5m > 0.01
+        for: 5m
+        labels: {severidade: atencao, componente: api}
+        annotations:
+          resumo: "Erros 5xx acima de 1% ({{ $value | humanizePercentage }})"
+
+      - alert: ErrosDaApiCriticos
+        expr: akavision:erros_5xx:proporcao_5m > 0.05
+        for: 5m
+        labels: {severidade: critico, componente: api}
+        annotations:
+          resumo: "Erros 5xx acima de 5% ({{ $value | humanizePercentage }})"
+
+      # Rotas comuns: tudo menos a pergunta à IA, que tem limite próprio.
+      - record: akavision:latencia_p95_rotas_comuns:5m
+        expr: |
+          histogram_quantile(0.95, sum by (le) (
+            rate(django_http_requests_latency_seconds_by_view_method_bucket{view!~".*pergunta.*|prometheus-django-metrics"}[5m])
+          ))
+
+      - alert: ApiLenta
+        expr: akavision:latencia_p95_rotas_comuns:5m > 0.5
+        for: 5m
+        labels: {severidade: atencao, componente: api}
+        annotations:
+          resumo: "p95 das rotas comuns acima de 500 ms ({{ $value | humanizeDuration }})"
+
+      - alert: ApiMuitoLenta
+        expr: akavision:latencia_p95_rotas_comuns:5m > 2
+        for: 5m
+        labels: {severidade: critico, componente: api}
+        annotations:
+          resumo: "p95 das rotas comuns acima de 2 s ({{ $value | humanizeDuration }})"
+
+  - name: ia
+    rules:
+      - record: akavision:ia_resposta_p95:10m
+        expr: |
+          histogram_quantile(0.95, sum by (le) (
+            rate(akavision_ollama_duracao_segundos_bucket{operacao="chat"}[10m])
+          ))
+
+      # D15: a resposta da IA tem que sair em menos de 10 s.
+      - alert: IaLenta
+        expr: akavision:ia_resposta_p95:10m > 10
+        for: 5m
+        labels: {severidade: atencao, componente: ia}
+        annotations:
+          resumo: "p95 da resposta da IA acima de 10 s, meta D15 ({{ $value | humanizeDuration }})"
+
+      # 3x a meta: o usuário já desiste de esperar.
+      - alert: IaMuitoLenta
+        expr: akavision:ia_resposta_p95:10m > 30
+        for: 5m
+        labels: {severidade: critico, componente: ia}
+        annotations:
+          resumo: "p95 da resposta da IA acima de 30 s, 3x a meta D15 ({{ $value | humanizeDuration }})"
+
+      - alert: IaComTimeout
+        expr: increase(akavision_ollama_chamadas_total{resultado="timeout"}[10m]) > 0
+        labels: {severidade: critico, componente: ia}
+        annotations:
+          resumo: "Chamada ao Ollama estourou o tempo limite nos últimos 10 min"
+
+      - alert: IaComErros
+        expr: increase(akavision_ollama_chamadas_total{resultado="erro"}[10m]) > 3
+        labels: {severidade: atencao, componente: ia}
+        annotations:
+          resumo: "Mais de 3 erros do Ollama em 10 min"
+
+      # No cenário, 6 perguntas simultâneas já saturam a CPU da IA.
+      - alert: FilaDaIaCheia
+        expr: akavision_ollama_em_andamento >= 6
+        for: 2m
+        labels: {severidade: atencao, componente: ia}
+        annotations:
+          resumo: "{{ $value }} chamadas ao Ollama em andamento há 2 min"
+
+  - name: seguranca
+    rules:
+      - record: akavision:falhas_login:10m
+        expr: |
+          sum(increase(django_http_responses_total_by_status_view_method_total{view=~".*login.*", status=~"401|423"}[10m]))
+          or vector(0)
+
+      - alert: MuitasFalhasDeLogin
+        expr: akavision:falhas_login:10m > 30
+        labels: {severidade: atencao, componente: seguranca}
+        annotations:
+          resumo: "{{ $value }} falhas de login em 10 min"
+
+      - alert: PossivelForcaBruta
+        expr: akavision:falhas_login:10m > 100
+        labels: {severidade: critico, componente: seguranca}
+        annotations:
+          resumo: "{{ $value }} falhas de login em 10 min: possível força bruta"
+
+      - alert: MuitasExportacoesDeDadosPessoais
+        expr: |
+          sum(increase(django_http_responses_total_by_status_view_method_total{view=~".*exportar.*", view!~".*auditoria.*", status="200"}[24h])) > 20
+        labels: {severidade: atencao, componente: seguranca}
+        annotations:
+          resumo: "{{ $value }} exportações de dados pessoais nas últimas 24 h (LGPD)"
+
+  - name: infraestrutura
+    rules:
+      - alert: CpuAlta
+        expr: 1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) > 0.85
+        for: 10m
+        labels: {severidade: atencao, componente: infra}
+        annotations:
+          resumo: "CPU acima de 85% há 10 min ({{ $value | humanizePercentage }})"
+
+      - alert: MemoriaAlta
+        expr: 1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes > 0.85
+        for: 5m
+        labels: {severidade: atencao, componente: infra}
+        annotations:
+          resumo: "Memória acima de 85% ({{ $value | humanizePercentage }})"
+
+      - alert: DiscoQuaseCheio
+        expr: |
+          1 - node_filesystem_avail_bytes{mountpoint=~"/|/mnt/docker-desktop-disk|/mnt/host/c"}
+            / node_filesystem_size_bytes{mountpoint=~"/|/mnt/docker-desktop-disk|/mnt/host/c"} > 0.8
+        for: 10m
+        labels: {severidade: atencao, componente: infra}
+        annotations:
+          resumo: "Disco {{ $labels.mountpoint }} acima de 80%"
+
+      - alert: DiscoCritico
+        expr: |
+          1 - node_filesystem_avail_bytes{mountpoint=~"/|/mnt/docker-desktop-disk|/mnt/host/c"}
+            / node_filesystem_size_bytes{mountpoint=~"/|/mnt/docker-desktop-disk|/mnt/host/c"} > 0.9
+        for: 5m
+        labels: {severidade: critico, componente: infra}
+        annotations:
+          resumo: "Disco {{ $labels.mountpoint }} acima de 90%"
+
+      - alert: ConexoesDoBancoAltas
+        expr: |
+          sum by (banco) (pg_stat_activity_count)
+            / on (banco) max by (banco) (pg_settings_max_connections) > 0.7
+        for: 5m
+        labels: {severidade: atencao, componente: banco}
+        annotations:
+          resumo: "Banco {{ $labels.banco }} usando mais de 70% das conexões"

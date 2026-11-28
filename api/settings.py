@@ -65,9 +65,14 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "core_api",
     "credenciais",
+    # Métricas para o Prometheus em /metrics (monitoramento local, ver
+    # monitoring/README.md).
+    "django_prometheus",
 ]
 
 MIDDLEWARE = [
+    # Primeiro e último da lista para medir o tempo de toda a requisição.
+    "django_prometheus.middleware.PrometheusBeforeMiddleware",
     "core_api.utils.cors_middleware.CorsMiddleware",
     # Guarda o usuário do token para o log de auditoria (AKA-31). Não barra
     # nada: a autenticação continua em require_auth/require_role.
@@ -79,6 +84,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "django_prometheus.middleware.PrometheusAfterMiddleware",
 ]
 
 ROOT_URLCONF = "api.urls"

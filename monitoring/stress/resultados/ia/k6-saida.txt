@@ -1,0 +1,150 @@
+
+     ✗ embed 200
+      ↳  0% — ✓ 0 / ✗ 43
+     ✗ chat 200
+      ↳  0% — ✓ 0 / ✗ 78
+
+     checks.....................: 0.00%   0 out of 121
+     data_received..............: 25 kB   50 B/s
+     data_sent..................: 55 kB   111 B/s
+     http_req_blocked...........: avg=22.94µs  min=3.52µs  med=5.62µs   p(90)=13.75µs  p(95)=26.23µs  p(99)=354.43µs max=474.18µs
+     http_req_connecting........: avg=12.79µs  min=0s      med=0s       p(90)=0s       p(95)=0s       p(99)=288.13µs max=381.97µs
+     http_req_duration..........: avg=5.46s    min=2.71s   med=3.95s    p(90)=9.42s    p(95)=11.78s   p(99)=12.21s   max=12.3s   
+     ✓ { scenario:resposta }....: avg=5.96s    min=2.71s   med=3.97s    p(90)=11.73s   p(95)=12.01s   p(99)=12.26s   max=12.3s   
+   ✗ http_req_failed............: 100.00% 121 out of 121
+     http_req_receiving.........: avg=130.05µs min=57.79µs med=106.64µs p(90)=204.39µs p(95)=242.75µs p(99)=368.9µs  max=784.51µs
+     http_req_sending...........: avg=41.4µs   min=16.19µs med=36.31µs  p(90)=72.84µs  p(95)=85.24µs  p(99)=105.75µs max=109.52µs
+     http_req_tls_handshaking...: avg=0s       min=0s      med=0s       p(90)=0s       p(95)=0s       p(99)=0s       max=0s      
+     http_req_waiting...........: avg=5.46s    min=2.71s   med=3.95s    p(90)=9.42s    p(95)=11.78s   p(99)=12.21s   max=12.3s   
+     http_reqs..................: 121     0.245372/s
+     iteration_duration.........: avg=7.46s    min=4.71s   med=5.95s    p(90)=11.43s   p(95)=13.78s   p(99)=14.21s   max=14.3s   
+     iterations.................: 121     0.245372/s
+     vus........................: 1       min=0          max=5
+     vus_max....................: 6       min=6          max=6
+
+
+ Container akavision-stress-k6-run-09ee88aaced4 Creating 
+ Container akavision-stress-k6-run-09ee88aaced4 Created 
+time="2026-11-27T18:01:37Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:01:42Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:01:47Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:01:52Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:01:57Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:02:03Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:02:08Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:02:13Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:02:18Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:02:23Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:02:28Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:02:33Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:02:38Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:02:43Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:02:48Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:02:54Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:02:59Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:03:04Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:03:09Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:03:14Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:03:19Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:03:24Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:03:29Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:03:35Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:03:38Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:03:41Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:03:44Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:03:50Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:03:53Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:03:56Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:03:59Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:04:04Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:04:07Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:04:10Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:04:13Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:04:17Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:04:19Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:04:23Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:04:26Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:04:29Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:04:32Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:04:35Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:04:38Z" level=warning msg="embed 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:05:06Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:05:11Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:05:16Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:05:21Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:05:26Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:05:31Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:05:36Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:05:41Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:05:46Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:05:51Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:05:56Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:06:01Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:06:06Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:06:11Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:06:16Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:06:21Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:06:26Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:06:31Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:06:36Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:06:41Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:06:47Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:06:51Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:06:56Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:07:02Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:07:07Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:07:12Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:07:17Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:07:21Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:07:24Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:07:27Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:07:30Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:07:33Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:07:36Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:07:39Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:07:41Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:07:45Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:07:48Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:07:50Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:07:53Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:07:56Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:07:59Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:02Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:05Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:08Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:11Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:14Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:17Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:19Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:22Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:25Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:28Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:31Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:34Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:37Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:39Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:42Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:45Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:48Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:51Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:54Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:56Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:08:59Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:09:02Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:09:05Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:09:07Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:09:10Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:09:13Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:09:16Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:09:19Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:09:22Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:09:24Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:09:27Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:09:30Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:09:33Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:09:35Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:09:38Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:09:41Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:09:44Z" level=warning msg="chat 500: {\"error\":\"llama-server process has terminated: signal: killed\"}" source=console
+time="2026-11-27T18:09:46Z" level=error msg="thresholds on metrics 'http_req_failed' have been crossed"
+

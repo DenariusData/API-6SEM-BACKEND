@@ -1,0 +1,50 @@
+# Prometheus da VM de monitoramento no laboratório de stress. Mesmos IPs da
+# Rede NAT akavision-net: back 10.10.10.5, front .6, IA .7, monitor .8.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - alertas.yml
+  - alertas-vms.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["localhost:9093"]
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels: {vm: monitor}
+
+  - job_name: grafana
+    static_configs:
+      - targets: ["localhost:3000"]
+        labels: {vm: monitor}
+
+  - job_name: django
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["10.10.10.5:8000"]
+        labels: {servico: backend, vm: back}
+
+  - job_name: sondas
+    metrics_path: /probe
+    params:
+      module: [http_no_ar]
+    static_configs:
+      - targets: ["http://10.10.10.5:8000/api/auth/me/"]
+        labels: {alvo: api, vm: back}
+      - targets: ["http://10.10.10.7:11434/"]
+        labels: {alvo: ollama, vm: ia}
+      - targets: ["http://10.10.10.6/"]
+        labels: {alvo: frontend, vm: front}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: localhost:9115
